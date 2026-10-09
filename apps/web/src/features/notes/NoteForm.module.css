@@ -1,0 +1,33 @@
+/* prototype .dn-form, .jobnotes select */
+.form {
+  display: grid;
+  gap: 8px;
+}
+.form textarea {
+  font-size: 14px;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.select {
+  width: auto;
+  padding: 5px 8px;
+  background: var(--field);
+  font-size: 13px;
+}
+.add {
+  margin-left: auto;
+}
+.error {
+  margin: 0;
+  color: var(--red-ink);
+  font-size: 12px;
+}
+@media print {
+  .form {
+    display: none;
+  }
+}

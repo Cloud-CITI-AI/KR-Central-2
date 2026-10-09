@@ -8,8 +8,20 @@ export const NOTES_MESSAGES = {
   loadFailed: "The notes failed to load. Reload the page and try again.",
 } as const;
 
+/** The "For:" select. A label only: everyone on the job reads every note (§5.7). */
+export const AUDIENCE_OPTIONS = [
+  ["all", "Everyone"],
+  ["surveyor", "Surveyor"],
+  ["client", "Client"],
+] as const satisfies readonly (readonly [Note["audience"], string])[];
+
 export const AUDIENCE_LABELS: Record<Note["audience"], string> = {
   all: "For everyone",
   surveyor: "For surveyor",
   client: "For client",
 };
+
+export function saveFailedText(requestId: string | undefined): string {
+  const text = "That note couldn't be saved. Try again.";
+  return requestId ? `${text} (Request ID: ${requestId})` : text;
+}
