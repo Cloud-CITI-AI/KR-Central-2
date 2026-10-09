@@ -10,6 +10,7 @@ import { fixedClock, staticFlags } from "../../src/platform/flags.js";
 import { MODULES } from "../../src/modules/index.js";
 import type { ApiModule, Clock, FeatureFlag, FeatureFlags, ModuleDeps } from "../../src/platform/module.js";
 import { testConfig } from "./config.js";
+import { probeModule } from "./probe.js";
 import { createMemoryStorage, type MemoryStorage } from "./memory-storage.js";
 
 export const TEST_NOW = "2026-03-02T01:00:00.000Z";
@@ -32,6 +33,8 @@ export interface TestAppOptions {
   readonly storage?: ObjectStorage;
   readonly config?: ApiConfig;
   readonly extraModules?: readonly ApiModule[];
+  /** Replace MODULES (platform tests that define contract routes themselves must not collide with real modules). */
+  readonly modules?: readonly ApiModule[];
 }
 
 export interface TestApp {
@@ -65,7 +68,9 @@ export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp>
     flags,
     log,
   };
-  const app = await buildApp(deps, { modules: [...MODULES, ...(opts.extraModules ?? [])] });
+  const app = await buildApp(deps, {
+    modules: [...(opts.modules ?? MODULES), probeModule, ...(opts.extraModules ?? [])],
+  });
   await app.ready();
   return {
     app,

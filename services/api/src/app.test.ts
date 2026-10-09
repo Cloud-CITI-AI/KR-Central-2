@@ -6,8 +6,6 @@ import { createTestApp, dummyDb } from "../test/helpers/index.js";
 import { registeredOperations, requestIdFor, unregisteredOperations } from "./app.js";
 import { ApiConfigSchema } from "./config.js";
 import { MODULES } from "./modules/index.js";
-import type { ApiModule } from "./platform/module.js";
-import { defineRoute } from "./platform/routes.js";
 
 describe("route table", () => {
   it("registers only operations declared in the contract, health included", async () => {
@@ -28,35 +26,18 @@ describe("route table", () => {
 });
 
 describe("platform behaviour", () => {
-  it("answers unknown paths with a problem+json 404 that carries the request id", async () => {
+  it("denies by default: only the public routes answer without a session, even unknown paths are 401", async () => {
     const t = await createTestApp({ db: dummyDb() });
-    const res = await t.app.inject({ url: "/v1/nope?x=1" });
-    expect(res.statusCode).toBe(404);
-    expect(res.headers["content-type"]).toContain("application/problem+json");
-    expect(res.json()).toMatchObject({
-      type: "urn:kr:problem:not-found",
-      instance: "/v1/nope",
-      requestId: res.headers["x-request-id"],
-    });
-    await t.close();
-  });
-
-  it("accepts JSON bodies only: text/plain is 415, not a validation error", async () => {
-    const mod: ApiModule = {
-      name: "test",
-      operations: [],
-      register: (app) => {
-        defineRoute(app, "createNote", () => Promise.reject(new Error("unreachable")));
-      },
-    };
-    const t = await createTestApp({ db: dummyDb(), extraModules: [mod] });
-    const res = await t.app.inject({
-      method: "POST",
-      url: "/v1/jobs/0f8fad5b-d9cb-469f-a165-70867728950e/notes",
-      headers: { "content-type": "text/plain" },
-      payload: "x",
-    });
-    expect(res.statusCode).toBe(415);
+    for (const [method, url] of [
+      ["GET", "/v1/nope"],
+      ["POST", "/healthz"],
+      ["GET", "/v1/jobs"],
+      ["GET", "/test/whoami"],
+    ] as const) {
+      const res = await t.app.inject({ method, url });
+      expect(res.statusCode, `${method} ${url}`).toBe(401);
+      expect(res.json()).toMatchObject({ type: "urn:kr:problem:unauthenticated", status: 401 });
+    }
     await t.close();
   });
 });

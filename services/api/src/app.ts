@@ -11,6 +11,7 @@ import { registerErrorHandling } from "./platform/errors.js";
 import { registerHealthRoutes } from "./platform/health.js";
 import type { ApiModule, ModuleDeps } from "./platform/module.js";
 import { trackOperations } from "./platform/routes.js";
+import { registerSessionAuth } from "./platform/session-auth.js";
 
 export { registeredOperations, unregisteredOperations } from "./platform/routes.js";
 
@@ -62,6 +63,7 @@ export async function buildApp(deps: ModuleDeps, opts: BuildAppOptions = {}): Pr
     done();
   });
 
+  await registerSessionAuth(app, deps);
   registerHealthRoutes(app, deps);
   for (const mod of opts.modules ?? MODULES) {
     await app.register(async (scope) => {
