@@ -5,6 +5,7 @@ import { requireSignedIn } from "../../../platform/authz.js";
 import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
 import { clearSessionCookie, revokeSession } from "../../../platform/session.js";
+import { findSessionUserProfile } from "../data/users.js";
 import type { OidcClient } from "./oidc.js";
 
 export function registerSessionRoutes(app: FastifyInstance, deps: ModuleDeps, oidc: OidcClient): void {
@@ -31,11 +32,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: ModuleDeps, oi
 
   defineRoute(app, "getMe", async ({ auth }): Promise<Me> => {
     requireSignedIn(auth);
-    const user = await deps.db
-      .selectFrom("users")
-      .select(["created_at", "last_sign_in_at", "status"])
-      .where("id", "=", auth.user.id)
-      .executeTakeFirstOrThrow();
+    const user = await findSessionUserProfile(deps.db, auth.user.id);
     const { session } = auth;
     return {
       user: {
