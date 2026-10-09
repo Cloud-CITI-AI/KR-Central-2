@@ -2629,7 +2629,7 @@ components:
               format: date
               pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
               description: Calendar date (yyyy-mm-dd), Australia/Perth business date
-              example: 2025-10-26
+              example: 2026-06-14
             - type: "null"
         approvalExpiry:
           anyOf:
@@ -2637,7 +2637,7 @@ components:
               format: date
               pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
               description: Calendar date (yyyy-mm-dd), Australia/Perth business date
-              example: 2025-10-26
+              example: 2026-06-14
             - type: "null"
         conformedDate:
           description: Setting it records method 'manual' and sets outcomeDate =
@@ -2647,7 +2647,7 @@ components:
               format: date
               pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
               description: Calendar date (yyyy-mm-dd), Australia/Perth business date
-              example: 2025-10-26
+              example: 2026-06-14
             - type: "null"
         outcomeDate:
           anyOf:
@@ -2655,7 +2655,7 @@ components:
               format: date
               pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
               description: Calendar date (yyyy-mm-dd), Australia/Perth business date
-              example: 2025-10-26
+              example: 2026-06-14
             - type: "null"
       additionalProperties: false
     CheckpointKey:
@@ -3261,7 +3261,7 @@ components:
               format: date
               pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
               description: Calendar date (yyyy-mm-dd), Australia/Perth business date
-              example: 2025-10-26
+              example: 2026-06-14
             - type: "null"
         approvalExpiry:
           anyOf:
@@ -3269,7 +3269,7 @@ components:
               format: date
               pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
               description: Calendar date (yyyy-mm-dd), Australia/Perth business date
-              example: 2025-10-26
+              example: 2026-06-14
             - type: "null"
         conformedDate:
           anyOf:
@@ -3277,7 +3277,7 @@ components:
               format: date
               pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
               description: Calendar date (yyyy-mm-dd), Australia/Perth business date
-              example: 2025-10-26
+              example: 2026-06-14
             - type: "null"
         conformedSource:
           anyOf:
@@ -3289,7 +3289,7 @@ components:
               format: date
               pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
               description: Calendar date (yyyy-mm-dd), Australia/Perth business date
-              example: 2025-10-26
+              example: 2026-06-14
             - type: "null"
         conditionsSource:
           anyOf:
@@ -3949,7 +3949,7 @@ components:
               format: date
               pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
               description: Calendar date (yyyy-mm-dd), Australia/Perth business date
-              example: 2025-10-26
+              example: 2026-06-14
             - type: "null"
         approvalExpiry:
           anyOf:
@@ -3957,7 +3957,7 @@ components:
               format: date
               pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
               description: Calendar date (yyyy-mm-dd), Australia/Perth business date
-              example: 2025-10-26
+              example: 2026-06-14
             - type: "null"
         message:
           description: User-facing note, e.g. 'Check the agency for conditions 3, 7 …'
@@ -3982,7 +3982,7 @@ components:
               format: date
               pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
               description: Calendar date (yyyy-mm-dd), Australia/Perth business date
-              example: 2025-10-26
+              example: 2026-06-14
             - type: "null"
         method:
           anyOf:

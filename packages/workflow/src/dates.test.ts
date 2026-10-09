@@ -14,14 +14,14 @@ import {
 
 describe("dates", () => {
   it("validates ISO dates", () => {
-    expect(isIsoDate("2025-07-28")).toBe(true);
+    expect(isIsoDate("2026-03-16")).toBe(true);
     expect(isIsoDate("2025-02-30")).toBe(false);
     expect(isIsoDate("28/07/2025")).toBe(false);
     expect(() => addDays("bad", 1)).toThrow(RangeError);
   });
 
   it("sets the outcome date 90 days after conformance", () => {
-    expect(outcomeDateFor("2025-07-28")).toBe("2025-10-26");
+    expect(outcomeDateFor("2026-03-16")).toBe("2026-06-14");
     expect(addDays("2024-02-28", 1)).toBe("2024-02-29");
     expect(addYears("2025-11-14", 3)).toBe("2028-11-14");
   });
@@ -49,21 +49,21 @@ describe("dates", () => {
   });
 
   it("builds the outcome countdown", () => {
-    const now = new Date("2025-10-20T04:00:00Z"); // 12:00 Perth
-    expect(outcomeCountdown("2025-10-26", now)).toEqual({
+    const now = new Date("2026-06-08T04:00:00Z"); // 12:00 Perth
+    expect(outcomeCountdown("2026-06-14", now)).toEqual({
       days: 6,
       hours: 11,
       minutes: 59,
       seconds: 59,
       state: "soon",
-      caption: "until outcome date – Sun, 26 Oct 2025",
+      caption: "until outcome date – Sun, 14 Jun 2026",
     });
-    expect(outcomeCountdown("2025-10-01", now).state).toBe("past");
-    expect(outcomeCountdown("2026-01-01", now).state).toBe("ok");
+    expect(outcomeCountdown("2026-05-20", now).state).toBe("past");
+    expect(outcomeCountdown("2026-09-01", now).state).toBe("ok");
   });
 
   it("formats dates deterministically", () => {
-    expect(formatDateWithWeekday("2025-10-26")).toBe("Sun, 26 Oct 2025");
+    expect(formatDateWithWeekday("2026-06-14")).toBe("Sun, 14 Jun 2026");
     expect(formatInstantShort("2026-09-27T20:00:00Z")).toBe("28 Sep 2026");
   });
 });

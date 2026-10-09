@@ -93,7 +93,7 @@ export interface Countdown {
   readonly seconds: number;
   /** past = outcome date has passed; soon = fewer than 14 days left; ok otherwise. */
   readonly state: ExpiryLevel;
-  /** "until outcome date – Sun, 26 Oct 2025" / "Outcome date passed – Sun, 26 Oct 2025". */
+  /** "until outcome date – Sun, 14 Jun 2026" / "Outcome date passed – Sun, 14 Jun 2026". */
   readonly caption: string;
 }
 
@@ -121,7 +121,7 @@ export function outcomeCountdown(outcomeDate: string, now: Date): Countdown {
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
-/** "Sun, 26 Oct 2025" — deterministic (no ICU dependency) so server and browser render identically. */
+/** "Sun, 14 Jun 2026" — deterministic (no ICU dependency) so server and browser render identically. */
 export function formatDateWithWeekday(isoDate: string): string {
   assertIsoDate(isoDate);
   const d = new Date(`${isoDate}T00:00:00Z`);

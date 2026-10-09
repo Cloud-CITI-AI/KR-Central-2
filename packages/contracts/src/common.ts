@@ -7,7 +7,7 @@ export const Uuid = z.uuid().meta({ description: "UUID identifier", example: "0f
 
 export const IsoDate = z.iso
   .date()
-  .meta({ description: "Calendar date (yyyy-mm-dd), Australia/Perth business date", example: "2025-10-26" });
+  .meta({ description: "Calendar date (yyyy-mm-dd), Australia/Perth business date", example: "2026-06-14" });
 
 export const IsoDateTime = z.iso
   .datetime({ offset: true })
