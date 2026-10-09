@@ -1,11 +1,10 @@
 import { createHash } from "node:crypto";
 import { startMockIdp, type MockIdp } from "@kr/mock-idp";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { freshClientIp } from "../testing.js";
 import { createTestApp, schemaViolations, testConfig, type TestApp } from "../../../../test/helpers/index.js";
 
 const sha256 = (v: string) => createHash("sha256").update(v).digest();
-let ip = 0;
-const nextIp = () => `203.0.113.${(ip += 1)}`;
 
 const idpOptions = () => {
   const c = testConfig();
@@ -26,7 +25,7 @@ describe("startLogin (real Postgres, mock IdP)", () => {
     await idp.stop();
   });
 
-  const start = (url = "/v1/auth/login", forwardedFor = nextIp()) =>
+  const start = (url = "/v1/auth/login", forwardedFor = freshClientIp()) =>
     t.app.inject({ method: "GET", url, headers: { "x-forwarded-for": forwardedFor } });
   const flowFor = (state: string) =>
     t.db.selectFrom("auth_flows").selectAll().where("state_hash", "=", sha256(state)).executeTakeFirst();
@@ -92,7 +91,7 @@ describe("startLogin (real Postgres, mock IdP)", () => {
       config: testConfig({ ENTRA_AUTHORITY_HOST: idp.authorityHost, RATE_LIMIT_SIGNIN_PER_MINUTE_PER_IP: "2" }),
     });
     try {
-      const ipAddress = nextIp();
+      const ipAddress = freshClientIp();
       const get = () =>
         limited.app.inject({ method: "GET", url: "/v1/auth/login", headers: { "x-forwarded-for": ipAddress } });
       expect([(await get()).statusCode, (await get()).statusCode]).toEqual([302, 302]);
@@ -108,8 +107,13 @@ describe("startLogin (real Postgres, mock IdP)", () => {
     const down = await createTestApp({ config: testConfig({ ENTRA_AUTHORITY_HOST: "http://127.0.0.1:1" }) });
     try {
       expect(
-        (await down.app.inject({ method: "GET", url: "/v1/auth/login", headers: { "x-forwarded-for": nextIp() } }))
-          .statusCode,
+        (
+          await down.app.inject({
+            method: "GET",
+            url: "/v1/auth/login",
+            headers: { "x-forwarded-for": freshClientIp() },
+          })
+        ).statusCode,
       ).toBe(503);
     } finally {
       await down.close();
@@ -121,7 +125,7 @@ describe("startLogin (real Postgres, mock IdP)", () => {
     const app = await createTestApp({ config: testConfig({ ENTRA_AUTHORITY_HOST: own.authorityHost }) });
     try {
       const get = () =>
-        app.app.inject({ method: "GET", url: "/v1/auth/login", headers: { "x-forwarded-for": nextIp() } });
+        app.app.inject({ method: "GET", url: "/v1/auth/login", headers: { "x-forwarded-for": freshClientIp() } });
       expect((await get()).statusCode).toBe(302);
       await own.stop();
       expect((await get()).statusCode).toBe(302);
