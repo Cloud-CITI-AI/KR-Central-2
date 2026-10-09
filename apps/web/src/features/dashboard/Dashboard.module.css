@@ -1,6 +1,7 @@
 /* prototype body.dash-view .dash */
 .dash {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin-top: 16px;
 }

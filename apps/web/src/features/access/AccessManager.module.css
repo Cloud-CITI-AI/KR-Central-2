@@ -1,6 +1,7 @@
 /* prototype .pkg.acc and .pkg-t */
 .box {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   margin-top: 24px;
   padding: 14px 16px;

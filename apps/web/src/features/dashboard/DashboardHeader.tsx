@@ -10,7 +10,7 @@ export interface DashboardHeaderProps {
   /** Undefined while the counts load: the controls render without numbers. */
   readonly facets: Facets | undefined;
   readonly onChange: (patch: Partial<DashboardParams>) => void;
-  /** Extra buttons beside the search box (NEW JOB). */
+  /** Extra buttons next to the title (NEW JOB). */
   readonly actions?: ReactNode;
   /** Full-width content under the type chips (the inline new-job form). */
   readonly children?: ReactNode;
@@ -46,9 +46,12 @@ export function DashboardHeader({ params, facets, onChange, actions, children }:
 
   return (
     <section className={styles.head} aria-labelledby="dash-title">
-      <h2 id="dash-title" className={styles.title}>
-        Subdivision dashboard
-      </h2>
+      <div className={styles.titleRow}>
+        <h2 id="dash-title" className={styles.title}>
+          Subdivision dashboard
+        </h2>
+        {actions}
+      </div>
       <div className={styles.tools}>
         <div className={styles.filter} role="group" aria-label="Show">
           {STATUS_BUTTONS.map(([value, label]) => (
@@ -76,7 +79,6 @@ export function DashboardHeader({ params, facets, onChange, actions, children }:
             setText(event.target.value);
           }}
         />
-        {actions}
       </div>
       <div className={styles.types} role="group" aria-label="Subdivision type">
         <span className={styles.typeLabel} aria-hidden="true">

@@ -7,6 +7,10 @@
   padding: 0;
   list-style: none;
 }
+/* the card fills its grid cell, so cards in a row are as tall as the tallest */
+.grid > li {
+  display: grid;
+}
 .skeleton {
   min-height: 200px;
   border: 1px solid var(--line);
