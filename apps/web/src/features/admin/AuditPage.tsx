@@ -1,28 +1,73 @@
 "use client";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { hasCapability } from "@kr/contracts";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
 import { api, queryKeys } from "@/lib/api";
+import { useSession } from "@/lib/session";
 import styles from "./Admin.module.css";
+import { AuditFilters, type AuditFilterValues } from "./AuditFilters";
 import { AuditTable } from "./AuditTable";
 import { ProblemNotice } from "./ProblemNotice";
+import { useDebouncedValue } from "./useDebouncedValue";
+import { useJobLookup } from "./useJobLookup";
 
-/** `/admin/audit` (§9.2): the audit trail, newest first, 100 events at a time. */
+const EMPTY: AuditFilterValues = { job: "", actorId: "", action: "" };
+/**
+ * `/admin/audit` (§9.2): the audit trail newest first, 100 at a time, filtered by job, user and action (all by the API).
+ */
 export function AuditPage() {
+  const { capabilities } = useSession();
+  const [values, setValues] = useState(EMPTY);
+  const action = useDebouncedValue(values.action.trim());
+  const { options: jobOptions, jobId } = useJobLookup(values.job);
+  const jobUnresolved = values.job.trim() !== "" && jobId === undefined;
+
   const events = useInfiniteQuery({
-    queryKey: queryKeys.audit({}),
+    queryKey: queryKeys.audit({ jobId, actorId: values.actorId, action }),
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
-      api("listAuditEvents", { query: { limit: 100, ...(pageParam ? { cursor: pageParam } : {}) }, signal }),
+      api("listAuditEvents", {
+        query: {
+          limit: 100,
+          ...(jobId ? { jobId } : {}),
+          ...(values.actorId ? { actorId: values.actorId } : {}),
+          ...(action ? { action } : {}),
+          ...(pageParam ? { cursor: pageParam } : {}),
+        },
+        signal,
+      }),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     refetchInterval: false, // reading diffs: rows must not move under the reader
+    // Text that names no job must not fall back to the unfiltered trail: it would read as that job's events.
+    enabled: !jobUnresolved,
   });
-  const rows = events.data?.pages.flatMap((page) => page.items) ?? [];
+  const loaded = events.data?.pages.flatMap((page) => page.items) ?? [];
+
+  const users = useQuery({
+    queryKey: queryKeys.users({ picker: "audit" }),
+    queryFn: ({ signal }) => api("listUsers", { query: { limit: 100 }, signal }),
+    enabled: hasCapability(capabilities, "users.manage"),
+  });
+  const actors = new Map<string, string>();
+  for (const user of users.data?.items ?? []) actors.set(user.id, user.displayName);
+  for (const { actor } of loaded) if (actor) actors.set(actor.id, actor.displayName);
 
   return (
     <section className={styles.panel} aria-label="Audit trail">
-      {events.isPending && <Spinner label="Loading the audit trail…" />}
+      <AuditFilters
+        values={values}
+        onChange={(change) => {
+          setValues((current) => ({ ...current, ...change }));
+        }}
+        jobOptions={jobOptions}
+        jobUnresolved={jobUnresolved}
+        actors={[...actors].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))}
+      />
+      {jobUnresolved && <EmptyState>Choose a job number from the list to see its events.</EmptyState>}
+      {events.isPending && !jobUnresolved && <Spinner label="Loading the audit trail…" />}
       {events.isError && (
         <ProblemNotice
           error={events.error}
@@ -32,18 +77,19 @@ export function AuditPage() {
         />
       )}
       {events.isSuccess &&
-        (rows.length === 0 ? (
-          <EmptyState>No events yet.</EmptyState>
+        !jobUnresolved &&
+        (loaded.length === 0 && !events.hasNextPage ? (
+          <EmptyState>No events match. Try different filters.</EmptyState>
         ) : (
           <>
             <p className={styles.summary} role="status">
-              {rows.length} {rows.length === 1 ? "event" : "events"}
+              {loaded.length} {loaded.length === 1 ? "event" : "events"}
               {events.hasNextPage ? " so far" : ""}
             </p>
-            <AuditTable events={rows} />
+            <AuditTable events={loaded} />
           </>
         ))}
-      {events.hasNextPage && (
+      {events.hasNextPage && !jobUnresolved && (
         <Button
           className={styles.more}
           disabled={events.isFetchingNextPage}

@@ -1,6 +1,6 @@
 /** Synthetic data only (TD-1). */
 import { faker } from "@faker-js/faker";
-import { AuditEvent, User } from "@kr/contracts";
+import { AuditEvent, JobCard, User } from "@kr/contracts";
 
 export function syntheticUser(overrides: Partial<User> = {}): User {
   return User.parse({
@@ -29,5 +29,21 @@ export function syntheticAuditEvent(overrides: Record<string, unknown> = {}) {
     requestId: faker.string.alphanumeric(12),
     changes: { status: { from: "not_completed", to: "completed" } },
     ...overrides,
+  });
+}
+
+export function syntheticJobCard(jobNumber: string) {
+  return JobCard.parse({
+    id: faker.string.uuid(),
+    jobNumber,
+    address: faker.location.streetAddress(),
+    clientName: null,
+    subdivisionType: null,
+    isComplete: false,
+    progress: { completed: 0, notCompleted: 46, notRequired: 0, total: 46, percent: 0 },
+    nextActions: [],
+    alerts: [],
+    isWaitingOnClient: false,
+    updatedAt: "2026-09-28T03:50:56.000Z",
   });
 }

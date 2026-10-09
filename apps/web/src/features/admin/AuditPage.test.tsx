@@ -1,8 +1,8 @@
 import { PROBLEM_TYPES } from "@kr/contracts";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { expectNoAxeViolations } from "@/test/axe";
 import { syntheticMe } from "@/test/fixtures";
 import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
@@ -10,7 +10,7 @@ import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
 import { AuditPage } from "./AuditPage";
 import { MFA_REQUIRED } from "./ProblemNotice";
-import { syntheticAuditEvent } from "./test-fixtures";
+import { syntheticAuditEvent, syntheticJobCard, syntheticUser } from "./test-fixtures";
 
 const ann = { id: "7b0f3d52-6a38-4f6e-9d5e-1c2a4b9c8e01", displayName: "Ann Auditor" };
 const first = syntheticAuditEvent({
@@ -27,11 +27,16 @@ const second = syntheticAuditEvent({
   jobId: null,
   changes: null,
 });
+const jobA = syntheticJobCard("S-0001");
 
 function respondWith(events: unknown[], nextCursor: string | null = null) {
   return mockApi("listAuditEvents", { items: events, nextCursor });
 }
 function renderPage(role: "admin" | "kr_admin" = "admin") {
+  server.use(
+    mockApi("listJobs", { items: [jobA], nextCursor: null }),
+    mockApi("listUsers", { items: [syntheticUser()], nextCursor: null }),
+  );
   return renderWithProviders(<AuditPage />, { me: syntheticMe(role) });
 }
 /** Records the query string of every listAuditEvents call. */
@@ -67,7 +72,7 @@ describe("AuditPage list", () => {
   it("says when nothing matches", async () => {
     server.use(respondWith([]));
     renderPage();
-    expect(await screen.findByText(/No events yet/)).toBeInTheDocument();
+    expect(await screen.findByText(/No events match/)).toBeInTheDocument();
   });
 
   it("pages with the cursor", async () => {
@@ -87,6 +92,66 @@ describe("AuditPage list", () => {
     await screen.findByText("job.updated");
     const query = queryClient.getQueryCache().findAll({ queryKey: ["audit"] })[0];
     expect(query?.observers[0]?.options.refetchInterval).toBe(false);
+  });
+});
+
+describe("AuditPage filters", () => {
+  it("filters by job number, user and action, sending ids and the action prefix to the API", async () => {
+    const calls = recordAudit(() => ({ items: [first], nextCursor: null }));
+    renderPage();
+    await screen.findByText("job.updated");
+    await userEvent.type(screen.getByRole("combobox", { name: "Job" }), "s-0001");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "User" }), "Ann Auditor");
+    await userEvent.type(screen.getByRole("textbox", { name: "Action" }), "job.");
+    await waitFor(() => {
+      expect(calls.at(-1)?.get("jobId")).toBe(jobA.id);
+      expect(calls.at(-1)?.get("actorId")).toBe(ann.id);
+      expect(calls.at(-1)?.get("action")).toBe("job.");
+    });
+    expect(calls[0]?.has("jobId")).toBe(false);
+  });
+
+  it("asks for a job number from the list while the typed text names no job, and accepts a pasted job id", async () => {
+    const calls = recordAudit((p) => ({ items: p.get("jobId") ? [] : [first], nextCursor: null }));
+    renderPage();
+    const job = await screen.findByRole("combobox", { name: "Job" });
+    await screen.findByText("job.updated");
+    const callsBefore = calls.length;
+    await userEvent.type(job, "nope");
+    expect(screen.getByText("Choose a job number from the list.")).toBeInTheDocument();
+    // The unfiltered trail must not stand in for the job's events: no rows, no new request.
+    expect(screen.getByText("Choose a job number from the list to see its events.")).toBeInTheDocument();
+    expect(screen.queryByText("job.updated")).toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(calls).toHaveLength(callsBefore);
+    await userEvent.clear(job);
+    await userEvent.type(job, jobA.id);
+    await waitFor(() => {
+      expect(calls.at(-1)?.get("jobId")).toBe(jobA.id);
+    });
+    expect(screen.queryByText("Choose a job number from the list.")).toBeNull();
+  });
+
+  it("offers the users the admin can list, and for a KR admin only the people seen in the events", async () => {
+    server.use(respondWith([first]));
+    const { unmount } = renderPage("admin");
+    const options = async () =>
+      within(await screen.findByRole("combobox", { name: "User" }))
+        .getAllByRole("option")
+        .map((o) => o.textContent);
+    await waitFor(async () => {
+      expect((await options()).length).toBe(3);
+    });
+    unmount();
+    const listUsers = vi.fn();
+    server.use(
+      respondWith([first]),
+      handlerFor("listUsers", () => (listUsers(), HttpResponse.json({ items: [], nextCursor: null }))),
+    );
+    renderWithProviders(<AuditPage />, { me: syntheticMe("kr_admin") });
+    await screen.findByText("job.updated");
+    expect(await options()).toEqual(["All users", "Ann Auditor"]);
+    expect(listUsers).not.toHaveBeenCalled();
   });
 });
 
