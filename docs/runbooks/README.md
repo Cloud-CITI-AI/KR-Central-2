@@ -13,6 +13,12 @@ that no alert points at. Start from the alert name; if you were paged, open the 
 | api-latency              | ticket   | SLO-2/3   | [api-latency](api-latency.md)                           |
 | worker-queue-backlog     | page     | SLO-4/5   | [worker-queue-backlog](worker-queue-backlog.md)         |
 | operation-failures       | ticket   | SLO-4     | [operation-failures](operation-failures.md)             |
+| malware-detected         | page     | security  | [malware-detected](malware-detected.md)                 |
+| malware-scan-errors      | ticket   | SLO-5     | [malware-scan-errors](malware-scan-errors.md)           |
+| clamav-down              | page     | SLO-5     | [clamav-down](clamav-down.md)                           |
+| auth-failure-spike       | page     | security  | [auth-failure-spike](auth-failure-spike.md)             |
+| migrate-failed           | page     | delivery  | [migrate-failed](migrate-failed.md)                     |
+| backup-failed            | page     | SLO-6     | [backup-failed](backup-failed.md)                       |
 | db-connections-saturated | page     | SLO-1     | [db-connections-saturated](db-connections-saturated.md) |
 
 ## How every runbook is laid out
