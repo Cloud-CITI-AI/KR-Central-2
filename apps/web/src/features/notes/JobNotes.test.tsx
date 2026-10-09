@@ -1,5 +1,5 @@
 import { PROBLEM_TYPES, jobCapabilitiesFor } from "@kr/contracts";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
@@ -25,6 +25,7 @@ describe("JobNotes", () => {
     expect(await screen.findByText("No notes on this job yet.")).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
+
   it("lists notes in the API's newest-first order with Perth time, audience label and author, filtering none", async () => {
     server.use(
       list(
@@ -47,33 +48,6 @@ describe("JobNotes", () => {
     ]);
     await expectNoAxeViolations(container);
   });
-  it("explains when the notes cannot be loaded", async () => {
-    server.use(mockProblem("listNotes", 500, PROBLEM_TYPES.internal, { requestId: "req-note-2" }));
-    renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "The notes failed to load. Reload the page and try again. (Request ID: req-note-2)",
-    );
-  });
-  it("loads the next page on request, 50 at a time", async () => {
-    const limits: (string | null)[] = [];
-    server.use(
-      handlerFor("listNotes", ({ request }) => {
-        const url = new URL(request.url);
-        limits.push(url.searchParams.get("limit"));
-        return HttpResponse.json(
-          url.searchParams.get("cursor")
-            ? { items: [syntheticNote({ body: "Older" })], nextCursor: null }
-            : { items: [syntheticNote({ body: "Newer" })], nextCursor: "c1" },
-        );
-      }),
-    );
-    renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
-    await screen.findByText("Newer");
-    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
-    expect(await screen.findByText("Older")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
-    expect(limits).toEqual(["50", "50"]);
-  });
 
   it("hides the form without notes.create", async () => {
     server.use(list());
@@ -82,6 +56,7 @@ describe("JobNotes", () => {
     expect(screen.queryByRole("textbox", { name: "New job note" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add note" })).not.toBeInTheDocument();
   });
+
   it("asks for text when the note is empty, and focuses the box", async () => {
     server.use(list());
     renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
@@ -90,6 +65,7 @@ describe("JobNotes", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Type a note first.");
     expect(textbox()).toHaveFocus();
   });
+
   it("adds a note with the chosen audience label, clears the box and reloads the list", async () => {
     let body: unknown;
     let key: string | null = null;
@@ -143,5 +119,88 @@ describe("JobNotes", () => {
       "That note couldn't be saved. Try again. (Request ID: req-note-1)",
     );
     expect(textbox()).toHaveValue("Keep me");
+  });
+
+  it("explains when the notes cannot be loaded", async () => {
+    server.use(mockProblem("listNotes", 500, PROBLEM_TYPES.internal, { requestId: "req-note-2" }));
+    renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The notes failed to load. Reload the page and try again. (Request ID: req-note-2)",
+    );
+  });
+
+  it("loads the next page on request, 50 at a time", async () => {
+    const limits: (string | null)[] = [];
+    server.use(
+      handlerFor("listNotes", ({ request }) => {
+        const url = new URL(request.url);
+        limits.push(url.searchParams.get("limit"));
+        return HttpResponse.json(
+          url.searchParams.get("cursor")
+            ? { items: [syntheticNote({ body: "Older" })], nextCursor: null }
+            : { items: [syntheticNote({ body: "Newer" })], nextCursor: "c1" },
+        );
+      }),
+    );
+    renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
+    await screen.findByText("Newer");
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(await screen.findByText("Older")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
+    expect(limits).toEqual(["50", "50"]);
+  });
+
+  describe("delete", () => {
+    const mine = syntheticNote({ body: "Mine", isOwn: true, canDelete: true });
+    const other = syntheticNote({ body: "Other", canDelete: false });
+
+    it("offers × only where the API says the note can be deleted", async () => {
+      server.use(list(mine, other));
+      renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
+      await screen.findByText("Other");
+      expect(screen.getAllByRole("button", { name: "Delete note" })).toHaveLength(1);
+    });
+
+    it("asks 'Delete?', puts focus on No, and No keeps the note and returns focus to ×", async () => {
+      server.use(list(mine));
+      renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete note" }));
+      expect(screen.getByRole("button", { name: "No" })).toHaveFocus();
+      await userEvent.click(screen.getByRole("button", { name: "No" }));
+      expect(screen.getByRole("button", { name: "Delete note" })).toHaveFocus();
+      expect(screen.getByText("Mine")).toBeInTheDocument();
+    });
+
+    it("Yes deletes the note", async () => {
+      let notes = [mine, other];
+      let deleted: string | undefined;
+      server.use(
+        handlerFor("listNotes", () => HttpResponse.json({ items: notes, nextCursor: null })),
+        handlerFor("deleteNote", ({ params }) => {
+          deleted = String(params.noteId);
+          notes = notes.filter((note) => note.id !== deleted);
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete note" }));
+      await userEvent.click(screen.getByRole("button", { name: "Yes" }));
+      await waitFor(() => {
+        expect(screen.queryByText("Mine")).not.toBeInTheDocument();
+      });
+      expect(deleted).toBe(mine.id);
+      expect(screen.getByText("Other")).toBeInTheDocument();
+    });
+
+    it("puts the note back and says so when the API refuses", async () => {
+      server.use(list(mine), mockProblem("deleteNote", 403, PROBLEM_TYPES.forbidden));
+      renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete note" }));
+      await userEvent.click(screen.getByRole("button", { name: "Yes" }));
+      const row = (await screen.findByText("Mine")).closest("li");
+      expect(await within(row as HTMLElement).findByRole("alert")).toHaveTextContent(
+        "That note couldn't be deleted. Try again.",
+      );
+    });
   });
 });

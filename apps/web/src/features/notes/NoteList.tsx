@@ -30,7 +30,7 @@ export function NoteList({ jobId }: NoteListProps) {
     <>
       <ol className={styles.list}>
         {rows.map((note) => (
-          <NoteRow key={note.id} note={note} />
+          <NoteRow key={note.id} jobId={jobId} note={note} />
         ))}
       </ol>
       {notes.hasNextPage && (
