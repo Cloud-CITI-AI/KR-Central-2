@@ -6,7 +6,6 @@ import {
   AppEnv,
   BooleanFromString,
   CsvList,
-  HttpsUrl,
   LogLevel,
   NodeEnv,
   Port,
@@ -35,7 +34,8 @@ export const ApiConfigSchema = z
     ENTRA_TENANT_ID: z.uuid(),
     ENTRA_CLIENT_ID: z.uuid(),
     ENTRA_CLIENT_SECRET: Secret(16),
-    ENTRA_AUTHORITY_HOST: HttpsUrl.default("https://login.microsoftonline.com"),
+    /** Override only for tests/e2e (local mock IdP); must be https outside APP_ENV=local. */
+    ENTRA_AUTHORITY_HOST: z.url().default("https://login.microsoftonline.com"),
     /** Email domains of KR staff accounts (members of the tenant). Members with other domains become 'external'. */
     KR_STAFF_EMAIL_DOMAINS: CsvList.default(["krsurveys.com.au"]),
 
@@ -48,6 +48,8 @@ export const ApiConfigSchema = z
     SESSION_ABSOLUTE_HOURS: z.coerce.number().int().min(1).max(24).default(12),
     /** Salt for pseudonymising identifiers in security logs (LG-3). */
     LOG_PSEUDONYM_SALT: Secret(16),
+    /** Admin/kr_admin-only endpoints require an MFA sign-in (amr contains "mfa"); docs/07 §7.4. */
+    REQUIRE_MFA_FOR_ADMIN: BooleanFromString.default(true),
 
     S3_ENDPOINT: z.url(),
     S3_REGION: z.string().min(1).default("auto"),
@@ -79,6 +81,10 @@ export const ApiConfigSchema = z
   .refine((c) => c.APP_ENV === "local" || c.PUBLIC_BASE_URL.startsWith("https://"), {
     message: "PUBLIC_BASE_URL must be https outside local",
     path: ["PUBLIC_BASE_URL"],
+  })
+  .refine((c) => c.APP_ENV === "local" || c.ENTRA_AUTHORITY_HOST.startsWith("https://"), {
+    message: "ENTRA_AUTHORITY_HOST must be https outside local",
+    path: ["ENTRA_AUTHORITY_HOST"],
   });
 
 export type ApiConfig = z.infer<typeof ApiConfigSchema>;
