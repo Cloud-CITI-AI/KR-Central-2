@@ -5,6 +5,7 @@ import { FAKE_VIRUS, startFakeClamd, type FakeClamd } from "../../test/fake-clam
 import { enqueue, insertJob, openDb } from "../../test/db.js";
 import { fileRow, handlerContext, insertFile } from "../../test/files.js";
 import { createClamdClient } from "../clients/clamd.js";
+import type { TaskError } from "../errors.js";
 import { fileScanHandler } from "./file-scan.js";
 
 let db: Db;
@@ -34,7 +35,7 @@ function handler(mode: "required" | "disabled" = "required") {
     db,
     storage,
     clamd: createClamdClient({ host: "127.0.0.1", port: clamd.port, timeoutMs: 1000, maxBytes: 1024 * 1024 }),
-    config: { MALWARE_SCAN_MODE: mode, CLAMAV_TIMEOUT_MS: 1000 },
+    config: { MALWARE_SCAN_MODE: mode, CLAMAV_TIMEOUT_MS: 1000, SCAN_ERROR_MAX_RETRIES: 3 },
     metrics,
   });
 }
@@ -121,5 +122,100 @@ describe("file.scan", () => {
   it("rejects a payload that is not a file id", async () => {
     const { outcome } = await run("not-a-uuid");
     expect(outcome).toMatchObject({ error: { code: "invalid_payload", retryable: false } });
+  });
+});
+
+describe("file.scan: email follow-up", () => {
+  async function emailFile(o: { pasted?: boolean; status?: "pending" | "parsed" } = {}) {
+    const file = await insertFile(db, storage, jobId, {
+      kind: "email",
+      checkpointKey: "i4_3",
+      slot: "email",
+      name: "query.eml",
+    });
+    await db
+      .insertInto("email_messages")
+      .values({ file_id: file.id, parse_status: o.status ?? "pending", is_pasted: o.pasted ?? false })
+      .execute();
+    return file;
+  }
+  const queued = (fileId: string) =>
+    db
+      .selectFrom("operations")
+      .selectAll()
+      .where("type", "=", "email.parse")
+      .where("job_id", "=", jobId)
+      .execute()
+      .then((rows) => rows.filter((r) => (r.payload as { fileId?: string }).fileId === fileId));
+
+  it("queues email.parse once for a clean uploaded email, even when the scan is re-run", async () => {
+    const file = await emailFile();
+    await run(file.id);
+    await run(file.id);
+    const ops = await queued(file.id);
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({ status: "queued", created_by: null });
+  });
+
+  it("does not queue it for a pasted or already parsed email, or for infected content", async () => {
+    const pasted = await emailFile({ pasted: true, status: "parsed" });
+    await run(pasted.id);
+    expect(await queued(pasted.id)).toHaveLength(0);
+    const bad = await insertFile(db, storage, jobId, {
+      kind: "email",
+      bytes: FAKE_VIRUS,
+      checkpointKey: "i4_3",
+      slot: "email",
+    });
+    await db.insertInto("email_messages").values({ file_id: bad.id }).execute();
+    await run(bad.id);
+    expect(await queued(bad.id)).toHaveLength(0);
+  });
+});
+
+describe("file.scan: failures", () => {
+  const failed = (outcome: unknown) => (outcome as { error: TaskError }).error;
+
+  it("asks the queue to retry while attempts remain and leaves the file pending", async () => {
+    const file = await insertFile(db, storage, jobId);
+    await clamd.stop();
+    const { outcome } = await run(file.id, { attempt: 1 });
+    expect(failed(outcome)).toMatchObject({ code: "scan_unavailable", retryable: true });
+    const row = await fileRow(db, file.id);
+    expect([row.scan_status, row.scan_attempts]).toEqual(["pending", 0]);
+    expect(metrics.recordFileScan).not.toHaveBeenCalled();
+  });
+
+  it("records an error on the last attempt, counts the failed scan and fails the operation for good", async () => {
+    const file = await insertFile(db, storage, jobId);
+    await clamd.stop();
+    const { ctx, outcome } = await run(file.id, { attempt: 3 });
+    expect(failed(outcome)).toMatchObject({ code: "scan_error", retryable: false });
+    const row = await fileRow(db, file.id);
+    expect([row.scan_status, row.scan_attempts, row.scan_detail]).toEqual([
+      "error",
+      1,
+      "The virus scanner could not be reached.",
+    ]);
+    expect(metrics.recordFileScan).toHaveBeenCalledExactlyOnceWith("error");
+    expect(ctx.captured.events()).toContain("scan_failed");
+  });
+
+  it("records an error at once when the object is missing, and alerts when the retries are used up", async () => {
+    const file = await insertFile(db, storage, jobId, { noObject: true, scanStatus: "error", scanAttempts: 3 });
+    const { ctx, outcome } = await run(file.id, { attempt: 1 });
+    expect(failed(outcome).code).toBe("scan_error");
+    const row = await fileRow(db, file.id);
+    expect([row.scan_attempts, row.scan_detail]).toEqual([4, "The stored file could not be found."]);
+    expect(ctx.captured.events()).toContain("scan_retries_exhausted");
+  });
+
+  it("does not turn an aborted scan into an error on the file", async () => {
+    const file = await insertFile(db, storage, jobId);
+    const controller = new AbortController();
+    controller.abort();
+    const op = await enqueue(db, jobId, "file.scan", { fileId: file.id });
+    await expect(handler().run(handlerContext(op, { signal: controller.signal }))).rejects.toThrow();
+    expect((await fileRow(db, file.id)).scan_status).toBe("pending");
   });
 });
