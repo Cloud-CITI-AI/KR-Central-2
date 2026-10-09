@@ -8,6 +8,7 @@ import { assertNever } from "./assertNever";
 import { CheckpointControls } from "./CheckpointControls";
 import { CheckpointTags } from "./CheckpointTags";
 import { CHECKPOINT_MESSAGES } from "./messages";
+import { EmailsPanel } from "./EmailsPanel";
 import { KrNotePanel } from "./KrNotePanel";
 import { PaidPanel } from "./PaidPanel";
 import { PanelBox } from "./PanelBox";
@@ -50,8 +51,9 @@ function PanelView({ panel, job, checkpoint }: PanelViewProps) {
       return <PaidPanel job={job} checkpoint={checkpoint} panel={panel} />;
     case "kr_note":
       return <KrNotePanel job={job} checkpoint={checkpoint} panel={panel} />;
-    case "conformance":
     case "emails":
+      return <EmailsPanel job={job} checkpoint={checkpoint} panel={panel} />;
+    case "conformance":
       return null;
     default:
       return assertNever(panel);
