@@ -13,7 +13,7 @@ interface RootLayoutProps {
   readonly children: ReactNode;
 }
 
-/** Root layout. The app shell (header, theme, session) is built in WP-09. */
+/** Root layout. The app shell (header, theme, session) is built in WP-03. */
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en-AU">

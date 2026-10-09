@@ -1,5 +1,5 @@
 /**
- * Public types of @kr/document-parsing. The implementation (WP-05) ports the prototype's parsers
+ * Public types of @kr/document-parsing. The implementation (WP-02) ports the prototype's parsers
  * (extracted.js: datesIn, findConformedDate, dateFromName, parseConditions, agencyFrom, guessAgency,
  * findApprovalDates, cfb/parseMsg, mimeSplit/mimeText/parseEml, emailText, pdfText/page1) to pure, tested functions.
  * Rules functions take text and return data; only src/pdf touches pdf.js. Nothing here does network I/O.

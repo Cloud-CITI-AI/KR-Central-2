@@ -1,4 +1,4 @@
-/** Placeholder: the dashboard (first page after sign-in) is built in WP-10. */
+/** Placeholder: the dashboard (first page after sign-in) is built in WP-13. */
 export default function DashboardPage() {
   return (
     <main className="wrap">

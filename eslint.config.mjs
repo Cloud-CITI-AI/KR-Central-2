@@ -40,6 +40,7 @@ export default tseslint.config(
       "**/*.config.{js,mjs,cjs,ts,mts}",
       "**/stryker.config.mjs",
       "scripts/**",
+      "docs/reference/**",
     ],
   },
   js.configs.recommended,
@@ -85,6 +86,17 @@ export default tseslint.config(
       ],
       "no-restricted-globals": ["error", { name: "fetch", message: "No I/O in domain code." }],
       "no-restricted-properties": ["error", { object: "Date", property: "now", message: "Inject a Clock (TD-4)." }],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "NewExpression[callee.name='Date'][arguments.length=0]",
+          message: "`new Date()` reads the wall clock: inject a Clock (TD-4).",
+        },
+        {
+          selector: "CallExpression[callee.name='Date'][arguments.length=0]",
+          message: "`Date()` reads the wall clock: inject a Clock (TD-4).",
+        },
+      ],
     },
   },
   // Config is parsed once (BE-2): process.env only in config.ts files.
