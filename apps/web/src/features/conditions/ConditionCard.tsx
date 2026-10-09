@@ -2,6 +2,7 @@
 import type { Condition, JobDetail } from "@kr/contracts";
 import { STAGES, type Agency } from "@kr/workflow";
 import { conditionPermissions } from "./capabilities";
+import { AgencyPicker } from "./AgencyPicker";
 import { ConditionEditor } from "./ConditionEditor";
 import { GUESSED_BADGE, GUESSED_TITLE } from "./messages";
 import { useUpdateCondition } from "./useUpdateCondition";
@@ -10,7 +11,7 @@ import styles from "./ConditionCard.module.css";
 export interface ConditionCardProps {
   readonly job: JobDetail;
   readonly condition: Condition;
-  /** "checklist" in 5.0: "Go to <agency> ↓". "agency" in an agency stage: the plain agency badge only. */
+  /** "checklist" in 5.0: agency select and "Go to <agency> ↓". "agency" in an agency stage: plain agency badge. */
   readonly variant: "checklist" | "agency";
 }
 
@@ -20,16 +21,16 @@ function stageKeyOf(agency: Agency): string | undefined {
 }
 
 /**
- * One condition (§5.6): "Condition N", its agency badge, the guessed badge, the link to the agency's stage, the text (struck through
- * once cleared), the editor row and the card colour (red open, green cleared). The checklist and the agency box render the same
- * job.conditions entry through the same cache write, so an edit in one shows in the other at once.
+ * One condition (§5.6): "Condition N", its agency (a select in the checklist, a badge in the agency boxes), the guessed badge,
+ * the text (struck through once cleared), the editor row and the card colour (red open, green cleared). The checklist and the agency
+ * box render the same job.conditions entry through the same cache write, so an edit in one shows in the other at once.
  */
 export function ConditionCard({ job, condition, variant }: ConditionCardProps) {
   const update = useUpdateCondition(job.id, condition.id);
   const permissions = conditionPermissions(job.capabilities);
-  const save = (body: Parameters<typeof update.mutateAsync>[0]) => update.mutateAsync(body).catch(() => undefined);
   const { agency } = condition;
   const stageKey = stageKeyOf(agency);
+  const save = (body: Parameters<typeof update.mutateAsync>[0]) => update.mutateAsync(body).catch(() => undefined);
   return (
     <div
       className={styles.card}
@@ -41,7 +42,19 @@ export function ConditionCard({ job, condition, variant }: ConditionCardProps) {
     >
       <div className={styles.head}>
         <span className={styles.number}>Condition {condition.number}</span>
-        <span className={styles.agency}>{agency}</span>
+        {variant === "checklist" && permissions.edit ? (
+          <AgencyPicker
+            condition={condition}
+            onChange={(next) => {
+              void save({ agency: next });
+            }}
+            onConfirm={() => {
+              void save({ agencyConfirmed: true });
+            }}
+          />
+        ) : (
+          <span className={styles.agency}>{agency}</span>
+        )}
         {condition.agencyGuessed && (
           <span className={styles.guess} title={GUESSED_TITLE}>
             {GUESSED_BADGE}

@@ -8,6 +8,41 @@ import { conditionAt } from "./test-fixtures";
 vi.mock("@/features/viewer", () => ({ useViewer: () => ({ open: vi.fn() }) }));
 
 describe("editing a condition in the checklist", () => {
+  it("keeps the guessed agency with Agency is correct and ends the guess", async () => {
+    const job = threeConditions();
+    const { served } = renderCard(job, "i5_0");
+    const calls = serveUpdates(served);
+    expect(within(group(1)).queryByText("Agency guessed – please check")).not.toBeInTheDocument();
+    expect(within(group(3)).getByText("Agency guessed – please check")).toBeInTheDocument();
+    await userEvent.click(within(group(3)).getByRole("button", { name: "Agency is correct" }));
+    await waitFor(() => {
+      expect(within(group(3)).queryByText("Agency guessed – please check")).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(calls).toHaveLength(1);
+    });
+    expect(calls[0]?.body).toEqual({ agencyConfirmed: true });
+    expect(within(group(3)).queryByRole("button", { name: "Agency is correct" })).not.toBeInTheDocument();
+  });
+
+  it("changes the agency, which also ends the guess", async () => {
+    const job = threeConditions();
+    const { served } = renderCard(job, "i5_0");
+    const calls = serveUpdates(served);
+    await userEvent.selectOptions(
+      within(group(3)).getByRole("combobox", { name: "Agency for condition 3" }),
+      "Local Government",
+    );
+    await waitFor(() => {
+      expect(within(group(3)).queryByText("Agency guessed – please check")).not.toBeInTheDocument();
+    });
+    expect(within(group(3)).getByRole("link", { name: "Go to Local Government ↓" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(calls).toHaveLength(1);
+    });
+    expect(calls[0]?.body).toEqual({ agency: "Local Government" });
+  });
+
   it("ticks a condition at once, sends If-Match with its version and refreshes the job", async () => {
     const job = threeConditions();
     const { served } = renderCard(job, "i5_0");
