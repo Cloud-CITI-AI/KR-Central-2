@@ -6,3 +6,5 @@ pnpm-lock.yaml
 packages/contracts/openapi.yaml
 LESSONS.md
 CHANGELOG.md
+docs/reference/prototype/app.js
+docs/reference/prototype/app.css
