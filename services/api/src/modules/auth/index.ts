@@ -13,3 +13,5 @@ export const authModule: ApiModule = {
     registerSessionRoutes(app, deps, oidc);
   },
 };
+
+export { promoteAdmin, type PromoteResult } from "./data/promote-admin.js";

@@ -3,7 +3,7 @@ import type { MockIdp } from "@kr/mock-idp";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { inject } from "vitest";
 import { createTestApp, testConfig, type TestApp } from "../../../../test/helpers/index.js";
-import { browserSignIn, mockUser, startIdpFor } from "../testing.js";
+import { browserSignIn, lockBootstrap, mockUser, startIdpFor } from "../testing.js";
 
 const staff = (n: number) =>
   mockUser(100 + n, {
@@ -21,8 +21,10 @@ describe("first admin (real Postgres, mock IdP)", () => {
   let idp: MockIdp;
   let t: TestApp;
   let migrator: Db;
+  let unlock: () => Promise<void>;
 
   beforeAll(async () => {
+    unlock = await lockBootstrap(inject("databaseUrl"));
     idp = await startIdpFor(testConfig(), [...staffUsers, ...racers, guestWithStaffAddress, outsider]);
     t = await createTestApp({ config: testConfig({ ENTRA_AUTHORITY_HOST: idp.authorityHost }) });
     // The app role may only INSERT/SELECT system_bootstrap (audit-grade); the owner resets it between tests.
@@ -35,6 +37,7 @@ describe("first admin (real Postgres, mock IdP)", () => {
     await migrator.destroy();
     await t.close();
     await idp.stop();
+    await unlock();
   });
 
   const signInAs = (u: { email: string | null }) => browserSignIn(t.app, idp, { loginHint: u.email! });

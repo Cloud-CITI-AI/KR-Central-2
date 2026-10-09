@@ -3,6 +3,7 @@
  * only by tests; nothing in the service refers to it.
  */
 import { randomInt } from "node:crypto";
+import pg from "pg";
 import { followAuthorize, startMockIdp, type MockIdp, type MockUser } from "@kr/mock-idp";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 
@@ -88,4 +89,17 @@ export function startIdpFor(
     clientSecret: config.ENTRA_CLIENT_SECRET,
     users,
   });
+}
+
+/**
+ * system_bootstrap is one row for the whole (shared) test database, so test files that reset or claim it must not
+ * overlap: each holds this session-level advisory lock for its whole run. Returns the release function.
+ */
+export async function lockBootstrap(databaseUrl: string): Promise<() => Promise<void>> {
+  const client = new pg.Client({ connectionString: databaseUrl });
+  await client.connect();
+  await client.query("SELECT pg_advisory_lock(7071)");
+  return async () => {
+    await client.end();
+  };
 }
