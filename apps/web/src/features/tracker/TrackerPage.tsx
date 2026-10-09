@@ -10,6 +10,7 @@ import { MESSAGES } from "@/lib/messages";
 import { Jobbar } from "./Jobbar";
 import { rememberLastJob } from "./lastJob";
 import { loadFailedText, TRACKER_MESSAGES } from "./messages";
+import { SummaryPanels } from "./SummaryPanels";
 import { useJob } from "./useJob";
 
 export interface TrackerPageProps {
@@ -74,6 +75,7 @@ export function TrackerPage({ jobId }: TrackerPageProps) {
           window.print();
         }}
       />
+      <SummaryPanels job={job} />
     </>
   );
 }
