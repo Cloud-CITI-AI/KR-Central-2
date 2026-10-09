@@ -3,13 +3,10 @@
  * the sniffed content in. The slot table lives in @kr/workflow; permissions in @kr/contracts.
  */
 import type { JobCapability, UploadFields } from "@kr/contracts";
-import { getCheckpoint, findSlot, type FileKind, type SlotDefinition } from "@kr/workflow";
+import { EVIDENCE_ACCEPT, getCheckpoint, findSlot, type FileKind, type SlotDefinition } from "@kr/workflow";
 import type { ClassifyResult, ContentClassification } from "@kr/storage";
 import type { z } from "zod";
 import { BadRequestError, UnsupportedMediaTypeError } from "../../../platform/errors.js";
-
-/** Condition evidence takes the same kinds as the generic document folders (photos, stat decs, approvals). */
-export const EVIDENCE_ACCEPT: readonly FileKind[] = ["pdf", "image", "video", "text"];
 
 export type UploadTarget =
   | {

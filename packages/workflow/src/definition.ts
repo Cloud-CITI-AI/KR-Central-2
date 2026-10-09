@@ -6,9 +6,14 @@
  * Changing a key is a data migration. Adding a checkpoint needs a migration that seeds it and back-fills
  * `checkpoint_states` for existing jobs.
  */
-import type { CheckpointDefinition, SlotDefinition, StageDefinition, StageKey } from "./types.js";
+import type { CheckpointDefinition, FileKind, SlotDefinition, StageDefinition, StageKey } from "./types.js";
 
 const GENERIC_ACCEPT = ["pdf", "image", "video", "text"] as const;
+/**
+ * The kinds condition evidence takes (PRODUCT_SPEC §5.6): the same as the generic document folders (photos, stat decs, approvals).
+ * The API checks it on upload and the web picker reads it, so the two cannot drift.
+ */
+export const EVIDENCE_ACCEPT: readonly FileKind[] = GENERIC_ACCEPT;
 const PDF_ONLY = ["pdf"] as const;
 const PDF_OR_IMAGE = ["pdf", "image"] as const;
 

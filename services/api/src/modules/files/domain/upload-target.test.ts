@@ -1,6 +1,7 @@
+import { EVIDENCE_ACCEPT } from "@kr/workflow";
 import { describe, expect, it } from "vitest";
 import { BadRequestError, UnsupportedMediaTypeError } from "../../../platform/errors.js";
-import { EVIDENCE_ACCEPT, assertAcceptedContent, describeAccept, resolveUploadTarget } from "./upload-target.js";
+import { assertAcceptedContent, describeAccept, resolveUploadTarget } from "./upload-target.js";
 
 const COND = "5c1f6a0e-3b1d-4c8e-9a52-1d2f3a4b5c6d";
 

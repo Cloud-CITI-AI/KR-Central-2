@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { CHECKPOINTS, STAGES, findSlot, getCheckpoint, isCheckpointKey, slotsOf } from "./definition.js";
+import {
+  CHECKPOINTS,
+  EVIDENCE_ACCEPT,
+  STAGES,
+  findSlot,
+  getCheckpoint,
+  isCheckpointKey,
+  slotsOf,
+} from "./definition.js";
 
 describe("workflow definition", () => {
   it("has 10 stages and 46 checkpoints, matching the prototype", () => {
@@ -74,5 +82,10 @@ describe("workflow definition", () => {
     expect(isCheckpointKey("i13_2")).toBe(true);
     expect(isCheckpointKey("i99_9")).toBe(false);
     expect(() => getCheckpoint("nope")).toThrow(RangeError);
+  });
+
+  it("takes the same kinds for condition evidence as for the generic document folders", () => {
+    expect(EVIDENCE_ACCEPT).toEqual(["pdf", "image", "video", "text"]);
+    expect(findSlot("i13_notif", "documents")?.accept).toEqual(EVIDENCE_ACCEPT);
   });
 });
