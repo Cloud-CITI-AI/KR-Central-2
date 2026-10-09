@@ -21,6 +21,19 @@ that no alert points at. Start from the alert name; if you were paged, open the 
 | backup-failed            | page     | SLO-6     | [backup-failed](backup-failed.md)                       |
 | db-connections-saturated | page     | SLO-1     | [db-connections-saturated](db-connections-saturated.md) |
 
+## Procedures
+
+| Runbook                                         | Use it to                                                                         |
+| ----------------------------------------------- | --------------------------------------------------------------------------------- |
+| [deploy-and-rollback](deploy-and-rollback.md)   | Approve a release, read a failed deploy, roll back, freeze deploys, kill a flag   |
+| [database-migrations](database-migrations.md)   | Write and release a migration, recover from a failed or bad one                   |
+| [backup-and-restore](backup-and-restore.md)     | Read and verify backups, restore, run the quarterly restore drill                 |
+| [database](database.md)                         | Database roles, bootstrap, who may run what                                       |
+| [secrets-rotation](secrets-rotation.md)         | Rotate every secret, invalidate sessions                                          |
+| [incident-response](incident-response.md)       | Severity, roles, containment switches, communication, privacy obligations, review |
+| [first-admin-recovery](first-admin-recovery.md) | Choose or recover the administrator                                               |
+| [unarchive-job](unarchive-job.md)               | Bring an archived job back (operator SQL)                                         |
+
 ## How every runbook is laid out
 
 Symptoms (what users and the alert show), Dashboards (the numbered dashboards of `dashboards.md`), Diagnose
