@@ -1,10 +1,11 @@
+import { PROBLEM_TYPES } from "@kr/contracts";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { syntheticJob } from "@/features/tracker/test-fixtures";
 import { expectNoAxeViolations } from "@/test/axe";
-import { handlerFor } from "@/test/msw/handlers";
+import { handlerFor, mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { checkpointOf, renderCard, withCheckpoint } from "./test-utils";
 
@@ -78,5 +79,93 @@ describe("approval panel: recording a decision", () => {
     expect(bodies).toEqual([{ value: "accepted", comment: "Looks fine" }]);
     expect(screen.getByRole("button", { name: "Not completed" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("accepts a quote: Confirm acceptance, then “Client accepted the quote”", async () => {
+    const job = syntheticJob();
+    const { served } = renderCard(job, "i6_1a");
+    answerDecision(job, "i6_1a", served);
+    await userEvent.click(screen.getByRole("button", { name: "Accept quote" }));
+    expect(screen.getByRole("textbox", { name: "Accept the quote" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Confirm acceptance" }));
+    expect(await screen.findByText("Client accepted the quote")).toBeInTheDocument();
+  });
+
+  it("will not decline without a reason: the error is shown, focus returns to the box and nothing is sent", async () => {
+    const job = syntheticJob();
+    const { served } = renderCard(job, "i1_0p");
+    const bodies = answerDecision(job, "i1_0p", served);
+    await userEvent.click(screen.getByRole("button", { name: "Decline fee proposal" }));
+    const box = screen.getByRole("textbox", { name: "Decline the fee proposal" });
+    expect(box).toHaveAttribute("placeholder", "Reason for declining (required)");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm decline" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Add a comment explaining why the fee proposal is declined.");
+    expect(box).toHaveFocus();
+    expect(box).toBeInvalid();
+    await userEvent.type(box, "   ");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm decline" }));
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(bodies).toEqual([]);
+  });
+
+  it("names the noun of the item in the error (the prototype always said quote)", async () => {
+    renderCard(syntheticJob(), "i6_1a");
+    await userEvent.click(screen.getByRole("button", { name: "Decline quote" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm decline" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Add a comment explaining why the quote is declined.");
+  });
+
+  it("declines with a reason and shows the red result with the comment in quotes", async () => {
+    const job = syntheticJob();
+    const { served } = renderCard(job, "i1_0p");
+    const bodies = answerDecision(job, "i1_0p", served);
+    await userEvent.click(screen.getByRole("button", { name: "Decline fee proposal" }));
+    await userEvent.type(screen.getByRole("textbox"), "Too expensive");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm decline" }));
+    expect(await screen.findByText("Client declined the fee proposal")).toBeInTheDocument();
+    expect(screen.getByText("“Too expensive”")).toBeInTheDocument();
+    expect(bodies).toEqual([{ value: "declined", comment: "Too expensive" }]);
+    expect(screen.getByText("Client declined the fee proposal").closest("[data-v]")).toHaveAttribute(
+      "data-v",
+      "declined",
+    );
+  });
+
+  it("Change re-opens the form pre-filled with the decision and its comment", async () => {
+    const job = decided(syntheticJob(), "i1_0p", "declined", "Too expensive");
+    renderCard(job, "i1_0p");
+    await userEvent.click(screen.getByRole("button", { name: "Change" }));
+    expect(screen.getByRole("textbox", { name: "Decline the fee proposal" })).toHaveValue("Too expensive");
+    expect(screen.getByRole("button", { name: "Confirm decline" })).toBeInTheDocument();
+  });
+
+  it("shows the result without Change to someone who cannot record decisions", () => {
+    renderCard(decided(syntheticJob({ role: "external", grantRole: "architect" }), "i6_1a", "accepted"), "i6_1a");
+    expect(screen.getByText("Client accepted the quote")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change" })).not.toBeInTheDocument();
+  });
+
+  it("shows the server's reason when it refuses the decline with a 400, in the form", async () => {
+    renderCard(syntheticJob(), "i1_0p");
+    server.use(
+      mockProblem("recordDecision", 400, PROBLEM_TYPES.validation, {
+        errors: [{ path: "comment", message: "Add a comment explaining why it is declined." }],
+      }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Decline fee proposal" }));
+    await userEvent.type(screen.getByRole("textbox"), "No");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm decline" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Add a comment explaining why it is declined.");
+    expect(screen.queryByText(/couldn't be saved/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the form open and shows the save-failed banner when the save fails", async () => {
+    renderCard(syntheticJob(), "i1_0p");
+    server.use(mockProblem("recordDecision", 500));
+    await userEvent.click(screen.getByRole("button", { name: "Approve fee proposal" }));
+    await userEvent.type(screen.getByRole("textbox"), "ok");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm approval" }));
+    expect(await screen.findByText(/A change couldn't be saved/)).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toHaveValue("ok");
   });
 });
