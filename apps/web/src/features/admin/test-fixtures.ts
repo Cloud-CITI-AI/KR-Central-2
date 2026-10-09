@@ -1,6 +1,6 @@
 /** Synthetic data only (TD-1). */
 import { faker } from "@faker-js/faker";
-import { User } from "@kr/contracts";
+import { AuditEvent, User } from "@kr/contracts";
 
 export function syntheticUser(overrides: Partial<User> = {}): User {
   return User.parse({
@@ -12,6 +12,22 @@ export function syntheticUser(overrides: Partial<User> = {}): User {
     status: "active",
     lastSignInAt: "2026-09-28T03:50:56.543Z",
     createdAt: "2026-06-01T00:00:00.000Z",
+    ...overrides,
+  });
+}
+
+export function syntheticAuditEvent(overrides: Record<string, unknown> = {}) {
+  return AuditEvent.parse({
+    id: faker.string.numeric(8),
+    occurredAt: "2026-09-28T03:50:56.000Z",
+    actor: { id: faker.string.uuid(), displayName: faker.person.fullName() },
+    actorType: "user",
+    action: "checkpoint.status_changed",
+    jobId: faker.string.uuid(),
+    entityType: "checkpoint",
+    entityId: faker.string.uuid(),
+    requestId: faker.string.alphanumeric(12),
+    changes: { status: { from: "not_completed", to: "completed" } },
     ...overrides,
   });
 }

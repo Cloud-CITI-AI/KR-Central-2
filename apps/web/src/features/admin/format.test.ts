@@ -11,4 +11,8 @@ describe("formatPerthDateTime", () => {
     expect(formatPerthDateTime("2026-12-31T16:00:00.000Z")).toBe("1 Jan 2027, 12:00 am");
     expect(formatPerthDateTime("2026-09-28T04:00:00.000Z")).toBe("28 Sep 2026, 12:00 pm");
   });
+
+  it("adds seconds when asked", () => {
+    expect(formatPerthDateTime("2026-09-28T03:50:56.543Z", { seconds: true })).toBe("28 Sep 2026, 11:50:56 am");
+  });
 });

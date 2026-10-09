@@ -80,3 +80,26 @@
     text-transform: uppercase;
   }
 }
+.mono {
+  font-family: Consolas, ui-monospace, monospace;
+  font-size: 12.5px;
+}
+.empty {
+  color: var(--ink-3);
+  font-style: italic;
+}
+.changes {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.field {
+  font-weight: 500;
+}
+.value {
+  padding: 0 4px;
+  border-radius: var(--radius);
+  background: var(--field);
+}

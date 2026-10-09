@@ -13,10 +13,10 @@ export const ROLE_LABELS: Record<GlobalRole, string> = {
 const PERTH_OFFSET_MS = -Date.parse(`1970-01-01T00:00:00${BUSINESS_UTC_OFFSET}`);
 const pad = (n: number): string => String(n).padStart(2, "0");
 
-/** "28 Sep 2026, 11:50 am" in Perth time (§12). Deterministic, no ICU. */
-export function formatPerthDateTime(isoInstant: string): string {
+/** "28 Sep 2026, 11:50 am" in Perth time (§12); `seconds` adds ":12" for the audit trail. Deterministic, no ICU. */
+export function formatPerthDateTime(isoInstant: string, { seconds = false } = {}): string {
   const perth = new Date(new Date(isoInstant).getTime() + PERTH_OFFSET_MS);
   const hour = perth.getUTCHours();
-  const clock = `${hour % 12 === 0 ? 12 : hour % 12}:${pad(perth.getUTCMinutes())}`;
+  const clock = `${hour % 12 === 0 ? 12 : hour % 12}:${pad(perth.getUTCMinutes())}${seconds ? `:${pad(perth.getUTCSeconds())}` : ""}`;
   return `${formatInstantShort(isoInstant)}, ${clock} ${hour < 12 ? "am" : "pm"}`;
 }
