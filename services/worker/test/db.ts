@@ -39,3 +39,17 @@ export async function until<T>(read: () => Promise<T>, done: (value: T) => boole
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
 }
+
+export async function insertUser(db: Db): Promise<string> {
+  const row = await db
+    .insertInto("users")
+    .values({
+      entra_tenant_id: randomUUID(),
+      entra_object_id: randomUUID(),
+      display_name: "Test User",
+      is_guest: false,
+    })
+    .returning("id")
+    .executeTakeFirstOrThrow();
+  return row.id;
+}
