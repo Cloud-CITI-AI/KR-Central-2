@@ -1,0 +1,53 @@
+{
+  "name": "@kr/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Postgres schema: SQL migrations, migration runner, Kysely table types, test database helpers.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@kr/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./migrations/*": "./migrations/*",
+    "./testing": {
+      "@kr/source": "./src/testing.ts",
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    }
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "sql"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --max-warnings=0 && pnpm db:migration:lint",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "format": "prettier --write .",
+    "test:unit": "vitest run --project unit --coverage --passWithNoTests",
+    "test:integration": "vitest run --project integration --passWithNoTests",
+    "test:contract": "echo 'no contract layer in this package'",
+    "test:e2e": "echo 'no e2e layer in this package'",
+    "test:mutation": "stryker run",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build",
+    "db:migration:lint": "squawk -c .squawk.toml --exclude-path=0001_initial_schema.sql migrations/*.sql && squawk -c .squawk.toml --exclude=prefer-robust-stmts,prefer-bigint-over-int,prefer-bigint-over-smallint,prefer-text-field,adding-foreign-key-constraint migrations/0001_initial_schema.sql",
+    "db:migrate": "node dist/migrate-cli.js",
+    "db:migration:new": "node scripts/new-migration.mjs"
+  },
+  "dependencies": {
+    "kysely": "0.29.6",
+    "pg": "8.23.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "12.2.0",
+    "@types/pg": "8.23.1",
+    "squawk-cli": "2.67.0",
+    "testcontainers": "12.2.0",
+    "@kr/workflow": "workspace:*"
+  }
+}

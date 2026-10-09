@@ -1,0 +1,9 @@
+# Squawk migration linter (playbook DB-3 / security.yml). Rationale for each exclusion: docs/spec/DATA_MODEL.md §8.
+pg_version = "17.0"
+assume_in_transaction = true
+excluded_rules = [
+  "prefer-robust-stmts",          # the runner applies each file exactly once inside a transaction and records it
+  "prefer-bigint-over-int",       # integer columns are versions/counters with small domains
+  "prefer-bigint-over-smallint",  # checkpoint sort order (46 rows)
+  "prefer-text-field",            # rate_limits.key varchar(255) is the rate-limiter-flexible table contract
+]
