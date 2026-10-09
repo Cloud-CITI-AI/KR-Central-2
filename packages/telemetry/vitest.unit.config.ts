@@ -9,7 +9,8 @@ export default defineConfig({
   ssr: { resolve: { conditions, externalConditions: conditions } },
   test: {
     include: ["src/**/*.test.ts"],
-    exclude: ["src/**/*.int.test.ts", "src/**/*.contract.test.ts", "**/node_modules/**"],
+    // docs.test.ts reads ../../docs, which is outside the Stryker sandbox, and tests no mutated code.
+    exclude: ["src/**/*.int.test.ts", "src/**/*.contract.test.ts", "src/docs.test.ts", "**/node_modules/**"],
     environment: "node",
   },
 });
