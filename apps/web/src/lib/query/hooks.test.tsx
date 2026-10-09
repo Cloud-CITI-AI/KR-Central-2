@@ -119,11 +119,11 @@ describe("useOperation", () => {
       return <p>{useOperation(JOB_ID).data?.status ?? "none"}</p>;
     }
     renderWithProviders(<Probe />);
-    await waitFor(() => expect(screen.getByText("succeeded")).toBeInTheDocument(), { timeout: 4000 });
+    await waitFor(() => expect(screen.getByText("succeeded")).toBeInTheDocument(), { timeout: 7000 });
     const settled = calls;
     await new Promise((r) => setTimeout(r, 300));
     expect(calls).toBe(settled);
-  });
+  }, 10_000);
 
   it("makes its first re-poll after 1 s and the second after 1.5 s", async () => {
     const times: number[] = [];

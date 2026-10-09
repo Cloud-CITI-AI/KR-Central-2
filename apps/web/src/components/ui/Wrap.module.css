@@ -1,0 +1,9 @@
+.wrap {
+  max-width: var(--page-max-width);
+  margin: 0 auto;
+  padding-inline: var(--page-gutter);
+}
+/* pages without their own top bar (sign-in, errors): breathing room under the hero and above the page end */
+.spaced {
+  padding-block: 18px 36px;
+}

@@ -1,0 +1,28 @@
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.fee {
+  background: var(--fee-soft);
+  color: var(--fee);
+}
+.krpay {
+  background: var(--item-soft);
+  color: var(--item);
+}
+.claim {
+  background: var(--claim-soft);
+  color: var(--claim);
+}
+.trig {
+  background: var(--surface);
+  color: var(--ink-2);
+  font-weight: 500;
+  letter-spacing: 0;
+}
