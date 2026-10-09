@@ -13,6 +13,7 @@ import { registerHealthRoutes } from "./platform/health.js";
 import type { ApiModule, ModuleDeps } from "./platform/module.js";
 import { trackOperations } from "./platform/routes.js";
 import { registerRateLimits } from "./platform/rate-limit.js";
+import { registerSecurityHeaders } from "./platform/security-headers.js";
 import { registerSessionAuth } from "./platform/session-auth.js";
 
 export { registeredOperations, unregisteredOperations } from "./platform/routes.js";
@@ -44,6 +45,8 @@ export async function buildApp(deps: ModuleDeps, opts: BuildAppOptions = {}): Pr
     genReqId: requestIdFor,
     // One trusted hop: the web BFF, which forwards the edge's X-Forwarded-For unchanged (ADR-0005).
     trustProxy: trustHops(deps.config.TRUST_PROXY_HOPS),
+    // JSON bodies only (100 KB by default); uploads stream through their own limits (UPLOAD_MAX_BYTES).
+    bodyLimit: deps.config.JSON_BODY_LIMIT_BYTES,
   });
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -52,6 +55,7 @@ export async function buildApp(deps: ModuleDeps, opts: BuildAppOptions = {}): Pr
   app.decorateRequest("auth", null);
   trackOperations(app);
   registerErrorHandling(app);
+  await registerSecurityHeaders(app);
 
   app.addHook("onSend", (request, reply, payload, done) => {
     void reply.header("x-request-id", request.id);
