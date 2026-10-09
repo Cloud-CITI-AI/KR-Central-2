@@ -4,7 +4,7 @@
  */
 import { Faker, en, en_AU } from "@faker-js/faker";
 import type { Agency } from "@kr/workflow";
-import { PDFDocument, PDFHexString, StandardFonts } from "pdf-lib";
+import { PDFDocument, PDFHexString, PDFName, PDFString, StandardFonts } from "pdf-lib";
 
 export function syntheticFaker(seed = 20260316): Faker {
   const f = new Faker({ locale: [en_AU, en] });
@@ -84,6 +84,10 @@ export interface PdfSpec {
   readonly pages: readonly (readonly string[])[];
   /** Draw "Page n of N" and "OFFICIAL" at the foot of every page, like a WAPC letter. */
   readonly footers?: boolean;
+  /** Text of a FreeText annotation (a digital stamp) on page 1. */
+  readonly stamp?: string;
+  /** Page size in points (default A4, 595 x 842). */
+  readonly pageSize?: readonly [number, number];
 }
 
 /** A text PDF (A4, Helvetica): each string is one line, drawn top to bottom; "" leaves a gap. */
@@ -91,13 +95,24 @@ export async function buildPdf(spec: PdfSpec): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   spec.pages.forEach((lines, p) => {
-    const page = doc.addPage([595, 842]);
+    const page = doc.addPage(spec.pageSize ? [...spec.pageSize] : [595, 842]);
     lines.forEach((line, i) => {
       page.drawText(line, { x: 50, y: 780 - i * 22, size: 11, font });
     });
     if (spec.footers) {
       page.drawText(`Page ${p + 1} of ${spec.pages.length}`, { x: 50, y: 40, size: 9, font });
       page.drawText("OFFICIAL", { x: 250, y: 25, size: 9, font });
+    }
+    if (p === 0 && spec.stamp) {
+      const annotation = doc.context.obj({
+        Type: "Annot",
+        Subtype: "FreeText",
+        Rect: [380, 700, 560, 740],
+        Contents: PDFString.of(spec.stamp),
+        DA: PDFString.of("/Helv 10 Tf 0 g"),
+        F: 4,
+      });
+      page.node.set(PDFName.of("Annots"), doc.context.obj([doc.context.register(annotation)]));
     }
   });
   return doc.save();
