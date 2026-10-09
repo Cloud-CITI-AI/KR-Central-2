@@ -8,6 +8,7 @@ import { CheckpointControls } from "./CheckpointControls";
 import { CheckpointTags } from "./CheckpointTags";
 import { CHECKPOINT_MESSAGES } from "./messages";
 import { PanelBox } from "./PanelBox";
+import { PhotosPanel } from "./PhotosPanel";
 import { SlotFolderPanel } from "./SlotFolderPanel";
 import { SlotsPanel } from "./SlotsPanel";
 import { SurveyPanel } from "./SurveyPanel";
@@ -29,6 +30,11 @@ function PanelView({ panel, job, checkpoint }: PanelViewProps) {
     case "conditions":
       return <ConditionsPanel job={job} checkpoint={checkpoint} />;
     case "documents":
+      return panel.variant === "photos" ? (
+        <PhotosPanel job={job} checkpoint={checkpoint} panel={panel} />
+      ) : (
+        <SlotFolderPanel job={job} checkpoint={checkpoint} slot={panel.slot} />
+      );
     case "clearance":
       return <SlotFolderPanel job={job} checkpoint={checkpoint} slot={panel.slot} />;
     case "slots":

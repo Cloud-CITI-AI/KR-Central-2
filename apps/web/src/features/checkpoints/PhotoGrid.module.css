@@ -1,0 +1,26 @@
+/* prototype .thumbs, .thumb */
+.thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+}
+.thumb {
+  position: relative;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field);
+  cursor: pointer;
+}
+.thumb:hover {
+  border-color: var(--accent);
+}
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
