@@ -1,0 +1,45 @@
+.dialog {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0;
+  background: var(--surface);
+  color: var(--ink);
+  width: min(960px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+}
+.dialog::backdrop {
+  background: var(--backdrop);
+}
+.small {
+  width: min(460px, calc(100vw - 32px));
+}
+.head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: inherit;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.body {
+  padding: 14px;
+  background: var(--field);
+  overflow: auto;
+}
+/* document viewer body (WP-17): fixed height, content centred, no padding */
+.viewer .body {
+  height: min(72vh, 820px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
