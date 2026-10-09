@@ -1,0 +1,19 @@
+/* prototype .jobbar */
+.jobbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 18px;
+}
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--on-bg);
+}
+.jobbar .picker {
+  flex: 1 1 260px;
+  width: auto;
+  max-width: 100%;
+}

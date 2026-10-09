@@ -1,14 +1,14 @@
 import { PROBLEM_TYPES } from "@kr/contracts";
 import { screen, waitFor } from "@testing-library/react";
 import { Component, type ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoAxeViolations } from "@/test/axe";
 import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { HttpResponse } from "msw";
 import { TrackerPage } from "./TrackerPage";
 import { LAST_JOB_KEY } from "./lastJob";
-import { syntheticJob } from "./test-fixtures";
+import { jobPage, syntheticJob } from "./test-fixtures";
 import { NOT_FOUND, renderTracker } from "./test-utils";
 
 vi.mock("next/navigation", async () => (await import("./test-utils")).navigationMock);
@@ -27,14 +27,17 @@ beforeEach(() => {
   localStorage.clear();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
+afterEach(() => {
+  localStorage.clear();
+});
 
 describe("TrackerPage", () => {
   it("shows a status while loading, then the jobbar, and remembers the job for the dashboard's back link", async () => {
     const job = syntheticJob();
-    server.use(mockApi("getJob", job));
+    server.use(mockApi("getJob", job), mockApi("listJobs", jobPage([])));
     const { container } = renderTracker(<TrackerPage jobId={job.id} />);
     expect(screen.getByRole("status")).toHaveTextContent("Loading job…");
-    expect(await screen.findByRole("heading", { name: job.jobNumber })).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Job" })).toBeInTheDocument();
     expect(localStorage.getItem(LAST_JOB_KEY)).toBe(job.id);
     await expectNoAxeViolations(container);
   });
@@ -44,9 +47,9 @@ describe("TrackerPage", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("blocked");
     });
-    server.use(mockApi("getJob", job));
+    server.use(mockApi("getJob", job), mockApi("listJobs", jobPage([])));
     renderTracker(<TrackerPage jobId={job.id} />);
-    expect(await screen.findByRole("heading", { name: job.jobNumber })).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Job" })).toBeInTheDocument();
   });
 
   it("renders the not-found page when the API answers 404 (also a job the person may not see)", async () => {
@@ -59,21 +62,27 @@ describe("TrackerPage", () => {
     expect(await screen.findByText(`caught ${NOT_FOUND}`)).toBeInTheDocument();
   });
 
-  it("shows the view-only banner to architects only, not to staff or a client who can decide and mark paid (§5.1)", async () => {
+  it("shows the view-only banner to architects and none to staff (§5.1)", async () => {
     const architect = syntheticJob({ role: "external", grantRole: "architect" });
-    server.use(mockApi("getJob", architect));
+    server.use(mockApi("getJob", architect), mockApi("listJobs", jobPage([])));
     const view = renderTracker(<TrackerPage jobId={architect.id} />);
     expect(
       await screen.findByText("You have view-only access to this tracker, so changes can't be saved."),
     ).toBeInTheDocument();
     view.unmount();
-    for (const job of [syntheticJob(), syntheticJob({ role: "external", grantRole: "client" })]) {
-      server.use(mockApi("getJob", job));
-      const { unmount } = renderTracker(<TrackerPage jobId={job.id} />);
-      await screen.findByRole("heading", { name: job.jobNumber });
-      expect(screen.queryByText(/view-only/)).toBeNull();
-      unmount();
-    }
+    const staff = syntheticJob();
+    server.use(mockApi("getJob", staff));
+    renderTracker(<TrackerPage jobId={staff.id} />);
+    await screen.findByRole("combobox", { name: "Job" });
+    expect(screen.queryByText(/view-only/)).toBeNull();
+  });
+
+  it("does not call a client with decision and paid rights view-only", async () => {
+    const client = syntheticJob({ role: "external", grantRole: "client" });
+    server.use(mockApi("getJob", client), mockApi("listJobs", jobPage([])));
+    renderTracker(<TrackerPage jobId={client.id} />);
+    await screen.findByRole("combobox", { name: "Job" });
+    expect(screen.queryByText(/view-only/)).toBeNull();
   });
 
   it("shows a banner with the request id when the job cannot be loaded", async () => {
@@ -96,7 +105,7 @@ describe("TrackerPage", () => {
     server.use(mockProblem("getJob", 500, PROBLEM_TYPES.internal));
     const { queryClient } = renderTracker(<TrackerPage jobId={job.id} />);
     await screen.findByText(/couldn't be loaded/);
-    server.use(mockApi("getJob", job));
+    server.use(mockApi("getJob", job), mockApi("listJobs", jobPage([])));
     await queryClient.refetchQueries();
     await waitFor(() => {
       expect(screen.queryByText(/couldn't be loaded/)).toBeNull();

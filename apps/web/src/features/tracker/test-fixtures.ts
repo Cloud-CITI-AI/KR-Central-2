@@ -1,6 +1,6 @@
 /** Synthetic jobs for tracker tests (TD-1: nothing here comes from the prototype's real job). */
 import { faker } from "@faker-js/faker";
-import { JobDetail, jobCapabilitiesFor, type GlobalRole, type GrantRole } from "@kr/contracts";
+import { JobCard, JobDetail, jobCapabilitiesFor, type GlobalRole, type GrantRole } from "@kr/contracts";
 import {
   CHECKPOINTS,
   STAGES,
@@ -80,3 +80,25 @@ export function syntheticJob({
     ...fields,
   });
 }
+
+/** A dashboard/picker card for `job` (what `listJobs` answers). */
+export function syntheticCard(
+  job: Pick<JobDetail, "id" | "jobNumber" | "address" | "clientName" | "subdivisionType">,
+  isComplete = false,
+) {
+  return JobCard.parse({
+    id: job.id,
+    jobNumber: job.jobNumber,
+    address: job.address,
+    clientName: job.clientName,
+    subdivisionType: job.subdivisionType,
+    isComplete,
+    progress: { completed: 0, notCompleted: 46, notRequired: 0, total: 46, percent: 0 },
+    nextActions: [],
+    alerts: [],
+    isWaitingOnClient: false,
+    updatedAt: UPDATED,
+  });
+}
+
+export const jobPage = (items: readonly unknown[], nextCursor: string | null = null) => ({ items, nextCursor });

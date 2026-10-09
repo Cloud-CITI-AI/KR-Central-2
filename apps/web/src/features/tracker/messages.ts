@@ -8,4 +8,7 @@ export function loadFailedText(requestId: string | undefined): string {
   return requestId ? `${LOAD_FAILED} (Request ID: ${requestId})` : LOAD_FAILED;
 }
 
-export const TRACKER_MESSAGES = { offline: OFFLINE } as const;
+export const TRACKER_MESSAGES = {
+  offline: OFFLINE,
+  saveAsPdfTitle: "Saves exactly what is showing – use Expand all first to include everything",
+} as const;
