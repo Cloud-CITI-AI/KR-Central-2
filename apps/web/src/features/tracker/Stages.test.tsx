@@ -20,10 +20,12 @@ function show(job = syntheticJob()) {
   server.use(mockApi("listJobs", jobPage([])));
   return renderTracker(<TrackerBody job={job} />);
 }
+/** The stage bar: the one button of the section that controls its body (open cards hold buttons of their own). */
 const bar = (stage: string) => {
   const section = document.getElementById(stage);
-  if (!section) throw new Error(`No stage ${stage}`);
-  return within(section).getByRole("button");
+  const button = section?.querySelector<HTMLButtonElement>("button[aria-controls]");
+  if (!button) throw new Error(`No stage ${stage}`);
+  return button;
 };
 
 describe("Stages", () => {
