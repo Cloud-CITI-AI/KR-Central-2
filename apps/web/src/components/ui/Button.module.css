@@ -1,0 +1,73 @@
+.btn {
+  display: inline-block;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 7px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  text-align: center;
+}
+.btn:hover {
+  border-color: var(--ink-3);
+}
+/*
+ * Primary = the prototype's accent button (accent bg, upper-case, 1.5px tracking), adjusted for WCAG AA (§12, not
+ * overridable): white on #d65614 is 4.03:1 and on #e8743a 3.0:1, so light mode uses the darker accent-hover
+ * (#c04a10, 4.96:1) and dark mode keeps the accent with the dark on-status text (6.1:1).
+ */
+.primary {
+  --primary-bg: var(--accent-hover);
+  --primary-bg-hover: #a8400d;
+  --primary-ink: #fff;
+  background: var(--primary-bg);
+  border-color: var(--primary-bg);
+  color: var(--primary-ink);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 500;
+}
+.primary:hover {
+  background: var(--primary-bg-hover);
+  border-color: var(--primary-bg-hover);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .primary {
+    --primary-bg: var(--accent);
+    --primary-bg-hover: #f08a54;
+    --primary-ink: var(--on-status);
+  }
+}
+:root[data-theme="dark"] .primary {
+  --primary-bg: var(--accent);
+  --primary-bg-hover: #f08a54;
+  --primary-ink: var(--on-status);
+}
+.small {
+  padding: 4px 9px;
+  font-size: 12.5px;
+}
+/* white text on the hero photo (theme control, user menu: new UI, same small-button shape) */
+.photo {
+  background: rgba(20, 22, 24, 0.4);
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #fff;
+}
+.photo:hover {
+  border-color: #fff;
+}
+.photo[aria-pressed="true"] {
+  background: #fff;
+  border-color: #fff;
+  color: #141618;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media print {
+  .btn {
+    display: none;
+  }
+}

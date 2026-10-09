@@ -9,8 +9,8 @@ export interface BannerMessage {
 export interface BannerApi {
   readonly banners: readonly BannerMessage[];
   /** Show (or replace, by id) a banner under the header. */
-  show(id: string, text: string): void;
-  dismiss(id: string): void;
+  readonly show: (id: string, text: string) => void;
+  readonly dismiss: (id: string) => void;
 }
 
 const BannerContext = createContext<BannerApi | null>(null);
