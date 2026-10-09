@@ -50,6 +50,7 @@ CREATE TABLE sessions (
   csrf_token           text NOT NULL CHECK (length(csrf_token) BETWEEN 32 AND 128),
   auth_time            timestamptz NOT NULL,
   amr                  text[] NOT NULL DEFAULT '{}',
+  acrs                 text[] NOT NULL DEFAULT '{}',   -- Conditional Access authentication contexts (MFA evidence option)
   user_agent           text CHECK (user_agent IS NULL OR length(user_agent) <= 256),
   created_at           timestamptz NOT NULL DEFAULT now(),
   last_seen_at         timestamptz NOT NULL DEFAULT now(),
@@ -67,6 +68,9 @@ CREATE TABLE auth_flows (
   nonce          text NOT NULL,
   code_verifier  text NOT NULL,
   return_to      text NOT NULL CHECK (return_to LIKE '/%' AND return_to NOT LIKE '//%' AND length(return_to) <= 512),
+  -- SHA-256 of the random value in the __Host-kr_auth cookie set by startLogin: completeLogin requires the same
+  -- browser (login-CSRF / session-swap protection, ADR-0002).
+  browser_binding_hash bytea NOT NULL CHECK (length(browser_binding_hash) = 32),
   created_at     timestamptz NOT NULL DEFAULT now(),
   expires_at     timestamptz NOT NULL
 );
@@ -136,7 +140,8 @@ INSERT INTO checkpoint_definitions (key, display_number, stage_key, sort_order, 
 -- ---------------------------------------------------------------------------------------------- jobs
 CREATE TABLE jobs (
   id                         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_number                 citext NOT NULL CHECK (length(job_number) BETWEEN 1 AND 32),
+  -- R15: 1–32 characters of letters, digits, space, '-', '.', '/'.
+  job_number                 citext NOT NULL CHECK (job_number::text ~ '^[A-Za-z0-9 ./-]{1,32}$'),
   address                    text NOT NULL CHECK (length(address) BETWEEN 1 AND 200),
   client_name                text CHECK (client_name IS NULL OR length(client_name) BETWEEN 1 AND 200),
   subdivision_type           text CHECK (subdivision_type IN ('Survey-Strata', 'Built Strata', 'Amalgamation', 'Freehold',
@@ -204,7 +209,9 @@ CREATE TABLE conditions (
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
   updated_by        uuid REFERENCES users (id),
-  version           integer NOT NULL DEFAULT 1 CHECK (version > 0)
+  version           integer NOT NULL DEFAULT 1 CHECK (version > 0),
+  -- Target of the composite FK from files: evidence can only attach to a condition of the same job.
+  CONSTRAINT conditions_job_id_id_key UNIQUE (job_id, id)
 );
 CREATE UNIQUE INDEX conditions_job_number_current_key ON conditions (job_id, condition_number) WHERE superseded_at IS NULL;
 CREATE TRIGGER conditions_set_updated_at BEFORE UPDATE ON conditions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -217,7 +224,7 @@ CREATE TABLE files (
   job_id          uuid NOT NULL REFERENCES jobs (id) ON DELETE CASCADE,
   checkpoint_key  text,
   slot            text CHECK (slot IS NULL OR slot ~ '^[a-z_]{1,40}$'),
-  condition_id    uuid REFERENCES conditions (id),
+  condition_id    uuid,
   storage_key     text NOT NULL UNIQUE,
   original_name   text NOT NULL CHECK (length(original_name) BETWEEN 1 AND 255),
   kind            text NOT NULL CHECK (kind IN ('pdf', 'image', 'video', 'text', 'dwg', 'email')),
@@ -227,6 +234,7 @@ CREATE TABLE files (
   scan_status     text NOT NULL DEFAULT 'pending' CHECK (scan_status IN ('pending', 'clean', 'infected', 'error', 'skipped')),
   scan_detail     text CHECK (scan_detail IS NULL OR length(scan_detail) <= 500),
   scanned_at      timestamptz,
+  scan_attempts   integer NOT NULL DEFAULT 0 CHECK (scan_attempts >= 0),   -- retries of 'error' scans (SCAN_ERROR_MAX_RETRIES)
   uploaded_by     uuid REFERENCES users (id),
   uploaded_at     timestamptz NOT NULL DEFAULT now(),
   deleted_at      timestamptz,
@@ -236,15 +244,20 @@ CREATE TABLE files (
     (checkpoint_key IS NOT NULL AND slot IS NOT NULL AND condition_id IS NULL)
     OR (checkpoint_key IS NULL AND slot IS NULL AND condition_id IS NOT NULL)
   ),
-  CONSTRAINT files_checkpoint_fk FOREIGN KEY (job_id, checkpoint_key) REFERENCES checkpoint_states (job_id, checkpoint_key) ON DELETE CASCADE
+  CONSTRAINT files_checkpoint_fk FOREIGN KEY (job_id, checkpoint_key) REFERENCES checkpoint_states (job_id, checkpoint_key) ON DELETE CASCADE,
+  -- Same-job integrity for evidence (MATCH SIMPLE: not checked when condition_id IS NULL).
+  CONSTRAINT files_condition_fk FOREIGN KEY (job_id, condition_id) REFERENCES conditions (job_id, id) ON DELETE CASCADE,
+  -- Target of the composite FKs from jobs (conformed / conditions source file must belong to the same job).
+  CONSTRAINT files_job_id_id_key UNIQUE (job_id, id)
 );
 CREATE INDEX files_job_active_idx ON files (job_id, checkpoint_key) WHERE deleted_at IS NULL;
 CREATE INDEX files_condition_idx ON files (condition_id) WHERE condition_id IS NOT NULL AND deleted_at IS NULL;
 CREATE INDEX files_scan_pending_idx ON files (uploaded_at) WHERE scan_status = 'pending' AND deleted_at IS NULL;
 CREATE INDEX files_purge_idx ON files (deleted_at) WHERE deleted_at IS NOT NULL AND purged_at IS NULL;
 
-ALTER TABLE jobs ADD CONSTRAINT jobs_conformed_file_fk FOREIGN KEY (conformed_file_id) REFERENCES files (id);
-ALTER TABLE jobs ADD CONSTRAINT jobs_conditions_source_file_fk FOREIGN KEY (conditions_source_file_id) REFERENCES files (id);
+-- Composite FKs: the referenced file must belong to the same job (MATCH SIMPLE: unchecked while the column is NULL).
+ALTER TABLE jobs ADD CONSTRAINT jobs_conformed_file_fk FOREIGN KEY (id, conformed_file_id) REFERENCES files (job_id, id);
+ALTER TABLE jobs ADD CONSTRAINT jobs_conditions_source_file_fk FOREIGN KEY (id, conditions_source_file_id) REFERENCES files (job_id, id);
 
 -- Parsed metadata for WAPC query emails (.msg / .eml / pasted text). The original stays in `files`.
 CREATE TABLE email_messages (

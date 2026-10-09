@@ -1,4 +1,4 @@
-/** `node dist/migrate-cli.js` — Railway pre-deploy command (uses MIGRATION_DATABASE_URL as tracker_migrator). */
+/** `node dist/migrate-cli.js` — operator CLI (uses MIGRATION_DATABASE_URL as tracker_migrator). In Railway, migrations run in the `migrate` service (services/ops, ADR-0007). */
 import { loadMigrateEnv } from "./config.js";
 import { migrate } from "./migrate.js";
 

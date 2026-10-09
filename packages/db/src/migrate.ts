@@ -1,6 +1,6 @@
 /**
  * Forward-only SQL migration runner (playbook DB-3, §8.3). Run by the deploy job as tracker_migrator, before the
- * new code starts (Railway pre-deploy command). Applied files are immutable: a checksum mismatch aborts.
+ * new code starts (the Railway `migrate` service, services/ops — ADR-0007). Applied files are immutable: a checksum mismatch aborts.
  *
  * - Files: migrations/NNNN_snake_name.sql, applied in lexical order, each in its own transaction.
  * - A file whose first line is "-- migrate:no-transaction" runs outside a transaction (CREATE INDEX CONCURRENTLY);

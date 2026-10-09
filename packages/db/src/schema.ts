@@ -46,6 +46,7 @@ export interface SessionsTable {
   csrf_token: string;
   auth_time: Timestamp;
   amr: ColumnType<string[], string[] | undefined, string[]>;
+  acrs: ColumnType<string[], string[] | undefined, string[]>;
   user_agent: string | null;
   created_at: GeneratedTimestamp;
   last_seen_at: GeneratedTimestamp;
@@ -60,6 +61,8 @@ export interface AuthFlowsTable {
   nonce: string;
   code_verifier: string;
   return_to: string;
+  /** SHA-256 of the __Host-kr_auth browser-binding cookie value (login CSRF protection). */
+  browser_binding_hash: Buffer;
   created_at: GeneratedTimestamp;
   expires_at: Timestamp;
 }
@@ -150,6 +153,7 @@ export interface FilesTable {
   scan_status: ColumnType<ScanStatusValue, ScanStatusValue | undefined, ScanStatusValue>;
   scan_detail: string | null;
   scanned_at: Timestamp | null;
+  scan_attempts: ColumnType<number, number | undefined, number>;
   uploaded_by: string | null;
   uploaded_at: GeneratedTimestamp;
   deleted_at: Timestamp | null;
