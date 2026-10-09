@@ -1,7 +1,7 @@
 "use client";
 import { hasCapability } from "@kr/contracts";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
@@ -10,13 +10,19 @@ import { useSession } from "@/lib/session";
 import styles from "./Admin.module.css";
 import { AuditFilters, type AuditFilterValues } from "./AuditFilters";
 import { AuditTable } from "./AuditTable";
+import { isInRange, perthDateRange } from "./perth-range";
 import { ProblemNotice } from "./ProblemNotice";
 import { useDebouncedValue } from "./useDebouncedValue";
 import { useJobLookup } from "./useJobLookup";
 
-const EMPTY: AuditFilterValues = { job: "", actorId: "", action: "" };
+const EMPTY: AuditFilterValues = { job: "", actorId: "", action: "", from: "", to: "" };
+/** Pages fetched on their own while looking back to the start of a date range (100 events each). */
+const MAX_AUTO_PAGES = 20;
+
 /**
- * `/admin/audit` (§9.2): the audit trail newest first, 100 at a time, filtered by job, user and action (all by the API).
+ * `/admin/audit` (§9.2): the audit trail newest first, 100 at a time, filtered by job, user, action (all by the API) and
+ * by a Perth date range. The contract has no date parameters, so the range is applied here: pages are fetched until the
+ * start of the range has been passed.
  */
 export function AuditPage() {
   const { capabilities } = useSession();
@@ -24,6 +30,7 @@ export function AuditPage() {
   const action = useDebouncedValue(values.action.trim());
   const { options: jobOptions, jobId } = useJobLookup(values.job);
   const jobUnresolved = values.job.trim() !== "" && jobId === undefined;
+  const range = perthDateRange(values.from, values.to);
 
   const events = useInfiniteQuery({
     queryKey: queryKeys.audit({ jobId, actorId: values.actorId, action }),
@@ -45,6 +52,7 @@ export function AuditPage() {
     enabled: !jobUnresolved,
   });
   const loaded = events.data?.pages.flatMap((page) => page.items) ?? [];
+  const shown = loaded.filter((event) => isInRange(event.occurredAt, range));
 
   const users = useQuery({
     queryKey: queryKeys.users({ picker: "audit" }),
@@ -54,6 +62,22 @@ export function AuditPage() {
   const actors = new Map<string, string>();
   for (const user of users.data?.items ?? []) actors.set(user.id, user.displayName);
   for (const { actor } of loaded) if (actor) actors.set(actor.id, actor.displayName);
+
+  const oldest = loaded.at(-1)?.occurredAt;
+  // The trail is newest first: once an event is older than the start of the range (or the range runs backwards), no
+  // older page can hold a match, so the list is complete for this range even though the API has more.
+  const rangeExhausted =
+    range.from !== undefined &&
+    ((range.to !== undefined && range.from > range.to) || (oldest !== undefined && Date.parse(oldest) < range.from));
+  // While the Job text names no job the query is off (and its key is the unfiltered one): never page it.
+  const hasMore = events.hasNextPage && !rangeExhausted && !jobUnresolved;
+  const lookingBack = range.from !== undefined || (range.to !== undefined && shown.length === 0);
+  const fetchNext = events.fetchNextPage;
+  const wantsMore =
+    hasMore && !events.isFetchingNextPage && lookingBack && (events.data?.pages.length ?? 0) < MAX_AUTO_PAGES;
+  useEffect(() => {
+    if (wantsMore) void fetchNext();
+  }, [wantsMore, fetchNext]);
 
   return (
     <section className={styles.panel} aria-label="Audit trail">
@@ -78,18 +102,18 @@ export function AuditPage() {
       )}
       {events.isSuccess &&
         !jobUnresolved &&
-        (loaded.length === 0 && !events.hasNextPage ? (
+        (shown.length === 0 && !hasMore ? (
           <EmptyState>No events match. Try different filters.</EmptyState>
         ) : (
           <>
             <p className={styles.summary} role="status">
-              {loaded.length} {loaded.length === 1 ? "event" : "events"}
-              {events.hasNextPage ? " so far" : ""}
+              {shown.length} {shown.length === 1 ? "event" : "events"}
+              {hasMore ? " so far" : ""}
             </p>
-            <AuditTable events={loaded} />
+            <AuditTable events={shown} />
           </>
         ))}
-      {events.hasNextPage && !jobUnresolved && (
+      {hasMore && (
         <Button
           className={styles.more}
           disabled={events.isFetchingNextPage}

@@ -1,5 +1,5 @@
 import { PROBLEM_TYPES } from "@kr/contracts";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
@@ -152,6 +152,108 @@ describe("AuditPage filters", () => {
     await screen.findByText("job.updated");
     expect(await options()).toEqual(["All users", "Ann Auditor"]);
     expect(listUsers).not.toHaveBeenCalled();
+  });
+});
+
+describe("AuditPage Perth date range", () => {
+  const onTheDay = syntheticAuditEvent({ id: "5", occurredAt: "2026-09-28T15:59:00.000Z", action: "on.the.day" });
+  const nextDayPerth = syntheticAuditEvent({
+    id: "4",
+    occurredAt: "2026-09-28T16:00:00.000Z",
+    action: "next.day.perth",
+  });
+  const before = syntheticAuditEvent({ id: "3", occurredAt: "2026-09-27T15:59:00.000Z", action: "before.the.day" });
+  const older = syntheticAuditEvent({ id: "2", occurredAt: "2026-09-20T00:00:00.000Z", action: "much.older" });
+
+  it("keeps the events of the Perth day and pages back until the start of the range is passed", async () => {
+    const calls = recordAudit((p) => {
+      const cursor = p.get("cursor");
+      if (!cursor) return { items: [nextDayPerth, onTheDay], nextCursor: "c2" };
+      return cursor === "c2" ? { items: [before], nextCursor: "c3" } : { items: [older], nextCursor: null };
+    });
+    renderPage();
+    await screen.findByText("next.day.perth");
+    await userEvent.type(screen.getByLabelText("From (Perth date)"), "2026-09-28");
+    await userEvent.type(screen.getByLabelText("To (Perth date)"), "2026-09-28");
+    expect(await screen.findByText("on.the.day")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText("next.day.perth")).toBeNull();
+    });
+    expect(screen.queryByText("before.the.day")).toBeNull();
+    // `before` is older than the range start, so nothing older than it is fetched and the list is complete.
+    expect(screen.getByText("1 event")).toBeInTheDocument();
+    expect(calls.map((p) => p.get("cursor"))).toEqual([null, "c2"]);
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+
+  it("says no events match, without offering more, when the start of the range is already inside the first page", async () => {
+    const calls = recordAudit(() => ({ items: [nextDayPerth, onTheDay, older], nextCursor: "c2" }));
+    renderPage();
+    await screen.findByText("next.day.perth");
+    await userEvent.type(screen.getByLabelText("From (Perth date)"), "2026-09-25");
+    await userEvent.type(screen.getByLabelText("To (Perth date)"), "2026-09-25");
+    expect(await screen.findByText(/No events match/)).toBeInTheDocument();
+    expect(screen.queryByText(/so far/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+    expect(calls).toHaveLength(1);
+  });
+
+  it("pages back to the start date when only 'From' is set", async () => {
+    recordAudit((p) =>
+      p.get("cursor") ? { items: [onTheDay], nextCursor: null } : { items: [nextDayPerth], nextCursor: "c2" },
+    );
+    renderPage();
+    await screen.findByText("next.day.perth");
+    await userEvent.type(screen.getByLabelText("From (Perth date)"), "2026-09-28");
+    expect(await screen.findByText("on.the.day")).toBeInTheDocument();
+  });
+
+  it("finds the first event before the end date when only 'To' is set", async () => {
+    recordAudit((p) =>
+      p.get("cursor") ? { items: [before], nextCursor: null } : { items: [nextDayPerth], nextCursor: "c2" },
+    );
+    renderPage();
+    await screen.findByText("next.day.perth");
+    await userEvent.type(screen.getByLabelText("To (Perth date)"), "2026-09-28");
+    expect(await screen.findByText("before.the.day")).toBeInTheDocument();
+  });
+
+  it("sends no request when a start date is set while the Job text names no job", async () => {
+    const calls = recordAudit(() => ({ items: [nextDayPerth], nextCursor: "c2" }));
+    renderPage();
+    await screen.findByText("next.day.perth");
+    await userEvent.type(await screen.findByRole("combobox", { name: "Job" }), "nope");
+    const callsBefore = calls.length;
+    await userEvent.type(screen.getByLabelText("From (Perth date)"), "2026-09-28");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByText("Choose a job number from the list to see its events.")).toBeInTheDocument();
+    expect(calls).toHaveLength(callsBefore);
+  });
+
+  it("warns when the end date is before the start date", async () => {
+    server.use(respondWith([first]));
+    renderPage();
+    await screen.findByText("job.updated");
+    await userEvent.type(screen.getByLabelText("From (Perth date)"), "2026-09-28");
+    await userEvent.type(screen.getByLabelText("To (Perth date)"), "2026-09-01");
+    expect(await screen.findByText("The end date is before the start date.")).toBeInTheDocument();
+  });
+
+  it("shows no matches and stops paging when the end date is before the start date", async () => {
+    const calls = recordAudit(() => ({ items: [first], nextCursor: "next" }));
+    renderPage();
+    await screen.findByText("job.updated");
+    act(() => {
+      fireEvent.change(screen.getByLabelText("From (Perth date)"), { target: { value: "2026-09-28" } });
+      fireEvent.change(screen.getByLabelText("To (Perth date)"), { target: { value: "2026-09-01" } });
+    });
+    expect(await screen.findByText(/No events match/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+    // The start date alone pages back once (the oldest event is still on or after it); a backwards range stops there.
+    const settled = calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(settled).toBeLessThanOrEqual(2);
+    expect(calls).toHaveLength(settled);
   });
 });
 

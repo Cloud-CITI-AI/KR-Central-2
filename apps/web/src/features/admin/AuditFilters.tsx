@@ -9,6 +9,9 @@ export interface AuditFilterValues {
   readonly job: string;
   readonly actorId: string;
   readonly action: string;
+  /** Perth dates, yyyy-mm-dd or empty. */
+  readonly from: string;
+  readonly to: string;
 }
 
 export interface AuditFiltersProps {
@@ -20,7 +23,7 @@ export interface AuditFiltersProps {
   readonly actors: readonly { readonly id: string; readonly name: string }[];
 }
 
-/** Filters of the audit trail (§9.2): job, user and action. */
+/** Filters of the audit trail (§9.2): job, user, action and a Perth date range. */
 export function AuditFilters({ values, onChange, jobOptions, jobUnresolved, actors }: AuditFiltersProps) {
   return (
     <div className={styles.filters}>
@@ -72,6 +75,35 @@ export function AuditFilters({ values, onChange, jobOptions, jobUnresolved, acto
             maxLength={80}
             onChange={(event) => {
               onChange({ action: event.target.value });
+            }}
+          />
+        )}
+      </Field>
+      <Field label="From (Perth date)">
+        {(control) => (
+          <Input
+            {...control}
+            type="date"
+            value={values.from}
+            onChange={(event) => {
+              onChange({ from: event.target.value });
+            }}
+          />
+        )}
+      </Field>
+      <Field
+        label="To (Perth date)"
+        {...(values.from && values.to && values.from > values.to
+          ? { error: "The end date is before the start date." }
+          : {})}
+      >
+        {(control) => (
+          <Input
+            {...control}
+            type="date"
+            value={values.to}
+            onChange={(event) => {
+              onChange({ to: event.target.value });
             }}
           />
         )}
