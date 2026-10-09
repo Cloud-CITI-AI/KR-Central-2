@@ -160,10 +160,73 @@ describe("conditions.extract", () => {
     expect(await job()).toEqual(before);
   });
 
+  it("rolls everything back when storing fails halfway", async () => {
+    await oldConditions();
+    const before = await job();
+    const clash: Parser = {
+      run: () =>
+        Promise.resolve({
+          conditions: [1, 1].map((number) => ({ number, text: "Same", agency: "WAPC" as const, agencyGuessed: false })),
+          dates: { approvalDate: "2026-03-16", approvalExpiry: null },
+        } as never),
+    };
+    const { error } = await extract((await letter()).id, { replaceExisting: true, parser: clash });
+    expect(error).toBeDefined();
+    expect((await current()).map((c) => c.text)).toEqual(["Old 1", "Old 2"]);
+    expect(await job()).toEqual(before);
+  });
+
   it("applies a re-run of the same operation only once", async () => {
     const { result } = await extract((await letter()).id, { again: true });
     expect((result as { conditionsCount: number }).conditionsCount).toBe(3);
     expect(await current()).toHaveLength(3);
     expect((await job()).version).toBe(2);
+  });
+
+  it("with no numbered conditions keeps the existing ones and the source, but still saves the dates found", async () => {
+    await oldConditions();
+    const { result } = await extract(
+      (await letter([["16 March 2026", "A letter with no conditions heading."]], { name: "Decision.pdf" })).id,
+      { replaceExisting: true },
+    );
+    expect(result).toMatchObject({ conditionsCount: 0, approvalDate: "2026-03-16", approvalExpiry: null });
+    expect((result as { message: string }).message).toMatch(/^No numbered conditions were found/);
+    expect((await current()).map((c) => c.text)).toEqual(["Old 1", "Old 2"]);
+    expect(await job()).toMatchObject({
+      approval_date: "2026-03-16",
+      conditions_source_file_id: null,
+      conditions_extracted_at: null,
+    });
+  });
+
+  it("keeps dates already on the job when the letter has none", async () => {
+    await db
+      .updateTable("jobs")
+      .set({ approval_date: "2025-01-02", approval_expiry: "2027-01-02" })
+      .where("id", "=", jobId)
+      .execute();
+    await extract((await letter([["Conditions", "1. Power supply. (Western Power)"]])).id);
+    expect(await job()).toMatchObject({ approval_date: "2025-01-02", approval_expiry: "2027-01-02" });
+  });
+
+  it("fails clearly for a file that is not a readable clean Decision Letter in the 5.0 box", async () => {
+    const wrongSlot = await insertFile(db, storage, jobId, {
+      bytes: await makePdf(LETTER),
+      checkpointKey: "i4_2",
+      slot: "conformance",
+    });
+    const pending = await letter(LETTER, { scanStatus: "pending" });
+    const deleted = await letter();
+    await db.updateTable("files").set({ deleted_at: NOW }).where("id", "=", deleted.id).execute();
+    for (const f of [wrongSlot, pending, deleted]) expect((await extract(f.id)).error?.code).toBe("file_unavailable");
+    const notPdf = await insertFile(db, storage, jobId, { bytes: "just text", scanStatus: "clean" });
+    expect((await extract(notPdf.id)).error).toMatchObject({ code: "not_a_pdf", retryable: false });
+    expect(await current()).toHaveLength(0);
+  });
+
+  it("fails for an archived job", async () => {
+    const file = await letter();
+    await db.updateTable("jobs").set({ deleted_at: NOW }).where("id", "=", jobId).execute();
+    expect((await extract(file.id)).error?.code).toBe("job_unavailable");
   });
 });
