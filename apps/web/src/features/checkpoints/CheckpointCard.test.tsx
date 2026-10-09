@@ -23,6 +23,14 @@ describe("CheckpointCard", () => {
     },
   );
 
+  it.each(CHECKPOINTS.map((c) => [c.number, c.key] as const))(
+    "has no accessibility violations on %s for staff",
+    async (_number, key) => {
+      const { container } = renderCard(syntheticJob(), key);
+      await expectNoAxeViolations(container);
+    },
+  );
+
   it("colours by the effective status and labels it", () => {
     const job = syntheticJob({ statuses: { i4_0: "completed", i4_1: "not_required" } });
     const done = renderCard(job, "i4_0");
