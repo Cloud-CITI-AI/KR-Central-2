@@ -44,6 +44,15 @@ describe("DashboardPage", () => {
     expect(statuses).toContain("complete");
   });
 
+  it("shows the archived banner for ?archived= and lets the user dismiss it", async () => {
+    setTestUrl("/?archived=S-0001");
+    server.use(mockApi("getJobFacets", syntheticFacets()));
+    renderWithProviders(<DashboardPage />);
+    expect(await screen.findByText("S-0001 was archived.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(getTestUrl()).toBe("/");
+  });
+
   it("starts from the filters in the URL", async () => {
     setTestUrl("/?status=all&type=Amalgamation");
     server.use(mockApi("getJobFacets", syntheticFacets()));

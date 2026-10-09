@@ -5,3 +5,8 @@ const LOAD_FAILED = "The dashboard couldn't be loaded. Reload the page and try a
 export function loadFailedText(requestId: string | undefined): string {
   return requestId ? `${LOAD_FAILED} (Request ID: ${requestId})` : LOAD_FAILED;
 }
+
+/** After a job is archived from its tracker (§5.1): "S-0001 was archived.". */
+export function archivedText(jobNumber: string): string {
+  return `${jobNumber} was archived.`;
+}
