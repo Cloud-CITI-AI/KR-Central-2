@@ -4,6 +4,7 @@ import Image from "next/image";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { contentUrl, viewFor } from "./content";
 import { VIEWER_MESSAGES } from "./messages";
+import { TextView } from "./TextView";
 import styles from "./ViewerBody.module.css";
 
 export interface ViewerBodyProps {
@@ -33,8 +34,9 @@ export function ViewerBody({ file }: ViewerBodyProps) {
         </video>
       );
     case "text":
+      return <TextView file={file} />;
     case "email":
-      return null; // text and email follow in the next change
+      return <TextView file={file} body={view.body} />;
     case "dwg":
       return (
         <div className={styles.notice}>

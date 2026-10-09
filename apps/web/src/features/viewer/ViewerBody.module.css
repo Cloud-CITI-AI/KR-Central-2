@@ -11,6 +11,49 @@
   max-width: 100%;
   max-height: 100%;
 }
+.text {
+  align-self: stretch;
+  width: 100%;
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font:
+    12.5px/1.5 Consolas,
+    ui-monospace,
+    monospace;
+}
+.mail {
+  align-self: stretch;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  overflow: auto;
+}
+.headers {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 12px;
+  margin: 0;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.line {
+  display: contents;
+}
+.headers dt {
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.headers dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .notice {
   display: grid;
   gap: 10px;
@@ -23,4 +66,7 @@
 .notice b {
   color: var(--ink);
   font-size: 16px;
+}
+.error {
+  color: var(--red-ink);
 }

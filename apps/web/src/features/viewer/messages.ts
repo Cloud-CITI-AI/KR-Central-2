@@ -5,5 +5,9 @@ export const VIEWER_MESSAGES = {
   scanError: "Couldn't be checked for viruses – remove it and upload it again",
   dwgTitle: "DWG drawings can't be previewed in the browser",
   dwgHint: "Download it and open it in your CAD software.",
+  loading: "Loading…",
+  loadFailed: "Couldn’t load this file. Use “Open in new tab”.",
+  pdfFailed: "Couldn’t load this PDF. Use “Open in new tab”.",
+  emailBody: "The message text can't be previewed in the browser. Download the original to read it.",
   openInNewTab: "Open in new tab",
 } as const;
