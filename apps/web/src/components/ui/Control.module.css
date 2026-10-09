@@ -1,0 +1,19 @@
+/* prototype `form.newjob input` and `.jobbar select` */
+.control {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field);
+}
+.control[aria-invalid="true"] {
+  border-color: var(--red-ink);
+}
+.select {
+  padding: 8px 10px;
+  background: var(--surface);
+}
+.textarea {
+  resize: vertical;
+}

@@ -1,0 +1,21 @@
+.field {
+  display: grid;
+  gap: 4px;
+}
+.label {
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.hint,
+.error {
+  margin: 0;
+  font-size: 12px;
+}
+.hint {
+  color: var(--ink-3);
+}
+.error {
+  color: var(--red-ink);
+}
