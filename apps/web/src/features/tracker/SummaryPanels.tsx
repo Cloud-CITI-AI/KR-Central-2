@@ -1,4 +1,5 @@
 import type { JobDetail } from "@kr/contracts";
+import { ApprovalDates } from "./ApprovalDates";
 import { ProgressPanel } from "./ProgressPanel";
 import { StatusKey } from "./StatusKey";
 import styles from "./SummaryPanels.module.css";
@@ -11,7 +12,9 @@ export interface SummaryPanelsProps {
 export function SummaryPanels({ job }: SummaryPanelsProps) {
   return (
     <div className={styles.summary}>
-      <ProgressPanel job={job} />
+      <ProgressPanel job={job}>
+        <ApprovalDates job={job} />
+      </ProgressPanel>
       <StatusKey />
     </div>
   );

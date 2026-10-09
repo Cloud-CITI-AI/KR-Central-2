@@ -1,0 +1,25 @@
+/* prototype .appr-f, .appr-l and its date input */
+.field {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+}
+.control {
+  display: grid;
+  gap: 3px;
+}
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-3);
+}
+.input {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+}

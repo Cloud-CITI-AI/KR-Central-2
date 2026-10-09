@@ -61,4 +61,10 @@ describe("SummaryPanels", () => {
     );
     expect(within(key).queryByRole("button")).toBeNull();
   });
+
+  it("holds only progress and the two approval date inputs, and no other control", () => {
+    const { container } = renderTracker(<SummaryPanels job={syntheticJob()} />);
+    const inputs = [...container.querySelectorAll("input, select, textarea, button")];
+    expect(inputs.map((i) => i.getAttribute("type"))).toEqual(["date", "date"]);
+  });
 });
