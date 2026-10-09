@@ -15,6 +15,8 @@ export default {
         "design-tokens",
         "config",
         "logger",
+        "storage",
+        "mock-idp",
         "db",
         "document-parsing",
         "telemetry",

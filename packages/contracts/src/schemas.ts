@@ -367,13 +367,10 @@ export const JobListQuery = PaginationQuery.extend({
     .max(100)
     .optional()
     .meta({ description: "Matches job number, address or client name (case-insensitive)" }),
-  sort: z
-    .enum(["attention", "job_number"])
-    .default("attention")
-    .meta({
-      description:
-        "attention: jobs with most alerts first, then job number (dashboard); job_number: natural order (job picker)",
-    }),
+  sort: z.enum(["attention", "job_number"]).default("attention").meta({
+    description:
+      "attention: jobs with most alerts first, then job number (dashboard); job_number: natural order (job picker)",
+  }),
 });
 export const JobPage = page(JobCard, "JobPage");
 

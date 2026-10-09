@@ -1,10 +1,11 @@
 // Playbook templates/frontend/stryker.config.mjs — mutate logic, not markup.
+import { runnerSettings } from "../../stryker.shared.mjs";
+
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 export default {
-  testRunner: "vitest",
+  ...runnerSettings("vitest.unit.config.ts"),
   checkers: ["typescript"],
   tsconfigFile: "tsconfig.json",
-  coverageAnalysis: "perTest",
   incremental: true,
   incrementalFile: ".stryker-tmp/incremental.json",
   mutate: [

@@ -54,15 +54,9 @@ export const IfMatchHeader = z.strictObject({
 });
 
 export const IdempotencyKeyHeader = z.object({
-  "idempotency-key": z
-    .string()
-    .min(8)
-    .max(128)
-    .optional()
-    .meta({
-      description:
-        "Optional idempotency key; repeating a request with the same key returns the original result (API-5).",
-    }),
+  "idempotency-key": z.string().min(8).max(128).optional().meta({
+    description: "Optional idempotency key; repeating a request with the same key returns the original result (API-5).",
+  }),
 });
 
 export const CsrfHeader = z.object({
