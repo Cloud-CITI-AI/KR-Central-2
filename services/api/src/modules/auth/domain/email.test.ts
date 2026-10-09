@@ -15,10 +15,23 @@ describe("selectEmail", () => {
     );
   });
 
+  it("members with an unverified email domain ignore the email claim and use the UPN", () => {
+    expect(
+      selectEmail({
+        isGuest: false,
+        email: "mia@staff.test",
+        preferredUsername: "Mia@Elsewhere.test",
+        emailVerified: false,
+      }),
+    ).toBe("mia@elsewhere.test");
+    expect(selectEmail({ isGuest: false, email: "mia@staff.test", emailVerified: false })).toBeNull();
+  });
+
   it("guests use the email claim only, never the guest object's UPN", () => {
     expect(
       selectEmail({ isGuest: true, email: "g@client.test", preferredUsername: "g_client.test#EXT#@kr.test" }),
     ).toBe("g@client.test");
+    expect(selectEmail({ isGuest: true, email: "g@client.test", emailVerified: false })).toBe("g@client.test");
     expect(selectEmail({ isGuest: true, preferredUsername: "g_client.test#EXT#@kr.test" })).toBeNull();
     expect(selectEmail({ isGuest: true, email: "bad", preferredUsername: "g@client.test" })).toBeNull();
   });

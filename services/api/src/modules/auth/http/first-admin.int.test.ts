@@ -16,6 +16,12 @@ const staffUsers = Array.from({ length: 4 }, (_, i) => staff(i + 1));
 const racers = Array.from({ length: 8 }, (_, i) => staff(i + 50));
 const guestWithStaffAddress = mockUser(120, { acct: 1, email: "guest@krsurveys.com.au" });
 const outsider = mockUser(121);
+/** A member whose `email` claim is on a staff domain but unverified (xms_edov=false); their UPN is off it. */
+const unverifiedStaffEmail = mockUser(122, {
+  email: "spoof@krsurveys.com.au",
+  preferredUsername: "spoof@outsider.test",
+  xmsEdov: false,
+});
 
 describe("first admin (real Postgres, mock IdP)", () => {
   let idp: MockIdp;
@@ -25,7 +31,13 @@ describe("first admin (real Postgres, mock IdP)", () => {
 
   beforeAll(async () => {
     unlock = await lockBootstrap(inject("databaseUrl"));
-    idp = await startIdpFor(testConfig(), [...staffUsers, ...racers, guestWithStaffAddress, outsider]);
+    idp = await startIdpFor(testConfig(), [
+      ...staffUsers,
+      ...racers,
+      guestWithStaffAddress,
+      outsider,
+      unverifiedStaffEmail,
+    ]);
     t = await createTestApp({ config: testConfig({ ENTRA_AUTHORITY_HOST: idp.authorityHost }) });
     // The app role may only INSERT/SELECT system_bootstrap (audit-grade); the owner resets it between tests.
     migrator = createDb({ connectionString: inject("migratorDatabaseUrl"), applicationName: "kr-api-test-migrator" });
@@ -84,6 +96,15 @@ describe("first admin (real Postgres, mock IdP)", () => {
     expect(await bootstrapRows()).toEqual([]);
     await signInAs(staffUsers[2]!);
     expect(await roleOf(staffUsers[2]!.oid)).toBe("admin");
+  });
+
+  it("does not make a member first admin on an unverified staff-domain email; the UPN decides", async () => {
+    const trip = await browserSignIn(t.app, idp, { loginHint: unverifiedStaffEmail.oid });
+    expect(trip.callback.headers.location).toBe("/");
+    expect(await roleOf(unverifiedStaffEmail.oid)).toBe("external");
+    expect(await bootstrapRows()).toEqual([]);
+    await signInAs(staffUsers[0]!);
+    expect(await roleOf(staffUsers[0]!.oid)).toBe("admin");
   });
 
   it("keeps an admin an admin on later sign-ins without a second assignment", async () => {

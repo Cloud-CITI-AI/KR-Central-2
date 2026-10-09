@@ -17,7 +17,7 @@ export interface Identity {
   readonly displayName: string;
   readonly isGuest: boolean;
   readonly email: string | null;
-  /** False only when the token says `xms_edov=false`: the email's domain is not verified. */
+  /** False only for a guest whose token says `xms_edov=false`: the email's domain is not verified. */
   readonly emailVerified: boolean;
   /** `auth_time` when the IdP sent it. */
   readonly authTime: Date | null;
@@ -57,7 +57,13 @@ export function readIdentity(claims: Readonly<Record<string, unknown>>, expected
   const c = parsed.data;
   if (c.tid.toLowerCase() !== expectedTenantId.toLowerCase()) return { ok: false, reason: "wrong_tenant" };
   const isGuest = Number(c.acct) === 1;
-  const email = selectEmail({ isGuest, email: c.email, preferredUsername: c.preferred_username });
+  const edovFalse = notVerified.safeParse(c.xms_edov).success;
+  const email = selectEmail({
+    isGuest,
+    email: c.email,
+    preferredUsername: c.preferred_username,
+    emailVerified: !edovFalse,
+  });
   const name = [c.name, email, c.preferred_username].map((v) => v?.trim()).find(Boolean) ?? "Unknown user";
   return {
     ok: true,
@@ -67,7 +73,8 @@ export function readIdentity(claims: Readonly<Record<string, unknown>>, expected
       displayName: name.slice(0, DISPLAY_NAME_MAX_LENGTH),
       isGuest,
       email,
-      emailVerified: !notVerified.safeParse(c.xms_edov).success,
+      // A member's address is then the UPN, whose domain is always verified in KR's tenant; only guests stay unverified.
+      emailVerified: isGuest ? !edovFalse : true,
       authTime: c.auth_time === undefined ? null : new Date(c.auth_time * 1000),
       amr: c.amr ?? [],
       acrs: c.acrs ?? [],

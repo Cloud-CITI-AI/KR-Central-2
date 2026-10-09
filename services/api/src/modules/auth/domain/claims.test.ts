@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readIdentity } from "./claims.js";
+import { assignRole } from "./roles.js";
 import { reasonForAuthorizeError, signInErrorPath } from "./reasons.js";
 
 const TENANT = "11111111-1111-4111-8111-111111111111";
@@ -32,8 +33,35 @@ describe("readIdentity", () => {
     }
   });
 
-  it.each([false, "false", 0, "0"])("treats xms_edov=%j as an unverified email", (xms_edov) => {
-    expect(readIdentity({ ...base, xms_edov }, TENANT)).toMatchObject({ identity: { emailVerified: false } });
+  it.each([false, "false", 0, "0"])("treats xms_edov=%j as an unverified email for a guest", (xms_edov) => {
+    expect(readIdentity({ ...base, acct: 1, xms_edov }, TENANT)).toMatchObject({
+      identity: { isGuest: true, email: "mia@staff.test", emailVerified: false },
+    });
+  });
+
+  it.each([false, "false", 0, "0"])(
+    "ignores a member's email claim when xms_edov=%j and uses the UPN, which is verified",
+    (xms_edov) => {
+      const r = readIdentity({ ...base, preferred_username: "mia@elsewhere.test", xms_edov }, TENANT);
+      expect(r).toMatchObject({ identity: { email: "mia@elsewhere.test", emailVerified: true } });
+    },
+  );
+
+  it("gives a member with an unverified staff-domain email and a UPN off it the external role", () => {
+    const r = readIdentity(
+      { ...base, email: "mia@krsurveys.com.au", preferred_username: "mia@elsewhere.test", xms_edov: false },
+      TENANT,
+    );
+    if (!r.ok) throw new Error("expected a readable identity");
+    expect(
+      assignRole({ isGuest: r.identity.isGuest, email: r.identity.email, staffDomains: ["krsurveys.com.au"] }),
+    ).toBe("external");
+  });
+
+  it("leaves a member with xms_edov=false and no UPN without an email", () => {
+    expect(readIdentity({ ...base, xms_edov: false }, TENANT)).toMatchObject({
+      identity: { email: null, emailVerified: true },
+    });
   });
 
   it.each([undefined, true, "true", 1])("treats xms_edov=%j as verified", (xms_edov) => {
