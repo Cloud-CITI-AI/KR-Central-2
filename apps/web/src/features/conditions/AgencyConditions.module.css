@@ -1,0 +1,26 @@
+/* prototype .approval.evid.evid-top: the white box above the cards of an agency stage */
+.box {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.count {
+  color: var(--ink-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.up {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: 12.5px;
+}
