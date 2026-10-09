@@ -5,6 +5,10 @@ import { PreconditionFailedError } from "../../../platform/errors.js";
 import type { JobUpdateColumns } from "../domain/job-update.js";
 import { duplicateJobNumberError, isDuplicateJobNumber } from "./job-writes.js";
 
+export function staleJobError(): PreconditionFailedError {
+  return new PreconditionFailedError({ detail: "This item was changed by someone else. Reload and try again." });
+}
+
 /** The job row, locked for the rest of the transaction; undefined when it does not exist or is archived. */
 export function lockActiveJob(trx: Transaction<Database>, jobId: string): Promise<JobRow | undefined> {
   return trx
@@ -38,4 +42,22 @@ export async function updateJobRow(
     if (isDuplicateJobNumber(error)) throw duplicateJobNumberError(set.job_number ?? "That job number");
     throw error;
   }
+}
+
+/** Archive = soft delete (DATA_MODEL §5): hidden from every list and from every grant; rows and files are kept. */
+export async function archiveJobRow(
+  trx: Transaction<Database>,
+  current: Pick<JobRow, "id" | "version">,
+  deletedBy: string,
+  at: Date,
+): Promise<void> {
+  const row = await trx
+    .updateTable("jobs")
+    .set({ deleted_at: at, deleted_by: deletedBy, version: current.version + 1 })
+    .where("id", "=", current.id)
+    .where("version", "=", current.version)
+    .where("deleted_at", "is", null)
+    .returning("id")
+    .executeTakeFirst();
+  if (!row) throw staleJobError();
 }

@@ -8,7 +8,7 @@ import { NotFoundError } from "../../../platform/errors.js";
 import { sendIdempotent, withIdempotency } from "../../../platform/idempotency.js";
 import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
-import { lockActiveJob, updateJobRow } from "../data/job-updates.js";
+import { archiveJobRow, lockActiveJob, updateJobRow } from "../data/job-updates.js";
 import { duplicateJobNumberError, insertJobWithCheckpoints } from "../data/job-writes.js";
 import { planJobUpdate } from "../domain/job-update.js";
 import { loadJobDetail } from "./job-view.js";
@@ -91,5 +91,24 @@ export function registerJobRoutes(app: FastifyInstance, deps: ModuleDeps): void 
     });
     setEtag(reply, detail.version);
     return detail;
+  });
+
+  defineRoute(app, "deleteJob", async ({ auth, request, reply, params, expectedVersion }) => {
+    await resolveJobAccess(deps.db, auth, params.jobId, "job.delete");
+    await withTransaction(deps.db, async (trx) => {
+      const current = await lockActiveJob(trx, params.jobId);
+      if (!current) throw new NotFoundError();
+      assertVersion(current.version, expectedVersion);
+      const at = deps.clock.now();
+      await archiveJobRow(trx, current, auth.user.id, at);
+      await audit(trx, auditContext(request), {
+        action: "job.archived",
+        entityType: "job",
+        entityId: current.id,
+        jobId: current.id,
+        changes: { archived: { from: false, to: true } },
+      });
+    });
+    return reply.code(204).send();
   });
 }
