@@ -1,13 +1,65 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { PROBLEM_TYPES } from "@kr/contracts";
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { HttpResponse } from "msw";
+import { describe, expect, it, vi } from "vitest";
+import { getTestUrl, setTestUrl } from "@/features/dashboard/test-router";
+import { syntheticFacets } from "@/features/dashboard/test-fixtures";
+import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
+import { server } from "@/test/msw/server";
+import { renderWithProviders } from "@/test/render";
 import DashboardPage from "./page";
 
-describe("DashboardPage placeholder", () => {
-  it("renders a Dashboard h2 and leaves <main> and the h1 to the (app) layout", () => {
-    const { container } = render(<DashboardPage />);
-    expect(screen.getByRole("heading", { level: 2, name: "Dashboard" })).toBeInTheDocument();
+vi.mock("next/navigation", async () => (await import("@/features/dashboard/test-router")).navigationMock);
+
+describe("DashboardPage", () => {
+  it("renders the dashboard header with counts from the facets and leaves <main> and the h1 to the layout", async () => {
+    setTestUrl("/");
+    server.use(mockApi("getJobFacets", syntheticFacets()));
+    const { container } = renderWithProviders(<DashboardPage />);
+    expect(await screen.findByRole("button", { name: "In progress (5)" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Subdivision dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Summary" })).toHaveTextContent("2 Waiting on client");
     expect(container.querySelector("main")).toBeNull();
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
-    expect(screen.queryByRole("main")).toBeNull();
+  });
+
+  it("reflects the filters in the URL and reloads the counts for the chosen status", async () => {
+    setTestUrl("/");
+    const statuses: (string | null)[] = [];
+    server.use(
+      handlerFor("getJobFacets", ({ request }) => {
+        statuses.push(new URL(request.url).searchParams.get("status"));
+        return HttpResponse.json(syntheticFacets());
+      }),
+    );
+    renderWithProviders(<DashboardPage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Complete (2)" }));
+    expect(getTestUrl()).toBe("/?status=complete");
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Complete (2)" })).toHaveAttribute("aria-pressed", "true");
+    });
+    await userEvent.click(screen.getByRole("button", { name: /^Freehold/ }));
+    expect(getTestUrl()).toBe("/?status=complete&type=Freehold");
+    expect(statuses).toContain("complete");
+  });
+
+  it("starts from the filters in the URL", async () => {
+    setTestUrl("/?status=all&type=Amalgamation");
+    server.use(mockApi("getJobFacets", syntheticFacets()));
+    renderWithProviders(<DashboardPage />);
+    expect(await screen.findByRole("button", { name: "All (7)" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /^Amalgamation/ })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("shows a problem banner with the request id when the counts cannot be loaded", async () => {
+    setTestUrl("/");
+    server.use(mockProblem("getJobFacets", 500, PROBLEM_TYPES.internal, { requestId: "req-dash-1" }));
+    renderWithProviders(<DashboardPage />);
+    expect(
+      await screen.findByText(
+        "The dashboard couldn't be loaded. Reload the page and try again. (Request ID: req-dash-1)",
+      ),
+    ).toBeInTheDocument();
   });
 });

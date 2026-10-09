@@ -1,0 +1,39 @@
+/* prototype .dash-sum and .cnt (.n red, .c green, .w yellow, .x grey) */
+.sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.cnt {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid;
+  border-radius: var(--radius);
+  font-size: 12.5px;
+}
+.cnt b {
+  font-size: 16px;
+}
+.n {
+  background: var(--red-bg);
+  border-color: var(--red-line);
+  color: var(--red-ink);
+}
+.c {
+  background: var(--green-bg);
+  border-color: var(--green-line);
+  color: var(--green-ink);
+}
+.w {
+  background: var(--fee-soft);
+  border-color: var(--fee-soft);
+  color: var(--fee);
+}
+.x {
+  background: var(--grey-bg);
+  border-color: var(--grey-line);
+  color: var(--grey-ink);
+}

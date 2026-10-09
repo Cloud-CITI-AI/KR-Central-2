@@ -1,4 +1,11 @@
-/** Placeholder: the dashboard (first page after sign-in) is built in WP-13. The (app) layout owns <main> and the h1. */
+import { Suspense } from "react";
+import { Dashboard } from "@/features/dashboard";
+
+/** The dashboard, first page after sign-in. The (app) layout owns <main> and the h1. */
 export default function DashboardPage() {
-  return <h2>Dashboard</h2>;
+  return (
+    <Suspense fallback={null}>
+      <Dashboard />
+    </Suspense>
+  );
 }
