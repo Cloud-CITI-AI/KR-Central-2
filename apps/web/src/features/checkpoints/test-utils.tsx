@@ -1,6 +1,7 @@
 import type { CheckpointState, JobDetail } from "@kr/contracts";
 import { getCheckpoint } from "@kr/workflow";
 import { HttpResponse } from "msw";
+import type { ReactElement } from "react";
 import { BannerRegion } from "@/components/ui/BannerRegion";
 import { ToastRegion } from "@/components/ui/ToastRegion";
 import { queryKeys } from "@/lib/api";
@@ -26,12 +27,12 @@ function Harness({ jobId, checkpointKey }: HarnessProps) {
 }
 
 /**
- * Render one checkpoint card the way the tracker does. The job is seeded in the cache and `getJob` answers with
- * `served.job`, so a test can change what the "server" returns before the card refetches.
+ * Render `ui` the way the tracker renders cards. The job is seeded in the cache and `getJob` answers with `served.job`, so a
+ * test can change what the "server" returns before the page refetches.
  */
-export function renderCard(
+export function renderWithJob(
+  ui: ReactElement,
   job: JobDetail,
-  checkpointKey: string,
   { me = syntheticMe(), ...options }: RenderWithProvidersOptions = {},
 ) {
   const queryClient = createTestQueryClient();
@@ -45,11 +46,16 @@ export function renderCard(
     <>
       <BannerRegion />
       <ToastRegion />
-      <Harness jobId={job.id} checkpointKey={checkpointKey} />
+      {ui}
     </>,
     { me, queryClient, ...options },
   );
   return { ...view, served };
+}
+
+/** Render one checkpoint card the way the tracker does. */
+export function renderCard(job: JobDetail, checkpointKey: string, options: RenderWithProvidersOptions = {}) {
+  return renderWithJob(<Harness jobId={job.id} checkpointKey={checkpointKey} />, job, options);
 }
 
 /** The checkpoint `key` of `job`. */
