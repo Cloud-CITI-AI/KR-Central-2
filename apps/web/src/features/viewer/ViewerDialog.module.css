@@ -1,0 +1,10 @@
+/* The dialog frame, head and body come from the shared Dialog (size="viewer"); this is only what the viewer adds to its head. */
+.nav {
+  display: contents;
+}
+.position {
+  color: var(--ink-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
