@@ -1,11 +1,19 @@
 /** The document tasks that run inside the parse thread, and what each returns. Shared by both sides; no parser import. */
-import type { ApprovalDates, ParsedCondition, ParsedEmail, PdfFirstPage } from "@kr/document-parsing";
+import type {
+  ApprovalDates,
+  ConformedCandidate,
+  ParsedCondition,
+  ParsedEmail,
+  PdfFirstPage,
+} from "@kr/document-parsing";
 
 export interface TaskInputs {
   /** The numbered conditions and the approval dates of a Decision Letter (all pages). */
   "decision-letter": { readonly data: Uint8Array; readonly maxPages: number };
   /** Page 1 text lines and annotation texts. */
   "pdf-first-page": { readonly data: Uint8Array; readonly maxPages: number };
+  /** The conformed date offered by a stamp annotation and by the text of page 1 (the two readers that need no AI). */
+  "conformance-page": { readonly data: Uint8Array; readonly maxPages: number };
   /** Page 1 as a PNG for the stamp reader. */
   "pdf-render": { readonly data: Uint8Array; readonly maxPages: number };
   /** An Outlook .msg or an .eml, told apart by its first bytes. */
@@ -15,6 +23,10 @@ export interface TaskInputs {
 export interface TaskOutputs {
   "decision-letter": { conditions: ParsedCondition[]; dates: ApprovalDates };
   "pdf-first-page": PdfFirstPage;
+  "conformance-page": {
+    annotation: ConformedCandidate<"stamp_annotation"> | null;
+    text: ConformedCandidate<"text"> | null;
+  };
   "pdf-render": Uint8Array;
   email: ParsedEmail;
 }

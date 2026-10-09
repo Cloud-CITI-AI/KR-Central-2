@@ -37,6 +37,22 @@ describe("the parse thread", () => {
     expect(first.lines).not.toContain("Advice");
   });
 
+  it("offers the conformed date of a stamp annotation and of the text of page 1", async () => {
+    const data = await makePdf(
+      [["Conformance Notification", "The plan was conformed on 16 March 2026."]],
+      "DATE 17-Mar-2026 FILE 123-26",
+    );
+    expect(await parser.run("conformance-page", { data, maxPages: 10 })).toEqual({
+      annotation: { date: "2026-03-17", method: "stamp_annotation" },
+      text: { date: "2026-03-16", method: "text" },
+    });
+    const plain = await makePdf([["Nothing useful here"]]);
+    expect(await parser.run("conformance-page", { data: plain, maxPages: 10 })).toEqual({
+      annotation: null,
+      text: null,
+    });
+  });
+
   it("renders page 1 to a PNG", async () => {
     const data = await makePdf([["Stamp"]]);
     const png = await parser.run("pdf-render", { data, maxPages: 10 });

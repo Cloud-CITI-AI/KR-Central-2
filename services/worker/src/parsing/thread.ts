@@ -6,6 +6,8 @@ import { parentPort, workerData } from "node:worker_threads";
 import {
   DocumentParseError,
   findApprovalDates,
+  fromStampAnnotation,
+  fromText,
   parseConditions,
   parseEml,
   parseMsg,
@@ -22,6 +24,10 @@ async function run(request: TaskRequest): Promise<unknown> {
     case "decision-letter": {
       const lines = await pdfTextLines(request.data, { maxPages: request.maxPages });
       return { conditions: parseConditions(lines), dates: findApprovalDates(lines) };
+    }
+    case "conformance-page": {
+      const page = await pdfFirstPage(request.data, { maxPages: request.maxPages });
+      return { annotation: fromStampAnnotation(page.annotations), text: fromText(page.lines) };
     }
     case "pdf-first-page":
       return pdfFirstPage(request.data, { maxPages: request.maxPages });
