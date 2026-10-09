@@ -1,0 +1,181 @@
+/*
+ * KR Surveys design tokens — ported 1:1 from the prototype (extracted.css :root blocks).
+ * Light by default; dark via prefers-color-scheme unless [data-theme="light"], or forced with [data-theme="dark"].
+ * Import once in apps/web/src/app/layout.tsx. Component styles live in CSS Modules and must use these variables.
+ */
+:root {
+  --tex: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27240%27 height=%27240%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%27.8%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3CfeColorMatrix values=%270 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .13 0 0 0 0%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E");
+  --field: #f5f5f3;
+  --mark-op: 0.07;
+  --on-bg: #f2f2f0;
+  --on-bg-2: #d6d6d2;
+  --bg: #61625d;
+  --surface: #ffffff;
+  --ink: #303133;
+  --ink-2: #777777;
+  --ink-3: #8c8c8c;
+  --line: #eaeaea;
+  --brand: #141618;
+  --brand-ink: #ffffff;
+  --accent: #d65614;
+  --accent-soft: #fbe9df;
+  --red-bg: #fce8e6;
+  --red-line: #efbcb6;
+  --red-ink: #9b2c22;
+  --green-bg: #e3f3e5;
+  --green-line: #a8d6b0;
+  --green-ink: #2e6b3a;
+  --grey-bg: #ebeae8;
+  --grey-line: #cfcdc9;
+  --grey-ink: #6d6c69;
+  --fee: #7a5d00;
+  --fee-soft: #fbf0b8;
+  --item: #1f5f8b;
+  --item-soft: #e1eef7;
+  --claim: #a3410b;
+  --claim-soft: #fde2cf;
+  --shadow: 0 1px 2px rgba(40, 30, 20, 0.06);
+  --on-status: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --tex: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27240%27 height=%27240%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%27.8%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3CfeColorMatrix values=%270 0 0 0 1 0 0 0 0 1 0 0 0 0 1 .07 0 0 0 0%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E");
+    --field: #1a1c1f;
+    --mark-op: 0.04;
+    --on-bg: #eeeeee;
+    --on-bg-2: #a8a8a8;
+    --bg: #141618;
+    --surface: #1e2023;
+    --ink: #eeeeee;
+    --ink-2: #b3b3b3;
+    --ink-3: #8a8a8a;
+    --line: #34373b;
+    --brand: #0d0e10;
+    --accent: #e8743a;
+    --accent-soft: #3d2619;
+    --red-bg: #3a2320;
+    --red-line: #6a3a33;
+    --red-ink: #f0a79d;
+    --green-bg: #1f3324;
+    --green-line: #3d6a47;
+    --green-ink: #8fd09c;
+    --grey-bg: #2c2c2a;
+    --grey-line: #454542;
+    --grey-ink: #9a9994;
+    --fee: #e9cf62;
+    --fee-soft: #37301a;
+    --item: #79b3dd;
+    --item-soft: #1a2c3a;
+    --claim: #f0a070;
+    --claim-soft: #3d2619;
+    --shadow: none;
+    --on-status: #151514;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --tex: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27240%27 height=%27240%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%27.8%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3CfeColorMatrix values=%270 0 0 0 1 0 0 0 0 1 0 0 0 0 1 .07 0 0 0 0%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E");
+  --field: #1a1c1f;
+  --mark-op: 0.04;
+  --on-bg: #eeeeee;
+  --on-bg-2: #a8a8a8;
+  --bg: #141618;
+  --surface: #1e2023;
+  --ink: #eeeeee;
+  --ink-2: #b3b3b3;
+  --ink-3: #8a8a8a;
+  --line: #34373b;
+  --brand: #0d0e10;
+  --accent: #e8743a;
+  --accent-soft: #3d2619;
+  --red-bg: #3a2320;
+  --red-line: #6a3a33;
+  --red-ink: #f0a79d;
+  --green-bg: #1f3324;
+  --green-line: #3d6a47;
+  --green-ink: #8fd09c;
+  --grey-bg: #2c2c2a;
+  --grey-line: #454542;
+  --grey-ink: #9a9994;
+  --fee: #e9cf62;
+  --fee-soft: #37301a;
+  --item: #79b3dd;
+  --item-soft: #1a2c3a;
+  --claim: #f0a070;
+  --claim-soft: #3d2619;
+  --shadow: none;
+  --on-status: #151514;
+}
+
+/* ---- additional tokens (not colours) ---- */
+:root {
+  --font-sans: Yantramanav, "Segoe UI", system-ui, Helvetica, Arial, sans-serif;
+  --font-mono: Consolas, ui-monospace, monospace;
+  --font-size-base: 15px;
+  --line-height-base: 1.5;
+  --radius: 3px;
+  --radius-pill: 9px;
+  --page-max-width: 1180px;
+  --page-gutter: 16px;
+  --accent-hover: #c04a10;
+  --backdrop: rgba(20, 18, 16, 0.55);
+  --hero-overlay: linear-gradient(
+    180deg,
+    rgba(20, 22, 24, 0.78) 0%,
+    rgba(20, 22, 24, 0.55) 55%,
+    rgba(20, 22, 24, 0.8) 100%
+  );
+  --bar-green: linear-gradient(180deg, #8fd09c, var(--green-ink));
+  --bar-grey: linear-gradient(180deg, #dcdad6, #aeaca8);
+  --bar-red: linear-gradient(180deg, #f6c9c3, #e08d83);
+  --focus-ring: 2px solid var(--accent);
+}
+
+/* ---- base page (prototype body, body::before, .wrap, :focus-visible) ---- */
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background:
+    var(--tex) repeat,
+    var(--bg);
+  color: var(--ink);
+  font: var(--font-size-base) / var(--line-height-base) var(--font-sans);
+}
+/* one large KR symbol, turned 45°, sitting behind the page */
+body::before {
+  content: "";
+  position: fixed;
+  left: 50%;
+  top: 55%;
+  width: min(58.5vmin, 660px);
+  aspect-ratio: 1;
+  max-width: 100%;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: url("../assets/kr-mark.svg") center/contain no-repeat;
+  opacity: var(--mark-op);
+  pointer-events: none;
+  z-index: -1;
+}
+button,
+select,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+  body::before {
+    display: none;
+  }
+}

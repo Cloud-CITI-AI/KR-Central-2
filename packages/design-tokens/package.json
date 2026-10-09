@@ -1,0 +1,34 @@
+{
+  "name": "@kr/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "KR Surveys design tokens (CSS custom properties light/dark, TS constants) and brand assets.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@kr/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tokens.css": "./src/tokens.css",
+    "./assets/*": "./assets/*"
+  },
+  "files": [
+    "dist",
+    "src/tokens.css",
+    "assets"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "format": "prettier --write .",
+    "test:unit": "vitest run --project unit --coverage --passWithNoTests",
+    "test:integration": "echo 'no integration layer in this package'",
+    "test:contract": "echo 'no contract layer in this package'",
+    "test:e2e": "echo 'no e2e layer in this package'",
+    "test:mutation": "stryker run",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build"
+  }
+}
