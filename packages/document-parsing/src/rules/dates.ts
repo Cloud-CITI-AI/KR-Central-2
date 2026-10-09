@@ -54,7 +54,7 @@ interface Hit {
 
 /**
  * Every date in `text`, in reading order: Australian d/m/y with `/ . -` separators (2- or 4-digit year),
- * "28 July 2025", "28th Jul, 2025" and "July 28, 2025".
+ * "28 July 2025", "28th Jul, 2025", "July 28, 2025" and the stamp style "16-Mar-2026".
  */
 export function datesIn(text: string): string[] {
   const hits: Hit[] = [];
@@ -62,7 +62,7 @@ export function datesIn(text: string): string[] {
     const value = toIso(fullYear(m[3] ?? ""), Number(m[2]), Number(m[1]));
     if (value) hits.push({ index: m.index, value });
   }
-  for (const m of text.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})\b/g)) {
+  for (const m of text.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)?[\s-]+([A-Za-z]{3,9})\.?,?[\s-]+(\d{4})\b/g)) {
     const month = monthNumber(m[2] ?? "");
     const value = month ? toIso(fullYear(m[3] ?? ""), month, Number(m[1])) : null;
     if (value) hits.push({ index: m.index, value });

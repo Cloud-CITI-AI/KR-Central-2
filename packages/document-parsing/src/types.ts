@@ -28,6 +28,16 @@ export interface ConformedDateFinding {
   readonly how: "conformed" | "letter";
 }
 
+/** How a conformed date was found (the `jobs.conformed_method` values; "manual" is set by hand and never parsed). */
+export type ConformedMethod = "file_name" | "stamp_annotation" | "stamp_image" | "text";
+
+/** A conformed date offered by one of the three non-AI readers; the worker applies the §10.1 order. */
+export interface ConformedCandidate<M extends ConformedMethod = ConformedMethod> {
+  /** ISO yyyy-mm-dd. */
+  readonly date: string;
+  readonly method: M;
+}
+
 export interface ParsedEmail {
   readonly subject: string;
   readonly from: string;
