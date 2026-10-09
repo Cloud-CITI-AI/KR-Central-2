@@ -238,6 +238,9 @@ security suite adds the cross-cutting, route-by-route evidence a reviewer needs 
 
 M-7 is intentionally unused (kept so IDs match the review notes).
 
+Related records: `findings.md` (defects the suite found: D-1 to D-5, with reproductions), `zap.md` (DAST baseline rules
+and how they were derived) and `mutation-runner.md` (Stryker runner check and timings).
+
 ## 6. Residual risks and follow-ups
 
 | ID  | Risk                                                                                                                                              | Owner              | Next step                                                                                  |
