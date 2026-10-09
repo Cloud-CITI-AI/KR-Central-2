@@ -34,6 +34,9 @@
     "pdfjs-dist": "6.4.299"
   },
   "devDependencies": {
-    "@types/html-to-text": "9.0.4"
+    "@faker-js/faker": "10.6.0",
+    "@types/html-to-text": "9.0.4",
+    "cfb": "1.2.2",
+    "pdf-lib": "1.17.1"
   }
 }

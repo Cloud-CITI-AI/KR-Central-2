@@ -21,8 +21,6 @@
     "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1147.0",
-    "@aws-sdk/lib-storage": "3.1147.0",
     "@fastify/cookie": "11.1.2",
     "@fastify/helmet": "13.1.1",
     "@fastify/multipart": "10.1.2",
@@ -30,13 +28,13 @@
     "@kr/contracts": "workspace:*",
     "@kr/db": "workspace:*",
     "@kr/logger": "workspace:*",
+    "@kr/storage": "workspace:*",
     "@kr/telemetry": "workspace:*",
     "@kr/workflow": "workspace:*",
     "@openfeature/server-sdk": "1.23.0",
     "archiver": "8.0.0",
     "fastify": "5.12.5",
     "fastify-type-provider-zod": "7.0.0",
-    "file-type": "22.1.1",
     "kysely": "0.29.6",
     "openid-client": "6.8.8",
     "pg": "8.23.1",
@@ -44,11 +42,15 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@faker-js/faker": "10.6.0",
+    "@kr/mock-idp": "workspace:*",
     "@testcontainers/postgresql": "12.2.0",
     "@types/archiver": "8.0.0",
     "@types/pg": "8.23.1",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
+    "oidc-provider": "9.12.2",
+    "pdf-lib": "1.17.1",
     "testcontainers": "12.2.0",
     "yaml": "2.9.1"
   }
