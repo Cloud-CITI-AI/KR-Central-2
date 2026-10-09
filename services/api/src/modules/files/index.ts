@@ -5,6 +5,7 @@
 import type { ApiModule } from "../../platform/module.js";
 import { registerDeleteRoutes } from "./http/delete-routes.js";
 import { registerFileRoutes } from "./http/file-routes.js";
+import { registerPackageRoutes } from "./http/package-routes.js";
 import { registerPasteRoutes } from "./http/paste-routes.js";
 import { registerUploadRoutes } from "./http/upload-routes.js";
 
@@ -16,5 +17,6 @@ export const filesModule: ApiModule = {
     registerFileRoutes(app, deps);
     registerDeleteRoutes(app, deps);
     registerPasteRoutes(app, deps);
+    registerPackageRoutes(app, deps);
   },
 };

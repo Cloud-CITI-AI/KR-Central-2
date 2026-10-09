@@ -11,6 +11,7 @@ const file = (name: string, o: Partial<PackageFile> = {}): PackageFile => ({
   checkpointKey: null,
   conditionId: null,
   storageKey: `jobs/j/f${seq}`,
+  uploadedAt: new Date("2026-03-02T01:00:00Z"),
   ...o,
 });
 const paths = (files: PackageFile[], conditions: PackageCondition[] = []) =>

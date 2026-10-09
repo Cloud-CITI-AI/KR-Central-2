@@ -20,6 +20,7 @@ export interface PackageFile {
   readonly checkpointKey: string | null;
   readonly conditionId: string | null;
   readonly storageKey: string;
+  readonly uploadedAt: Date;
 }
 
 export interface PackageCondition {

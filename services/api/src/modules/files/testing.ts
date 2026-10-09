@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import type { FileRow } from "@kr/db";
 import type { LightMyRequestResponse } from "fastify";
+import yauzl from "yauzl";
 import type { Factories } from "../../../test/factories.js";
 import { apiRequest, type SignedIn, type TestApp } from "../../../test/helpers/index.js";
 
@@ -116,4 +117,37 @@ export async function seedFile(t: Pick<TestApp, "db" | "storage">, f: Factories,
     .where("id", "=", row.id)
     .returningAll()
     .executeTakeFirstOrThrow();
+}
+
+/** The entries of a zip, in archive order, with their bytes (read with yauzl, like any extractor would). */
+export function readZip(zip: Buffer): Promise<Map<string, Buffer>> {
+  return new Promise((resolve, reject) => {
+    yauzl.fromBuffer(zip, { lazyEntries: true }, (error, archive) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      const entries = new Map<string, Buffer>();
+      archive.on("error", reject);
+      archive.on("end", () => {
+        resolve(entries);
+      });
+      archive.on("entry", (entry: yauzl.Entry) => {
+        archive.openReadStream(entry, (streamError, stream) => {
+          if (streamError) {
+            reject(streamError);
+            return;
+          }
+          const chunks: Buffer[] = [];
+          stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+          stream.on("error", reject);
+          stream.on("end", () => {
+            entries.set(entry.fileName, Buffer.concat(chunks));
+            archive.readEntry();
+          });
+        });
+      });
+      archive.readEntry();
+    });
+  });
 }
