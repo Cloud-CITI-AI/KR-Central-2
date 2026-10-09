@@ -168,21 +168,21 @@ function describeError(error: unknown): Record<string, unknown> {
   return { errName: typeof error };
 }
 
-function instanceOf(request: FastifyRequest): string {
+export function requestInstance(request: FastifyRequest): string {
   return request.url.split("?")[0] ?? request.url;
 }
 
 /** Install the problem+json error and not-found handlers on the root instance. */
 export function registerErrorHandling(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
-    const { problem, headers } = toProblem(error, request.id, instanceOf(request));
+    const { problem, headers } = toProblem(error, request.id, requestInstance(request));
     if (problem.status >= 500) {
       request.log.error({ event: "request_failed", status: problem.status, ...describeError(error) }, "Request failed");
     }
     void reply.code(problem.status).headers(headers).type("application/problem+json").send(problem);
   });
   app.setNotFoundHandler((request, reply) => {
-    const { problem } = toProblem(new NotFoundError(), request.id, instanceOf(request));
+    const { problem } = toProblem(new NotFoundError(), request.id, requestInstance(request));
     void reply.code(404).type("application/problem+json").send(problem);
   });
 }
