@@ -3,7 +3,7 @@
  * The `migrate` service is the ONLY Railway service that receives MIGRATION_DATABASE_URL (ADR-0007): the api never
  * holds DDL credentials.
  */
-import { AppEnv, BooleanFromString, LogLevel, NodeEnv, PostgresUrl, Secret, loadConfig } from "@kr/config";
+import { AppEnv, BooleanFromString, ConfigError, LogLevel, NodeEnv, PostgresUrl, Secret, loadConfig } from "@kr/config";
 import { z } from "zod";
 
 export const OpsConfigSchema = z.object({
@@ -44,4 +44,37 @@ export type OpsConfig = z.infer<typeof OpsConfigSchema>;
 
 export function loadOpsConfig(env: Readonly<Record<string, string | undefined>> = process.env): OpsConfig {
   return loadConfig(OpsConfigSchema, env);
+}
+
+export interface SourceBucketConfig {
+  readonly endpoint: string;
+  readonly region: string;
+  readonly bucket: string;
+  readonly accessKeyId: string;
+  readonly secretAccessKey: string;
+  readonly forcePathStyle: boolean;
+}
+
+/** The files bucket (read-only credentials) is optional for `migrate` but required by `backup`: names what is missing. */
+export function requireSourceBucket(config: OpsConfig): SourceBucketConfig {
+  const missing = (["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"] as const).filter(
+    (name) => config[name] === undefined,
+  );
+  if (
+    missing.length > 0 ||
+    config.S3_ENDPOINT === undefined ||
+    config.S3_BUCKET === undefined ||
+    config.S3_ACCESS_KEY_ID === undefined ||
+    config.S3_SECRET_ACCESS_KEY === undefined
+  ) {
+    throw new ConfigError(missing);
+  }
+  return {
+    endpoint: config.S3_ENDPOINT,
+    region: config.S3_REGION,
+    bucket: config.S3_BUCKET,
+    accessKeyId: config.S3_ACCESS_KEY_ID,
+    secretAccessKey: config.S3_SECRET_ACCESS_KEY,
+    forcePathStyle: config.S3_FORCE_PATH_STYLE,
+  };
 }

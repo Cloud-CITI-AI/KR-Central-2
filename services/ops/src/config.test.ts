@@ -1,6 +1,6 @@
 import { ConfigError, parseConfig } from "@kr/config";
 import { describe, expect, it } from "vitest";
-import { OpsConfigSchema } from "./config.js";
+import { OpsConfigSchema, requireSourceBucket } from "./config.js";
 
 const valid = {
   APP_ENV: "staging",
@@ -22,5 +22,39 @@ describe("ops config", () => {
   it("requires the migrator URL", () => {
     const { MIGRATION_DATABASE_URL: _omit, ...rest } = valid;
     expect(() => parseConfig(OpsConfigSchema, rest)).toThrow(ConfigError);
+  });
+});
+
+describe("requireSourceBucket", () => {
+  const source = {
+    S3_ENDPOINT: "https://files.example.com",
+    S3_BUCKET: "tracker-files",
+    S3_ACCESS_KEY_ID: "fake-read-only",
+    S3_SECRET_ACCESS_KEY: "fake-read-only-secret-123",
+  };
+
+  it("returns the files bucket settings for the backup job", () => {
+    const c = requireSourceBucket(parseConfig(OpsConfigSchema, { ...valid, ...source }));
+    expect(c).toEqual({
+      endpoint: "https://files.example.com",
+      region: "auto",
+      bucket: "tracker-files",
+      accessKeyId: "fake-read-only",
+      secretAccessKey: "fake-read-only-secret-123",
+      forcePathStyle: true,
+    });
+  });
+
+  it("names every missing variable (and no values) when the files bucket is not configured", () => {
+    const { S3_BUCKET: _bucket, S3_ACCESS_KEY_ID: _key, ...partial } = source;
+    const error = (() => {
+      try {
+        return requireSourceBucket(parseConfig(OpsConfigSchema, { ...valid, ...partial }));
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect(error).toBeInstanceOf(ConfigError);
+    expect((error as ConfigError).variables).toEqual(["S3_BUCKET", "S3_ACCESS_KEY_ID"]);
   });
 });
