@@ -1,0 +1,11 @@
+{
+  "$schema": "../service.schema.json",
+  "service": "api",
+  "image": "api",
+  "startCommand": "node dist/main.js",
+  "healthcheck": { "path": "/readyz", "timeoutSeconds": 60 },
+  "restartPolicy": { "type": "ON_FAILURE", "maxRetries": 10 },
+  "cronSchedule": null,
+  "replicas": 1,
+  "sleepApplication": false
+}

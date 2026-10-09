@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cloudcitiwa/kr-central-2/infra/railway/service.schema.json",
+  "title": "Railway service settings (ADR-0008)",
+  "description": "Declarative settings of one Railway service. deploy-images.mjs applies them with serviceInstanceUpdate before each deploy and fails when Railway reports different values.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "service",
+    "image",
+    "startCommand",
+    "healthcheck",
+    "restartPolicy",
+    "cronSchedule",
+    "replicas",
+    "sleepApplication"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "service": {
+      "description": "Name of the service in the Railway project (and of this file).",
+      "enum": ["clamav", "migrate", "api", "worker", "web", "backup"]
+    },
+    "image": {
+      "description": "Release image whose digest is deployed: the service reads image-<image>.txt from the GitHub release (ops runs migrate and backup).",
+      "enum": ["clamav", "ops", "api", "worker", "web"]
+    },
+    "startCommand": {
+      "description": "Start command (replaces the image CMD); null keeps the image default. The images have no pnpm/npm, so it is a plain node line.",
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "healthcheck": {
+      "description": "HTTP health check Railway gates the deployment on; null when the service has none (clamav listens on TCP only, backup is a cron job).",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["path", "timeoutSeconds"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^/[A-Za-z0-9/_.-]*$" },
+        "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600 }
+      }
+    },
+    "restartPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "maxRetries"],
+      "properties": {
+        "type": { "enum": ["ON_FAILURE", "ALWAYS", "NEVER"] },
+        "maxRetries": { "type": "integer", "minimum": 0, "maximum": 10 }
+      }
+    },
+    "cronSchedule": {
+      "description": "Five-field cron expression in UTC; null for services that run continuously.",
+      "type": ["string", "null"],
+      "pattern": "^\\S+ \\S+ \\S+ \\S+ \\S+$"
+    },
+    "replicas": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "sleepApplication": { "description": "Serverless/app sleeping.", "type": "boolean" }
+  }
+}

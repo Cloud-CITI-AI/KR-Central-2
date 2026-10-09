@@ -1,0 +1,11 @@
+{
+  "$schema": "../service.schema.json",
+  "service": "clamav",
+  "image": "clamav",
+  "startCommand": null,
+  "healthcheck": null,
+  "restartPolicy": { "type": "ON_FAILURE", "maxRetries": 10 },
+  "cronSchedule": null,
+  "replicas": 1,
+  "sleepApplication": false
+}

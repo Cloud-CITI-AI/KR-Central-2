@@ -1,0 +1,11 @@
+{
+  "$schema": "../service.schema.json",
+  "service": "web",
+  "image": "web",
+  "startCommand": "node apps/web/server.js",
+  "healthcheck": { "path": "/api/healthz", "timeoutSeconds": 60 },
+  "restartPolicy": { "type": "ON_FAILURE", "maxRetries": 10 },
+  "cronSchedule": null,
+  "replicas": 1,
+  "sleepApplication": false
+}

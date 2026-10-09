@@ -1,0 +1,11 @@
+{
+  "$schema": "../service.schema.json",
+  "service": "backup",
+  "image": "ops",
+  "startCommand": "node dist/backup-main.js",
+  "healthcheck": null,
+  "restartPolicy": { "type": "NEVER", "maxRetries": 0 },
+  "cronSchedule": "15 18 * * *",
+  "replicas": 1,
+  "sleepApplication": false
+}

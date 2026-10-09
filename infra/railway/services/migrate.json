@@ -1,0 +1,11 @@
+{
+  "$schema": "../service.schema.json",
+  "service": "migrate",
+  "image": "ops",
+  "startCommand": "node dist/migrate-main.js",
+  "healthcheck": { "path": "/healthz", "timeoutSeconds": 600 },
+  "restartPolicy": { "type": "NEVER", "maxRetries": 0 },
+  "cronSchedule": null,
+  "replicas": 1,
+  "sleepApplication": false
+}
