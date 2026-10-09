@@ -6,10 +6,11 @@ the suite commits only passing tests: each defect below carries the failing test
 `services/api/test/security/defects.int.test.ts`; the output shown was recorded on the commit that added this file).
 Fixing them belongs to the owning module, with the test moved into the suite in the same change.
 
-| ID  | Severity | Area                                        | Summary                                                                                     | Owner path                                           |
-| --- | -------- | ------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| D-1 | Low      | `services/api/src/platform/rate-limit.ts`   | The per-IP sign-in limit keys on the raw rightmost `X-Forwarded-For` entry, valid or not    | `/services/api/src/platform/**` (security CODEOWNER) |
-| D-2 | Low      | `services/api/src/app.ts` (Fastify options) | A path parameter over 100 characters is answered by Fastify's own 414, outside the platform | `/services/api/src/**` (security CODEOWNER)          |
+| ID  | Severity | Area                                                       | Summary                                                                                     | Owner path                                                                |
+| --- | -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| D-1 | Low      | `services/api/src/platform/rate-limit.ts`                  | The per-IP sign-in limit keys on the raw rightmost `X-Forwarded-For` entry, valid or not    | `/services/api/src/platform/**` (security CODEOWNER)                      |
+| D-2 | Low      | `services/api/src/app.ts` (Fastify options)                | A path parameter over 100 characters is answered by Fastify's own 414, outside the platform | `/services/api/src/**` (security CODEOWNER)                               |
+| D-3 | Low      | `apps/web/src/proxy.ts` matcher, `apps/web/next.config.ts` | Framework 404 pages for paths ending in a file extension, `/api` and `/api/v1` carry no CSP | `/apps/web/src/proxy.ts`, `/apps/web/next.config.ts` (security CODEOWNER) |
 
 ## D-1: the sign-in rate-limit key is whatever text the trusted hop sent
 
@@ -90,6 +91,33 @@ it("D-2: an over-long path parameter gets the platform's problem+json 4xx, not F
 
 Recorded result: `expected 'application/json' to contain 'application/problem+json'`.
 
+## D-3: static-looking 404 pages have no CSP
+
+**What happens.** `proxy.ts` sets the per-request nonce CSP, but its matcher (`/((?!api/|api$|_next/|.*\.[A-Za-z0-9]+$).*)`)
+skips `/api`, `/api/*`, `/_next/*` and every path that ends in an extension, so uploads and static files never pass
+through it. Next.js answers an unknown path of that kind with its built-in HTML 404 page, which therefore has HSTS,
+`nosniff`, `X-Frame-Options: DENY`, COOP and Referrer-Policy (from `next.config.ts`) but no `Content-Security-Policy`.
+
+**Reproduction** (local stack, `docker-compose.yml` `stack` profile):
+
+```
+$ curl -sI http://localhost:3000/robots.txt | grep -i -E '^HTTP|content-security|content-type'
+HTTP/1.1 404 Not Found
+Content-Type: text/html; charset=utf-8
+```
+
+ZAP rule 10038 reports it on `/robots.txt` and `/sitemap.xml` (and, when the spider is seeded there, `/api` and
+`/api/v1`); see `zap.md`.
+
+**Impact.** Low: the page is static, reflects nothing from the request and has no forms, so there is nothing to inject
+into. The gap is that a future change to that page (or a 404 that starts to echo the path) would run without the CSP
+that protects every other HTML page. `zap.md` carries a narrow `OUTOFSCOPE` line for the two paths a staging scan reaches.
+
+**Suggested fix.** Give these responses a CSP: either a static `Content-Security-Policy` in `next.config.ts` for the
+source patterns the proxy skips (`/:path*.:ext`, `/api`, `/api/v1`) that is `default-src 'none'; frame-ancestors 'none'`
+(these paths serve no scripts), or render a custom `not-found` with the nonce. Then delete the `10038` line in
+`infra/zap/rules.tsv`. This needs the web CODEOWNER (`proxy.ts` and `next.config.ts` are protected paths).
+
 ## Observations (no defect, for the reviewers)
 
 - **O-1: `preview` accepts any https authority host.** ADR-0002 says the mock IdP is allowed "only in local/preview", and
@@ -104,3 +132,6 @@ Recorded result: `expected 'application/json' to contain 'application/problem+js
   directive, so the effective policy is "never framed"; the web app's own pages send `DENY`. No action needed.
 - **O-4: MFA claim unverified.** Whether Entra emits `amr` or `acrs` for this app registration is still a go-live gate
   (threat model R-1). The tests prove the API's behaviour for both claims (`mfa.int.test.ts`), not Entra's.
+- **O-5: the sign-in redirect has no `Content-Type`.** `GET /` without a session answers `307` to `/sign-in` with no body
+  and no `Content-Type` (ZAP rule 10019, the second line of `rules.tsv`). A body-less redirect cannot be mis-typed and
+  `nosniff` is set, so no action is needed; if `proxy.ts` is touched for D-3, adding a type is free.

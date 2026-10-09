@@ -1,0 +1,5 @@
+# OWASP ZAP baseline overrides for the staging DAST step (.github/workflows/deploy.yml, zaproxy/action-baseline).
+# Format: <rule id><TAB><action><TAB><argument>. OUTOFSCOPE drops a rule's alerts for URLs matching the regex; every other rule
+# stays at its default (WARN, which fails the step because fail_action is true). Justification of each line: docs/security/zap.md.
+10038	OUTOFSCOPE	^https?://[^/]+/(robots\.txt|sitemap\.xml)$
+10019	OUTOFSCOPE	^https?://[^/]+/?$
