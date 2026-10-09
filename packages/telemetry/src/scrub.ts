@@ -8,7 +8,7 @@ import type { tracing } from "@opentelemetry/sdk-node";
 
 export const REDACTED = "[redacted]";
 
-const DROPPED_KEYS = new Set([
+export const DROPPED_KEYS: ReadonlySet<string> = new Set([
   "url.query",
   "user_agent.original",
   "http.user_agent",
@@ -21,8 +21,14 @@ const DROPPED_KEYS = new Set([
   "exception.message",
   "exception.stacktrace",
 ]);
-const DROPPED_PREFIXES = ["enduser.", "user.", "http.request.header.", "http.response.header.", "db.query.parameter."];
-const URL_KEYS = new Set(["url.full", "http.url", "http.target", "url.path"]);
+export const DROPPED_PREFIXES: readonly string[] = [
+  "enduser.",
+  "user.",
+  "http.request.header.",
+  "http.response.header.",
+  "db.query.parameter.",
+];
+export const URL_KEYS: ReadonlySet<string> = new Set(["url.full", "http.url", "http.target", "url.path"]);
 const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/;
 
 function scrubValue(value: AttributeValue): AttributeValue {

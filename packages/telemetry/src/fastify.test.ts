@@ -51,14 +51,17 @@ async function boot() {
 describe("Fastify instrumentation", () => {
   it("puts the route template on the server span and the http.server duration metric, without the query string", async () => {
     const { spanExporter, metricExporter, metricReader, address } = await boot();
-    const res = await fetch(`${address}/v1/jobs/42?email=a@b.com#x`);
+    const res = await fetch(`${address}/v1/jobs/42?email=a@b.com&name=Jo%20Bloggs`);
     expect(res.status).toBe(200);
     await metricReader.forceFlush();
 
     const spans = spanExporter.getFinishedSpans();
     const server = spans.find((s) => s.kind === SpanKind.SERVER && s.attributes["http.route"] === "/v1/jobs/:id");
     expect(server).toBeDefined();
-    expect(JSON.stringify(spans.map((s) => s.attributes))).not.toContain("a@b.com");
+    expect(server?.attributes["url.path"]).toBe("/v1/jobs/42");
+    const attributes = JSON.stringify(spans.map((s) => s.attributes));
+    expect(attributes).not.toContain("a@b.com");
+    expect(attributes).not.toMatch(/Bloggs|name=/);
     const duration = metricExporter
       .getMetrics()
       .flatMap((m) => m.scopeMetrics)

@@ -31,7 +31,10 @@ export interface TelemetryConfig {
   readonly sampleRatio?: number | undefined;
   /** Upper bound for shutdown() to resolve (default 5000 ms). */
   readonly shutdownTimeoutMs?: number | undefined;
-  /** Extra instrumentations, e.g. the Fastify one owned by the API service. */
+  /**
+   * Extra instrumentations on top of createInstrumentations(), which already covers http, pg, undici AND Fastify.
+   * Do NOT pass a Fastify instrumentation here: a second one fails with "decorator already added".
+   */
   readonly instrumentations?: SdkInstrumentations | undefined;
 }
 
