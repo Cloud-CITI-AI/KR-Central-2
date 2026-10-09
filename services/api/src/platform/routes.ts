@@ -29,8 +29,15 @@ type SuccessBody<Id extends OperationId> = {
     ? z.output<Z>
     : never;
 }[keyof RouteOf<Id>["responses"] & (200 | 201 | 202)];
-type HasIfMatch<Id extends OperationId> =
-  RouteOf<Id> extends { request: { headers: z.ZodType<{ "if-match": string }> } } ? true : false;
+/** "required" when the contract declares `if-match: string`, "optional" for `if-match?: string`, else "none". */
+type IfMatchMode<Id extends OperationId> =
+  RouteOf<Id> extends { request: { headers: z.ZodType<{ "if-match": string }> } }
+    ? "required"
+    : RouteOf<Id> extends { request: { headers: infer H extends z.ZodType } }
+      ? "if-match" extends keyof z.output<H>
+        ? "optional"
+        : "none"
+      : "none";
 
 /** Everything a handler needs, already validated against the contract. */
 export interface RouteContext<Id extends OperationId> {
@@ -41,8 +48,11 @@ export interface RouteContext<Id extends OperationId> {
   readonly body: Part<Id, "body">;
   /** Authenticated caller; always set on `auth: "session"` routes, null on public ones. */
   readonly auth: RouteOf<Id>["auth"] extends "session" ? AuthContext : AuthContext | null;
-  /** Version parsed from `If-Match` (routes whose contract declares the header; missing → 428). */
-  readonly expectedVersion: HasIfMatch<Id> extends true ? number : undefined;
+  /**
+   * Version parsed from `If-Match`. Required header: missing → 428. Optional header (updateUser): checked when sent
+   * (malformed → 400) and `undefined` when absent, never 428. No header in the contract: always `undefined`.
+   */
+  readonly expectedVersion: { required: number; optional: number | undefined; none: undefined }[IfMatchMode<Id>];
 }
 
 export type RouteHandler<Id extends OperationId> = (ctx: RouteContext<Id>) => Promise<SuccessBody<Id> | FastifyReply>;
@@ -80,7 +90,12 @@ export function defineRoute<Id extends OperationId>(
       .map(Number)
       .filter((s) => s >= 200 && s < 400),
   );
-  const wantsIfMatch = request?.headers instanceof z.ZodObject && "if-match" in request.headers.shape;
+  const headerShape: Readonly<Record<string, z.ZodType | undefined>> =
+    request?.headers instanceof z.ZodObject ? request.headers.shape : {};
+  const ifMatchField = headerShape["if-match"];
+  const wantsIfMatch = ifMatchField !== undefined;
+  // A contract that marks the header optional (updateUser) is checked when sent and never answered with 428.
+  const ifMatchOptional = ifMatchField?.safeParse(undefined).success ?? false;
   const schema = {
     ...(request?.params ? { params: request.params } : {}),
     ...(request?.query ? { querystring: request.query } : {}),
@@ -105,7 +120,10 @@ export function defineRoute<Id extends OperationId>(
         query: req.query,
         body: req.body,
         auth,
-        expectedVersion: wantsIfMatch ? parseIfMatch(req.headers) : undefined,
+        expectedVersion:
+          wantsIfMatch && !(ifMatchOptional && req.headers["if-match"] === undefined)
+            ? parseIfMatch(req.headers)
+            : undefined,
       } as unknown as RouteContext<Id>;
       return handler(ctx);
     },

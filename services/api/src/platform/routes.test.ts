@@ -1,11 +1,11 @@
 import { createLogger } from "@kr/logger";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { markAuthzChecked, type AuthContext } from "./auth-context.js";
 import { registerErrorHandling } from "./errors.js";
 import { sendIdempotent } from "./idempotency.js";
-import { defineRoute } from "./routes.js";
+import { defineRoute, type RouteContext } from "./routes.js";
 
 const JOB = "0f8fad5b-d9cb-469f-a165-70867728950e";
 
@@ -147,6 +147,31 @@ describe("defineRoute", () => {
     expect((await patch({ "if-match": '"7"' })).statusCode).toBe(500);
     expect(seen).toBe(7);
     await t.close();
+  });
+
+  it("treats an optional If-Match as checked when sent and never answers 428 (updateUser)", async () => {
+    const seen: (number | undefined)[] = [];
+    const t = await appWith((app) => {
+      defineRoute(app, "updateUser", ({ auth, expectedVersion }) => {
+        markAuthzChecked(auth);
+        const v: number | undefined = expectedVersion;
+        seen.push(v);
+        return Promise.reject(new Error("stop"));
+      });
+    });
+    const patch = (headers: Record<string, string>) =>
+      t.app.inject({ method: "PATCH", url: `/v1/users/${JOB}`, headers, payload: { role: "staff" } });
+    expect((await patch({})).statusCode).toBe(500);
+    expect((await patch({ "if-match": "7" })).statusCode).toBe(400);
+    expect((await patch({ "if-match": '"7"' })).statusCode).toBe(500);
+    expect(seen).toEqual([undefined, 7]);
+    await t.close();
+  });
+
+  it("types expectedVersion from the contract: required → number, optional → number | undefined, none → undefined", () => {
+    expectTypeOf<RouteContext<"updateJob">["expectedVersion"]>().toEqualTypeOf<number>();
+    expectTypeOf<RouteContext<"updateUser">["expectedVersion"]>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<RouteContext<"listUsers">["expectedVersion"]>().toEqualTypeOf<undefined>();
   });
 
   it("fails closed when a session route finishes without any authorisation check (BE-5)", async () => {
