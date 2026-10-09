@@ -10,6 +10,7 @@ import { CHECKPOINT_MESSAGES } from "./messages";
 import { PanelBox } from "./PanelBox";
 import { SlotFolderPanel } from "./SlotFolderPanel";
 import { SlotsPanel } from "./SlotsPanel";
+import { SurveyPanel } from "./SurveyPanel";
 import styles from "./CheckpointCard.module.css";
 
 export interface CheckpointCardProps {
@@ -32,10 +33,11 @@ function PanelView({ panel, job, checkpoint }: PanelViewProps) {
       return <SlotFolderPanel job={job} checkpoint={checkpoint} slot={panel.slot} />;
     case "slots":
       return <SlotsPanel job={job} checkpoint={checkpoint} panel={panel} />;
+    case "survey":
+      return <SurveyPanel job={job} checkpoint={checkpoint} panel={panel} />;
     case "approval":
     case "paid":
     case "kr_note":
-    case "survey":
     case "conformance":
     case "emails":
       return null;
