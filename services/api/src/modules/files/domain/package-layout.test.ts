@@ -1,0 +1,100 @@
+import { describe, expect, it } from "vitest";
+import { entryName, planPackage, zipFileName, type PackageCondition, type PackageFile } from "./package-layout.js";
+
+const job = { jobNumber: "S-0001", address: "1 Example Street, Testville" };
+const TOP = "S-0001 – 1 Example Street, Testville";
+let seq = 0;
+const file = (name: string, o: Partial<PackageFile> = {}): PackageFile => ({
+  id: `f${++seq}`,
+  name,
+  kind: "pdf",
+  checkpointKey: null,
+  conditionId: null,
+  storageKey: `jobs/j/f${seq}`,
+  ...o,
+});
+const paths = (files: PackageFile[], conditions: PackageCondition[] = []) =>
+  planPackage(job, files, conditions).entries.map((e) => e.path);
+
+describe("planPackage", () => {
+  it("names the zip after the job number and puts everything under '<job number> – <address>'", () => {
+    const plan = planPackage(job, [], []);
+    expect(plan.zipName).toBe("S-0001 – subdivision files.zip");
+    expect(plan.summaryPath).toBe(`${TOP}/Job summary.txt`);
+    expect(plan.entries).toEqual([]);
+  });
+
+  it("lays files out by stage folder and checkpoint folder, in workflow order", () => {
+    expect(
+      paths([
+        file("Notice.pdf", { checkpointKey: "i13_notif" }),
+        file("Survey.pdf", { checkpointKey: "i2_0" }),
+        file("Letter.pdf", { checkpointKey: "i3_0p" }),
+        file("Fee.pdf", { checkpointKey: "i1_0p" }),
+      ]),
+    ).toEqual([
+      `${TOP}/01 Preliminaries/1.0 Fee proposal/Fee.pdf`,
+      `${TOP}/01 Preliminaries/2.0 Site Feature Survey/Survey.pdf`,
+      `${TOP}/02 WAPC Approval/3.0 WAPC Proposal/Letter.pdf`,
+      `${TOP}/09 Landgate/12.2 Notification and Documents/Notice.pdf`,
+    ]);
+  });
+
+  it("puts emails in '/Query emails' under 4.3", () => {
+    expect(paths([file("Query.txt", { checkpointKey: "i4_3", kind: "email" })])).toEqual([
+      `${TOP}/02 WAPC Approval/4.3 Queries from WAPC/Query emails/Query.txt`,
+    ]);
+  });
+
+  it("puts condition evidence under the condition's agency stage, before that stage's checkpoints", () => {
+    const conditions: PackageCondition[] = [
+      { id: "c2", number: 2, agency: "Western Power" },
+      { id: "c1", number: 1, agency: "WAPC" },
+      { id: "c3", number: 12, agency: "Western Power" },
+    ];
+    expect(
+      paths(
+        [
+          file("Clearance.pdf", { checkpointKey: "i6_9" }),
+          file("b.jpg", { conditionId: "c3" }),
+          file("a.jpg", { conditionId: "c2" }),
+          file("w.pdf", { conditionId: "c1" }),
+        ],
+        conditions,
+      ),
+    ).toEqual([
+      `${TOP}/03 Western Power/WAPC conditions/Condition 2 evidence/a.jpg`,
+      `${TOP}/03 Western Power/WAPC conditions/Condition 12 evidence/b.jpg`,
+      `${TOP}/03 Western Power/6.8 Western Power clearance received/Clearance.pdf`,
+      `${TOP}/07 WAPC/WAPC conditions/Condition 1 evidence/w.pdf`,
+    ]);
+  });
+
+  it("suffixes duplicate names with ' (2)', ' (3)' before the extension, ignoring case, and never collides", () => {
+    expect(
+      paths([
+        file("Plan.pdf", { checkpointKey: "i2_0" }),
+        file("plan.PDF", { checkpointKey: "i2_0" }),
+        file("Plan.pdf", { checkpointKey: "i2_0" }),
+        file("README", { checkpointKey: "i2_0" }),
+        file("readme", { checkpointKey: "i2_0" }),
+        file("Plan (2).pdf", { checkpointKey: "i2_0" }),
+      ]).map((p) => p.split("/").pop()),
+    ).toEqual(["Plan.pdf", "plan (2).PDF", "Plan (3).pdf", "README", "readme (2)", "Plan (2) (2).pdf"]);
+  });
+
+  it("cleans names of path characters and keeps the extension of long names", () => {
+    expect(entryName('a/b:c*"d".pdf')).toBe("a b c d.pdf");
+    const long = entryName(`${"x".repeat(200)}.pdf`);
+    expect(long).toHaveLength(94);
+    expect(long.endsWith("xxx.pdf")).toBe(true);
+    expect(entryName("...")).toBe("file");
+  });
+});
+
+describe("zipFileName", () => {
+  it("uses the job number only, made safe for a file name", () => {
+    expect(zipFileName("S-0042")).toBe("S-0042 – subdivision files.zip");
+    expect(zipFileName("A/B 1")).toBe("A B 1 – subdivision files.zip");
+  });
+});
