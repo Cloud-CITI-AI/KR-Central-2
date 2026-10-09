@@ -1,0 +1,57 @@
+.drop {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 14px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  text-align: center;
+  cursor: pointer;
+}
+.drop b {
+  color: var(--ink);
+  font-size: 13.5px;
+}
+.drop:hover,
+.over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.drop:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.small {
+  padding: 10px;
+  background: var(--surface);
+}
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.busy {
+  cursor: progress;
+}
+/* the real file input stays focusable and labelled, just out of sight (prototype `.sr`) */
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+.messages {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--red-ink);
+  font-size: 12px;
+}
+@media print {
+  .drop {
+    display: none;
+  }
+}
