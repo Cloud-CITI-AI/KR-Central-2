@@ -49,6 +49,7 @@ export interface NewEmailMessage {
   readonly subject?: string | null;
   readonly fromText?: string | null;
   readonly bodyText?: string | null;
+  readonly sentAt?: Date | null;
   readonly parsedAt?: Date | null;
 }
 
@@ -62,6 +63,7 @@ export function insertEmailMessage(trx: Transaction<Database>, m: NewEmailMessag
       subject: m.subject ?? null,
       from_text: m.fromText ?? null,
       body_text: m.bodyText ?? null,
+      sent_at: m.sentAt ?? null,
       parsed_at: m.parsedAt ?? null,
     })
     .returningAll()
