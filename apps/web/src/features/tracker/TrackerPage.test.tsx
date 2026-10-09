@@ -42,6 +42,15 @@ describe("TrackerPage", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("shows the summary panels and the ten stages under the jobbar", async () => {
+    const job = syntheticJob();
+    server.use(mockApi("getJob", job), mockApi("listJobs", jobPage([])));
+    renderTracker(<TrackerPage jobId={job.id} />);
+    await screen.findByRole("combobox", { name: "Job" });
+    expect(screen.getAllByRole("button", { expanded: false })).toHaveLength(10);
+    expect(document.getElementById("water-corporation")).not.toBeNull();
+  });
+
   it("still works when storage is blocked", async () => {
     const job = syntheticJob();
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {

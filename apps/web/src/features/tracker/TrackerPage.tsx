@@ -7,10 +7,9 @@ import { Spinner } from "@/components/ui/Spinner";
 import { ApiProblem } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
 import { MESSAGES } from "@/lib/messages";
-import { Jobbar } from "./Jobbar";
 import { rememberLastJob } from "./lastJob";
 import { loadFailedText, TRACKER_MESSAGES } from "./messages";
-import { SummaryPanels } from "./SummaryPanels";
+import { TrackerBody } from "./TrackerBody";
 import { useJob } from "./useJob";
 
 export interface TrackerPageProps {
@@ -67,15 +66,5 @@ export function TrackerPage({ jobId }: TrackerPageProps) {
   }, [openedId]);
 
   if (!job) return error ? null : <Spinner label="Loading job…" />;
-  return (
-    <>
-      <Jobbar
-        job={job}
-        onSaveAsPdf={() => {
-          window.print();
-        }}
-      />
-      <SummaryPanels job={job} />
-    </>
-  );
+  return <TrackerBody job={job} />;
 }
