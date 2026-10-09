@@ -1,6 +1,7 @@
 /** Test support: synthetic file bytes the sniffer accepts and a multipart body builder (TD-1: no real documents). */
 import { createHash } from "node:crypto";
 import type { FileRow } from "@kr/db";
+import type { ObjectStorage } from "@kr/storage";
 import type { LightMyRequestResponse } from "fastify";
 import yauzl from "yauzl";
 import type { Factories } from "../../../test/factories.js";
@@ -94,7 +95,11 @@ export interface SeedFile {
 }
 
 /** A files row with its object in the test storage, as the worker leaves it after a scan (clean unless told). */
-export async function seedFile(t: Pick<TestApp, "db" | "storage">, f: Factories, o: SeedFile): Promise<FileRow> {
+export async function seedFile(
+  t: { readonly db: TestApp["db"]; readonly storage: ObjectStorage },
+  f: Factories,
+  o: SeedFile,
+): Promise<FileRow> {
   const contentType = o.contentType ?? "application/pdf";
   const row = await f.makeFile({
     jobId: o.jobId,
