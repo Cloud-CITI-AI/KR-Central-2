@@ -18,6 +18,8 @@ export interface FileOptions {
   readonly scanAttempts?: number;
   readonly checkpointKey?: string;
   readonly slot?: string;
+  /** Attach as evidence of this condition instead of to a checkpoint slot. */
+  readonly conditionId?: string;
   /** Do not put the object in storage (to test a missing object). */
   readonly noObject?: boolean;
 }
@@ -32,19 +34,22 @@ export async function insertFile(
   const id = randomUUID();
   const key = objectKeyFor(jobId, id);
   const bytes = Buffer.from(o.bytes ?? "synthetic file content");
-  const checkpointKey = o.checkpointKey ?? "i5_0";
-  await db
-    .insertInto("checkpoint_states")
-    .values({ job_id: jobId, checkpoint_key: checkpointKey })
-    .onConflict((c) => c.doNothing())
-    .execute();
+  const checkpointKey = o.conditionId ? null : (o.checkpointKey ?? "i5_0");
+  if (checkpointKey) {
+    await db
+      .insertInto("checkpoint_states")
+      .values({ job_id: jobId, checkpoint_key: checkpointKey })
+      .onConflict((c) => c.doNothing())
+      .execute();
+  }
   await db
     .insertInto("files")
     .values({
       id,
       job_id: jobId,
       checkpoint_key: checkpointKey,
-      slot: o.slot ?? "decision",
+      slot: o.conditionId ? null : (o.slot ?? "decision"),
+      condition_id: o.conditionId ?? null,
       storage_key: key,
       original_name: o.name ?? "Decision Letter.pdf",
       kind: o.kind ?? "pdf",

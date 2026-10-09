@@ -74,7 +74,7 @@ try {
     metrics,
     clock: systemClock,
     workerId: `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`,
-    handlers: buildHandlers({ db, storage, clamd, parser: createParser(), config, metrics }),
+    handlers: buildHandlers({ db, storage, clamd, parser: createParser(), clock: systemClock, config, metrics }),
   });
   if (config.MALWARE_SCAN_MODE === "required" && !(await clamd.ping())) {
     log.warn(

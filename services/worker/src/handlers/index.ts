@@ -5,6 +5,8 @@ import type { KrMetrics } from "@kr/telemetry";
 import type { ClamdClient } from "../clients/clamd.js";
 import type { WorkerConfig } from "../config.js";
 import type { Parser } from "../parsing/isolate.js";
+import type { Clock } from "../clock.js";
+import { conditionsExtractHandler } from "./conditions-extract.js";
 import { emailParseHandler } from "./email-parse.js";
 import { fileScanHandler } from "./file-scan.js";
 import type { Handlers } from "./types.js";
@@ -14,10 +16,15 @@ export interface HandlerDeps {
   readonly storage: ObjectStorage;
   readonly clamd: ClamdClient;
   readonly parser: Parser;
+  readonly clock: Clock;
   readonly config: WorkerConfig;
   readonly metrics: KrMetrics;
 }
 
 export function buildHandlers(deps: HandlerDeps): Handlers {
-  return { "file.scan": fileScanHandler(deps), "email.parse": emailParseHandler(deps) };
+  return {
+    "file.scan": fileScanHandler(deps),
+    "email.parse": emailParseHandler(deps),
+    "conditions.extract": conditionsExtractHandler(deps),
+  };
 }
