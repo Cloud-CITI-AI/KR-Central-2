@@ -25,7 +25,7 @@ describe("presentation helpers", () => {
   });
 
   it("sorts job numbers naturally", () => {
-    expect(["S-1000", "S-0561", "S-99"].sort(compareJobNumbers)).toEqual(["S-99", "S-0561", "S-1000"]);
+    expect(["S-1000", "S-0420", "S-99"].sort(compareJobNumbers)).toEqual(["S-99", "S-0420", "S-1000"]);
   });
 
   it("normalises subdivision type keys", () => {

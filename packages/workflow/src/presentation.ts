@@ -11,7 +11,7 @@ export interface JobIdentity {
   readonly subdivisionType: SubdivisionType | null;
 }
 
-/** "S-0561 – 242 Example St, Suburb – Client (Survey-Strata)" (prototype jobText). */
+/** "S-0042 – 1 Example Rd, Suburb – Client (Survey-Strata)" (prototype jobText). */
 export function jobDisplayText(j: JobIdentity): string {
   const parts = [j.jobNumber || "Job", j.address, j.clientName].filter((p): p is string => Boolean(p));
   return parts.join(" – ") + (j.subdivisionType ? ` (${j.subdivisionType})` : "");
@@ -19,7 +19,7 @@ export function jobDisplayText(j: JobIdentity): string {
 
 const collator = new Intl.Collator("en-AU", { numeric: true, sensitivity: "base" });
 
-/** Natural sort by job number (S-0099 before S-0561 before S-1000). */
+/** Natural sort by job number (S-0099 before S-0420 before S-1000). */
 export function compareJobNumbers(a: string, b: string): number {
   return collator.compare(a, b);
 }
