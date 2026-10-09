@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { JobDetail } from "@kr/contracts";
+import type { JobDetail, Operation } from "@kr/contracts";
 import type { ApiSession } from "./api-client";
 
 export interface NewJob {
@@ -39,4 +39,28 @@ export async function patchCheckpoint(
   const checkpoint = job.checkpoints.find((c) => c.key === key);
   if (!checkpoint) throw new Error(`No checkpoint ${key}`);
   await session.patch(`/v1/jobs/${jobId}/checkpoints/${key}`, change, `"${checkpoint.version.toString()}"`);
+}
+
+/** The id of the first file in a checkpoint's slot (the files a test uploaded through the browser). */
+export async function firstFileId(session: ApiSession, jobId: string, checkpointKey: string): Promise<string> {
+  const job = await getJob(session, jobId);
+  const file = job.checkpoints.find((c) => c.key === checkpointKey)?.files[0];
+  if (!file) throw new Error(`No file in ${checkpointKey}`);
+  return file.id;
+}
+
+/** Poll an operation until the worker has finished it (the UI does the same, 1 s apart). */
+export async function waitForOperation(
+  session: ApiSession,
+  operationId: string,
+  timeoutMs = 60_000,
+): Promise<Operation> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const operation = await session.get<Operation>(`/v1/operations/${operationId}`);
+    if (operation.status === "succeeded" || operation.status === "failed") return operation;
+    if (Date.now() > deadline)
+      throw new Error(`Operation ${operationId} still ${operation.status} after ${timeoutMs.toString()} ms`);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
 }
