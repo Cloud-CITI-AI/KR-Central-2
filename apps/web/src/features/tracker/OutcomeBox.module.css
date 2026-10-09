@@ -1,0 +1,108 @@
+/* prototype .outcome, .oc-dates, .oc-f, .oc-t, .det0, .link-btn, .cd, .cd-digits, .cd-cap, .cd-empty */
+.outcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 24px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  background: var(--surface);
+}
+.dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+}
+.dates .title {
+  font-weight: 600;
+  font-size: 14.5px;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink);
+}
+.dates input[type="date"] {
+  padding: 6px 9px;
+  font-size: inherit;
+}
+.hint {
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.reset {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+}
+.cd {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+.digits {
+  display: flex;
+  gap: 6px;
+}
+.digits span {
+  display: grid;
+  justify-items: center;
+  min-width: 52px;
+  padding: 6px 6px 4px;
+  border-radius: var(--radius);
+  background: var(--brand);
+  color: var(--brand-ink);
+}
+.digits b {
+  font-size: 22px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.digits i {
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+.cd[data-state="soon"] .digits span {
+  background: var(--fee);
+  color: var(--on-status);
+}
+.cd[data-state="past"] .digits span {
+  background: var(--red-ink);
+  color: var(--on-status);
+}
+.caption {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.cd[data-state="past"] .caption {
+  color: var(--red-ink);
+}
+.empty {
+  max-width: 220px;
+  color: var(--ink-3);
+  font-size: 13px;
+  text-align: right;
+}
+@media (max-width: 760px) {
+  .outcome {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cd {
+    justify-items: start;
+  }
+  .empty {
+    text-align: left;
+  }
+}
+@media (max-width: 520px) {
+  .dates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
