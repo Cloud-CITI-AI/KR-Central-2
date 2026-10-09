@@ -2,6 +2,7 @@ import { test as base, expect, type BrowserContext, type Page } from "@playwrigh
 import type { MockUser } from "@kr/mock-idp";
 import { signInOverHttp, type ApiSession } from "./harness/api-client";
 import { STACK_INFO_ENV } from "./harness/constants";
+import { seedPeople } from "./harness/seed";
 import { startStack, type Stack, type StackInfo } from "./harness/stack";
 import type { UserKind } from "./harness/users";
 import { newSyntheticUser } from "./harness/users";
@@ -66,18 +67,19 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
 
 /**
  * A stack of its own (own database, S3 bucket, API, worker and web server) for journeys that need a pristine
- * system (the first sign-in) or different infrastructure (real malware scanning). One per worker.
+ * system (the first sign-in) or different infrastructure (real malware scanning). One per worker: keep such journeys in
+ * one file and run it serially. With `seed` the usual people exist first (the first KR member is admin, Sam is staff).
  */
-export function isolatedStackTest(options: { label: string; malwareScanning?: "disabled" | "clamav" }) {
+export function isolatedStackTest(options: { label: string; malwareScanning?: "disabled" | "clamav"; seed?: boolean }) {
   return test.extend<{ own: Stack }, { ownStack: Stack }>({
     ownStack: [
       async ({ playwright: _playwright }, provide) => {
         const stack = await startStack({
           label: options.label,
           ...(options.malwareScanning ? { malwareScanning: options.malwareScanning } : {}),
-          control: false,
         });
         try {
+          if (options.seed) await seedPeople(stack.info);
           await provide(stack);
         } finally {
           await stack.stop();
@@ -85,14 +87,29 @@ export function isolatedStackTest(options: { label: string; malwareScanning?: "d
       },
       { scope: "worker", timeout: 300_000 },
     ],
+    // Everything that signs in or opens a page talks to this stack instead of the main one.
+    stack: [
+      async ({ ownStack }, provide) => {
+        await provide(ownStack.info);
+      },
+      { scope: "worker" },
+    ],
     own: async ({ ownStack }, provide) => {
       await provide(ownStack);
     },
-    // Pages of this test talk to the isolated web server.
     baseURL: async ({ ownStack }, provide) => {
       await provide(ownStack.info.webUrl);
     },
+    newUser: async ({ ownStack }, provide) => {
+      await provide((kind, label, overrides) => Promise.resolve(addUserTo(ownStack, kind, label, overrides)));
+    },
   });
+}
+
+function addUserTo(stack: Stack, kind: UserKind, label: string, overrides: Partial<MockUser> | undefined): MockUser {
+  const user = newSyntheticUser(kind, label, overrides);
+  stack.idp.addUser(user);
+  return user;
 }
 
 export { expect };

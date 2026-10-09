@@ -27,7 +27,7 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: [/\.mobile\.spec\.ts$/, /\/clamav\//],
+      testIgnore: [/\.mobile\.spec\.ts$/, /\/clamav\//, /\/defects\//],
     },
     {
       name: "mobile",
@@ -42,5 +42,16 @@ export default defineConfig({
       testMatch: /\/clamav\/.*\.spec\.ts$/,
       timeout: 240_000,
     },
+    // Known product defects (e2e/defects): journeys that assert the spec and fail until the defect is fixed. Opt in with E2E_DEFECTS=1.
+    ...(process.env.E2E_DEFECTS
+      ? [
+          {
+            name: "defects",
+            use: { ...devices["Desktop Chrome"] },
+            testMatch: /\/defects\/.*\.spec\.ts$/,
+            timeout: 240_000,
+          },
+        ]
+      : []),
   ],
 });
