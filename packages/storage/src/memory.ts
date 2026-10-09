@@ -75,7 +75,7 @@ export function createMemoryStorage(options: MemoryStorageOptions = {}): ObjectS
           return { body: Readable.from([Buffer.from(data)], { objectMode: false }), size: data.length, contentType };
         }
         const end = Math.min(range.end ?? data.length - 1, data.length - 1);
-        if (range.start < 0 || range.start >= data.length || end < range.start) throw new InvalidRangeError(key);
+        if (!(range.start >= 0) || range.start >= data.length || end < range.start) throw new InvalidRangeError(key);
         return {
           body: Readable.from([Buffer.from(data.subarray(range.start, end + 1))], { objectMode: false }),
           size: data.length,

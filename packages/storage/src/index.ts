@@ -9,6 +9,8 @@ import type { FileKind } from "@kr/workflow";
 export { SNIFF_BYTES, classifyContent, isAcceptedForSlot } from "./classify.js";
 export type { ClassifyResult, ContentRejection } from "./classify.js";
 export { sanitiseFileName } from "./file-name.js";
+export { createS3Storage } from "./s3.js";
+export type { S3Storage } from "./s3.js";
 export { InvalidRangeError, ObjectNotFoundError, assertValidKey } from "./errors.js";
 
 export interface PutObjectInput {
@@ -75,8 +77,10 @@ export interface S3StorageConfig {
   readonly accessKeyId: string;
   readonly secretAccessKey: string;
   readonly forcePathStyle: boolean;
-  /** Per-request timeout (BE-10). */
+  /** Socket idle timeout in milliseconds (BE-10); default 30 000. */
   readonly timeoutMs?: number;
+  /** Connection timeout in milliseconds; default 10 000. */
+  readonly connectTimeoutMs?: number;
 }
 
 /** Result of sniffing the first bytes of an upload. */
