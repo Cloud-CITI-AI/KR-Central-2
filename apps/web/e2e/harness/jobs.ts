@@ -23,3 +23,20 @@ export function createJob(session: ApiSession, job: NewJob = {}): Promise<JobDet
     subdivisionType: job.subdivisionType ?? "Survey-Strata",
   });
 }
+
+export function getJob(session: ApiSession, jobId: string): Promise<JobDetail> {
+  return session.get<JobDetail>(`/v1/jobs/${jobId}`);
+}
+
+/** Change a checkpoint through the API (reads its current version for `If-Match`), as staff would from the tracker. */
+export async function patchCheckpoint(
+  session: ApiSession,
+  jobId: string,
+  key: string,
+  change: { status?: "completed" | "not_completed" | "not_required"; responsibility?: string | null; krNote?: string },
+): Promise<void> {
+  const job = await getJob(session, jobId);
+  const checkpoint = job.checkpoints.find((c) => c.key === key);
+  if (!checkpoint) throw new Error(`No checkpoint ${key}`);
+  await session.patch(`/v1/jobs/${jobId}/checkpoints/${key}`, change, `"${checkpoint.version.toString()}"`);
+}
