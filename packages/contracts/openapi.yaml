@@ -1327,6 +1327,16 @@ paths:
               request)
           required: true
           description: CSRF token from GET /v1/me (required on every state-changing request)
+        - in: header
+          name: idempotency-key
+          schema:
+            description: Optional idempotency key; repeating a request with the same key
+              returns the original result (API-5).
+            type: string
+            minLength: 8
+            maxLength: 128
+          description: Optional idempotency key; repeating a request with the same key
+            returns the original result (API-5).
       requestBody:
         required: true
         content:
@@ -1689,6 +1699,16 @@ paths:
               request)
           required: true
           description: CSRF token from GET /v1/me (required on every state-changing request)
+        - in: header
+          name: idempotency-key
+          schema:
+            description: Optional idempotency key; repeating a request with the same key
+              returns the original result (API-5).
+            type: string
+            minLength: 8
+            maxLength: 128
+          description: Optional idempotency key; repeating a request with the same key
+            returns the original result (API-5).
       requestBody:
         required: true
         content:
@@ -1791,6 +1811,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FileMeta"
+        "400":
+          description: Malformed file id
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         "401":
           description: No valid session
           content:
@@ -1925,6 +1951,12 @@ paths:
               schema:
                 type: string
                 format: binary
+        "400":
+          description: Invalid disposition
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         "401":
           description: No valid session
           content:
@@ -1939,6 +1971,12 @@ paths:
                 $ref: "#/components/schemas/Problem"
         "409":
           description: Scan pending or file rejected
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "416":
+          description: "Range not satisfiable (Content-Range: bytes */size)"
           content:
             application/problem+json:
               schema:

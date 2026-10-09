@@ -352,7 +352,7 @@ export const ROUTES = [
     tag: "checkpoints",
     auth: "session",
     authz: "job capability emails.add",
-    request: { params: S.JobIdParams, body: S.PasteEmailRequest, headers: csrf },
+    request: { params: S.JobIdParams, body: S.PasteEmailRequest, headers: csrfIdem },
     responses: { 201: { description: "Stored as a text file with email metadata", schema: S.FileMeta }, ...JOB_ERRORS },
   },
   {
@@ -409,7 +409,7 @@ export const ROUTES = [
     auth: "session",
     authz:
       "slot uploaders 'staff' → files.upload.staff_slots; 'staff_and_client' → files.upload.client_slots; condition evidence → conditions.evidence.upload",
-    request: { params: S.JobIdParams, body: S.UploadFields, multipart: true, headers: csrf },
+    request: { params: S.JobIdParams, body: S.UploadFields, multipart: true, headers: csrfIdem },
     responses: {
       201: { description: "Stored; scanning starts", schema: S.UploadResult },
       ...JOB_ERRORS,
@@ -426,7 +426,12 @@ export const ROUTES = [
     auth: "session",
     authz: "job.read on the file's job; restricted checkpoint files need fee_proposal.view",
     request: { params: S.FileIdParams },
-    responses: { 200: { description: "File", schema: S.FileMeta }, ...SESSION_ERRORS, 404: problem("Not found") },
+    responses: {
+      200: { description: "File", schema: S.FileMeta },
+      ...SESSION_ERRORS,
+      400: problem("Malformed file id"),
+      404: problem("Not found"),
+    },
   },
   {
     operationId: "getFileContent",
@@ -442,8 +447,10 @@ export const ROUTES = [
       200: { description: "File bytes", contentType: "application/octet-stream" },
       206: { description: "Partial content", contentType: "application/octet-stream" },
       ...SESSION_ERRORS,
+      400: problem("Invalid disposition"),
       404: problem("Not found"),
       409: problem("Scan pending or file rejected"),
+      416: problem("Range not satisfiable (Content-Range: bytes */size)"),
     },
   },
   {
