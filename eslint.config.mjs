@@ -39,6 +39,7 @@ export default tseslint.config(
       "**/next-env.d.ts",
       "**/*.config.{js,mjs,cjs,ts,mts}",
       "**/stryker.config.mjs",
+      "**/.size-limit.mjs",
       "scripts/**",
       "docs/reference/**",
       // vendored pdf.js runtime copied unchanged from pdfjs-dist (apps/web/public/pdfjs/README.md)
