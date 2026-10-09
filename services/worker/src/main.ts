@@ -30,6 +30,7 @@ const [{ createLogger }, { createDb }, { createS3Storage }, { createMetrics }, {
   ]);
 const { systemClock } = await import("./clock.js");
 const { buildHandlers } = await import("./handlers/index.js");
+const { createClamdClient } = await import("./clients/clamd.js");
 
 const log = createLogger({ service: "kr-worker", env: config.APP_ENV, level: config.LOG_LEVEL });
 const exit = (code: number): never => process.exit(code);
@@ -56,6 +57,13 @@ const metrics = createMetrics({
   operationStatuses: ["succeeded", "failed"] as const,
 });
 
+const clamd = createClamdClient({
+  host: config.CLAMAV_HOST,
+  port: config.CLAMAV_PORT,
+  timeoutMs: config.CLAMAV_TIMEOUT_MS,
+  maxBytes: config.CLAMAV_STREAM_MAX_BYTES,
+});
+
 try {
   const worker = await app.startWorker({
     config,
@@ -65,8 +73,14 @@ try {
     metrics,
     clock: systemClock,
     workerId: `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`,
-    handlers: buildHandlers(),
+    handlers: buildHandlers({ db, storage, clamd, config, metrics }),
   });
+  if (config.MALWARE_SCAN_MODE === "required" && !(await clamd.ping())) {
+    log.warn(
+      { event: "clamd_unreachable", host: config.CLAMAV_HOST },
+      "clamd did not answer PING; scans will be retried",
+    );
+  }
   const shutdown = lifecycle.createShutdown({
     drain: (timeoutMs) => worker.drain(timeoutMs),
     closers: [() => worker.close(), () => db.destroy(), () => telemetry.shutdown()],

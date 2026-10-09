@@ -116,6 +116,7 @@ describe("scan", () => {
       controller.abort();
     }, 20);
     expect((await failure(pending)).code).toBe("aborted");
+    expect((await failure(client.scan(body("x"), AbortSignal.abort()))).code).toBe("aborted");
   });
 
   it("passes on an error of the source stream and releases the connection", async () => {

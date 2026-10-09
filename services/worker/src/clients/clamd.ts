@@ -82,6 +82,7 @@ function verdictFrom(reply: string): ScanVerdict {
 export function createClamdClient(options: ClamdOptions): ClamdClient {
   /** One command on a fresh connection; resolves with clamd's reply text, whatever way the connection ended. */
   function exchange(command: string, source?: Readable, signal?: AbortSignal): Promise<string> {
+    if (signal?.aborted) return Promise.reject(new ClamdError("aborted", "The scan was cancelled."));
     return new Promise((resolve, reject) => {
       const socket = net.connect({ host: options.host, port: options.port });
       socket.setTimeout(options.timeoutMs);
