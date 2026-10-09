@@ -45,8 +45,10 @@ export async function createBareDatabase(superuserUrl: string): Promise<Throwawa
 
 export interface S3Mock {
   readonly endpoint: string;
-  /** A client for the bucket, to read back what the jobs wrote. */
+  /** A client for the bucket given to startS3Mock, to read back what the jobs wrote. */
   readonly storage: S3Storage;
+  /** A client for any of the buckets created at start. */
+  open(bucket: string): S3Storage;
   stop(): Promise<void>;
 }
 
@@ -64,12 +66,18 @@ export async function startS3Mock(buckets: readonly string[], readBucket: string
     .withWaitStrategy(Wait.forLogMessage(/Started S3MockApplication/))
     .start();
   const endpoint = `http://${container.getHost()}:${container.getMappedPort(9090)}`;
-  const storage = createS3Storage({ ...S3_TEST_CREDENTIALS, endpoint, bucket: readBucket, forcePathStyle: true });
+  const clients: S3Storage[] = [];
+  const open = (bucket: string): S3Storage => {
+    const client = createS3Storage({ ...S3_TEST_CREDENTIALS, endpoint, bucket, forcePathStyle: true });
+    clients.push(client);
+    return client;
+  };
   return {
     endpoint,
-    storage,
+    storage: open(readBucket),
+    open,
     async stop() {
-      storage.close();
+      for (const client of clients) client.close();
       await container.stop();
     },
   };
