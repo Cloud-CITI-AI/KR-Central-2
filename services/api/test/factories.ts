@@ -4,8 +4,9 @@
  */
 import { createHash } from "node:crypto";
 import type { GlobalRole } from "@kr/contracts";
-import type { AccessGrantRow, Db, JobRow, UserRow } from "@kr/db";
-import { CHECKPOINTS, SUBDIVISION_TYPES } from "@kr/workflow";
+import type { AccessGrantRow, ConditionRow, Db, EmailMessageRow, FileRow, JobNoteRow, JobRow, UserRow } from "@kr/db";
+import { objectKeyFor } from "@kr/storage";
+import { AGENCIES, CHECKPOINTS, SUBDIVISION_TYPES, type Agency } from "@kr/workflow";
 import { Faker, en, en_AU } from "@faker-js/faker";
 import { expect } from "vitest";
 
@@ -38,6 +39,26 @@ export interface GrantOverrides {
   /** Required for active grants (bound user). */
   readonly userId?: string | null;
   readonly email?: string;
+}
+
+export interface ConditionOverrides {
+  readonly jobId: string;
+  readonly number: number;
+  readonly agency?: Agency;
+  readonly isCleared?: boolean;
+}
+
+export interface FileOverrides {
+  readonly jobId: string;
+  /** Checkpoint slot target (default i2_0 / "documents") unless `conditionId` is given (evidence). */
+  readonly checkpointKey?: string;
+  readonly slot?: string;
+  readonly conditionId?: string;
+  readonly uploadedBy?: string | null;
+  readonly scanStatus?: FileRow["scan_status"];
+  readonly kind?: FileRow["kind"];
+  readonly name?: string;
+  readonly sizeBytes?: number;
 }
 
 const WA_TOWNS = ["Busselton", "Dunsborough", "Margaret River", "Bunbury", "Mandurah", "Rockingham"];
@@ -93,6 +114,69 @@ export function createFactories(db: Db, seed: number = seedFromTestFile()) {
           .execute();
         return job;
       });
+    },
+    async makeCondition(o: ConditionOverrides): Promise<ConditionRow> {
+      return db
+        .insertInto("conditions")
+        .values({
+          job_id: o.jobId,
+          condition_number: o.number,
+          text: faker.lorem.sentence(),
+          agency: o.agency ?? faker.helpers.arrayElement(AGENCIES),
+          is_cleared: o.isCleared ?? false,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    },
+    /** File metadata row (no object in storage); the storage key follows the real layout jobs/<jobId>/<fileId>. */
+    async makeFile(o: FileOverrides): Promise<FileRow> {
+      const id = faker.string.uuid();
+      const target = o.conditionId
+        ? { condition_id: o.conditionId }
+        : { checkpoint_key: o.checkpointKey ?? "i2_0", slot: o.slot ?? "documents" };
+      return db
+        .insertInto("files")
+        .values({
+          id,
+          job_id: o.jobId,
+          ...target,
+          storage_key: objectKeyFor(o.jobId, id),
+          original_name: o.name ?? faker.system.commonFileName("pdf"),
+          kind: o.kind ?? "pdf",
+          content_type: "application/pdf",
+          size_bytes: o.sizeBytes ?? faker.number.int({ min: 1_000, max: 5_000_000 }),
+          sha256: Buffer.from(faker.string.hexadecimal({ length: 64, prefix: "" }), "hex"),
+          scan_status: o.scanStatus ?? "clean",
+          uploaded_by: o.uploadedBy ?? null,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    },
+    async makeEmail(fileId: string, o: { parsed?: boolean } = {}): Promise<EmailMessageRow> {
+      return db
+        .insertInto("email_messages")
+        .values({
+          file_id: fileId,
+          parse_status: o.parsed === false ? "pending" : "parsed",
+          subject: faker.lorem.words(4),
+          from_text: "assessor@example.test",
+          to_text: "surveyor@example.test",
+          sent_at: new Date("2026-02-03T02:00:00Z"),
+          body_text: faker.lorem.paragraph(),
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    },
+    async makeNote(o: {
+      jobId: string;
+      authorId: string | null;
+      audience?: JobNoteRow["audience"];
+    }): Promise<JobNoteRow> {
+      return db
+        .insertInto("job_notes")
+        .values({ job_id: o.jobId, author_id: o.authorId, body: faker.lorem.sentence(), audience: o.audience ?? "all" })
+        .returningAll()
+        .executeTakeFirstOrThrow();
     },
     async makeGrant(o: GrantOverrides): Promise<AccessGrantRow> {
       const status = o.status ?? "active";
