@@ -1,0 +1,17 @@
+/* prototype .row.wrap and .msg / .msg.ok under the conformance zone */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.msg {
+  color: var(--red-ink);
+  font-size: 12px;
+}
+.msg:empty {
+  display: none;
+}
+.msg.ok {
+  color: var(--ink-3);
+}
