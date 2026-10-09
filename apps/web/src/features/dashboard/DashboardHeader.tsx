@@ -1,6 +1,6 @@
 "use client";
 import { SUBDIVISION_TYPES } from "@kr/workflow";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { DashboardParams } from "./params";
 import type { DashboardStatus, Facets } from "./types";
 import styles from "./DashboardHeader.module.css";
@@ -10,6 +10,10 @@ export interface DashboardHeaderProps {
   /** Undefined while the counts load: the controls render without numbers. */
   readonly facets: Facets | undefined;
   readonly onChange: (patch: Partial<DashboardParams>) => void;
+  /** Extra buttons beside the search box (NEW JOB). */
+  readonly actions?: ReactNode;
+  /** Full-width content under the type chips (the inline new-job form). */
+  readonly children?: ReactNode;
 }
 
 const STATUS_BUTTONS = [
@@ -21,7 +25,7 @@ const STATUS_BUTTONS = [
 const SEARCH_DELAY_MS = 250;
 
 /** "SUBDIVISION DASHBOARD" box (§6): status filter, search, and the type chips. Every choice lives in the URL. */
-export function DashboardHeader({ params, facets, onChange }: DashboardHeaderProps) {
+export function DashboardHeader({ params, facets, onChange, actions, children }: DashboardHeaderProps) {
   // The box keeps what is typed; the URL follows after a pause, and back/forward put the URL's text back.
   const [text, setText] = useState(params.q);
   const [seenQ, setSeenQ] = useState(params.q);
@@ -72,6 +76,7 @@ export function DashboardHeader({ params, facets, onChange }: DashboardHeaderPro
             setText(event.target.value);
           }}
         />
+        {actions}
       </div>
       <div className={styles.types} role="group" aria-label="Subdivision type">
         <span className={styles.typeLabel} aria-hidden="true">
@@ -94,6 +99,7 @@ export function DashboardHeader({ params, facets, onChange }: DashboardHeaderPro
           ),
         )}
       </div>
+      {children}
     </section>
   );
 }

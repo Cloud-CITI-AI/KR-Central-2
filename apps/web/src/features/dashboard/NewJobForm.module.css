@@ -1,0 +1,27 @@
+/* prototype form.newjob */
+.form {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.input {
+  flex: 1 1 180px;
+  width: auto;
+}
+.error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--red-ink);
+  font-size: 12px;
+}
+@media print {
+  .form {
+    display: none;
+  }
+}

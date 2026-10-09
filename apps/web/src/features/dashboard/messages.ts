@@ -18,3 +18,19 @@ export const GRID_MESSAGES = {
   loadMore: "Load more",
   loading: "Loading jobs…",
 } as const;
+
+/** NEW JOB form (§6). The duplicate text is the spec's; the required-field and failure texts are additions. */
+export const NEW_JOB_MESSAGES = {
+  jobNumber: "Enter the job number.",
+  address: "Enter the address.",
+  subdivisionType: "Choose the subdivision type.",
+} as const;
+
+export function duplicateJobText(jobNumber: string): string {
+  return `${jobNumber} is already in use.`;
+}
+
+export function saveFailedJobText(requestId: string | undefined): string {
+  const text = "That couldn't be saved. Try again.";
+  return requestId ? `${text} (Request ID: ${requestId})` : text;
+}

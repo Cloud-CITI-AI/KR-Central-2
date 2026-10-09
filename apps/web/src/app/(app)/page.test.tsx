@@ -5,6 +5,7 @@ import { HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import { getTestUrl, setTestUrl } from "@/features/dashboard/test-router";
 import { syntheticFacets } from "@/features/dashboard/test-fixtures";
+import { syntheticMe } from "@/test/fixtures";
 import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
@@ -52,6 +53,28 @@ describe("DashboardPage", () => {
     expect(await screen.findByText("S-0001 was archived.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(getTestUrl()).toBe("/");
+  });
+
+  it("offers NEW JOB to staff, opens the inline form under the header and closes it again", async () => {
+    setTestUrl("/");
+    server.use(mockApi("getJobFacets", syntheticFacets()), mockApi("listJobs", { items: [], nextCursor: null }));
+    renderWithProviders(<DashboardPage />);
+    const button = await screen.findByRole("button", { name: "New job" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("textbox", { name: "Job number" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("textbox", { name: "Job number" })).toBeNull();
+    expect(button).toHaveFocus();
+  });
+
+  it("does not offer NEW JOB to an external user", async () => {
+    setTestUrl("/");
+    server.use(mockApi("getJobFacets", syntheticFacets()), mockApi("listJobs", { items: [], nextCursor: null }));
+    renderWithProviders(<DashboardPage />, { me: syntheticMe("external") });
+    await screen.findByRole("button", { name: "In progress (5)" });
+    expect(screen.queryByRole("button", { name: "New job" })).toBeNull();
   });
 
   it("starts from the filters in the URL", async () => {
