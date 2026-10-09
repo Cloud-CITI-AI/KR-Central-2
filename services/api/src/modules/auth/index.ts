@@ -2,11 +2,14 @@
 import type { ApiModule } from "../../platform/module.js";
 import { registerAuthRoutes } from "./http/routes.js";
 import { createOidcClient } from "./http/oidc.js";
+import { registerSessionRoutes } from "./http/session-routes.js";
 
 export const authModule: ApiModule = {
   name: "auth",
   operations: ["startLogin", "completeLogin", "logout", "getMe"],
   register(app, deps) {
-    registerAuthRoutes(app, deps, createOidcClient(deps.config, deps.clock));
+    const oidc = createOidcClient(deps.config, deps.clock);
+    registerAuthRoutes(app, deps, oidc);
+    registerSessionRoutes(app, deps, oidc);
   },
 };

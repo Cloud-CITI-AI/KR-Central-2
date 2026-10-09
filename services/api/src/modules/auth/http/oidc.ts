@@ -24,6 +24,8 @@ export interface OidcClient {
   authorizationUrl(secrets: FlowSecrets): Promise<URL>;
   /** Redeem the callback (`callback` = redirect URI plus the query Entra sent); resolves to validated ID token claims. */
   exchange(callback: URL, secrets: FlowSecrets): Promise<Readonly<Record<string, unknown>>>;
+  /** Entra's end-session endpoint; the browser returns to `postLogoutRedirectUri` afterwards. */
+  endSessionUrl(postLogoutRedirectUri: string): Promise<URL>;
 }
 
 type OidcConfig = Pick<
@@ -85,6 +87,9 @@ export function createOidcClient(config: OidcConfig, clock: Clock): OidcClient {
       const claims = tokens.claims();
       if (claims === undefined) throw new TypeError("The token response carried no ID token.");
       return claims;
+    },
+    async endSessionUrl(postLogoutRedirectUri) {
+      return client.buildEndSessionUrl(await configuration(), { post_logout_redirect_uri: postLogoutRedirectUri });
     },
   };
 }
