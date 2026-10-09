@@ -4,8 +4,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { enqueue, insertJob, openDb } from "../../test/db.js";
 import { handlerContext, insertFile } from "../../test/files.js";
 import { makePdf } from "../../test/pdf.js";
-import type { StampReader, StampReading } from "../clients/stamp-reader.js";
-import type { TaskError } from "../errors.js";
+import { StampReaderError, type StampReader, type StampReading } from "../clients/stamp-reader.js";
+import { TaskError } from "../errors.js";
 import { createParser, type Parser } from "../parsing/isolate.js";
 import { conformanceReadHandler } from "./conformance-read.js";
 
@@ -39,6 +39,7 @@ interface Options {
   readonly key?: string | undefined;
   readonly reader?: StampReader | undefined;
   readonly parser?: Parser;
+  readonly scanStatus?: "clean" | "pending";
 }
 
 async function read(o: Options = {}) {
@@ -47,7 +48,7 @@ async function read(o: Options = {}) {
     name: o.name ?? "Conformance Notification.pdf",
     checkpointKey: "i4_2",
     slot: "conformance",
-    scanStatus: "clean",
+    scanStatus: o.scanStatus ?? "clean",
   });
   const metrics = { recordStampReading: vi.fn() };
   const handler = conformanceReadHandler({
@@ -121,6 +122,37 @@ describe("conformance.read: the order of the attempts", () => {
     });
   });
 
+  it("overwrites a date entered by hand, its outcome date and its file", async () => {
+    await db
+      .updateTable("jobs")
+      .set({
+        conformed_date: "2026-01-01",
+        conformed_method: "manual",
+        outcome_date: "2026-05-05",
+        conformed_stamp_text: "old",
+      })
+      .where("id", "=", jobId)
+      .execute();
+    await read({ name: "notice 16-03-2026.pdf" });
+    expect(await job()).toMatchObject({
+      conformed_date: "2026-03-16",
+      conformed_method: "file_name",
+      conformed_stamp_text: null,
+      outcome_date: "2026-06-14",
+    });
+  });
+
+  it("uses a stamp annotation before the AI and the text", async () => {
+    const reader = readerOf(reading({}));
+    const { result } = await read({ annotation: "DATE 17-Mar-2026 FILE 123-26", reader });
+    expect(result).toMatchObject({
+      date: "2026-03-17",
+      method: "stamp_annotation",
+      message: "Read from the stamp on page 1: Tue, 17 Mar 2026.",
+    });
+    expect(reader.calls).toHaveLength(0);
+  });
+
   it("asks the AI before the text rule, though the text has a conformed date, and keeps the stamp text", async () => {
     const reader = readerOf(reading({}));
     const { result, metrics } = await read({ reader });
@@ -151,5 +183,91 @@ describe("conformance.read: the order of the attempts", () => {
         'No stamp could be read, so the "conformed" date in the text was used: Mon, 16 Mar 2026. Please check it below.',
     });
     expect(metrics.recordStampReading).toHaveBeenCalledExactlyOnceWith("disabled");
+  });
+});
+
+describe("conformance.read: when the AI may be called", () => {
+  it.each([
+    ["the request does not allow it", { allowAi: false }],
+    ["the flag is off", { flag: false }],
+    ["there is no API key", { key: undefined }],
+    ["the worker built no reader", { reader: undefined }],
+  ] as const)("never calls the reader when %s", async (_name, variation) => {
+    const reader = readerOf(reading({}));
+    const options: Options = { reader, ...variation };
+    const { result } = await read(options);
+    expect(result).toMatchObject({ method: "text" });
+    expect(reader.calls).toHaveLength(0);
+  });
+
+  it.each([
+    ["refused", new StampReaderError("refused")],
+    ["timeout", new StampReaderError("timeout")],
+    ["unparseable", new StampReaderError("unparseable")],
+    ["error", new StampReaderError("error")],
+    ["error", new Error("surprise")],
+  ] as const)("falls through to the text rule when the reader fails (%s) and counts it", async (label, failure) => {
+    const { result, metrics } = await read({ reader: readerOf(failure) });
+    expect(result).toMatchObject({ found: true, date: "2026-03-16", method: "text" });
+    expect(metrics.recordStampReading).toHaveBeenCalledExactlyOnceWith(label);
+  });
+
+  it("falls through to the text rule when the AI finds no stamp", async () => {
+    const { result } = await read({ reader: readerOf(reading({ found: false, date: null, stampText: null })) });
+    expect(result).toMatchObject({ method: "text" });
+  });
+});
+
+describe("conformance.read: nothing found, and files that cannot be read", () => {
+  it("says so and changes nothing when no step finds a date", async () => {
+    const before = await job();
+    const { result } = await read({ pages: [["A notice with no stamp and no date."]], allowAi: false });
+    expect(result).toEqual({
+      found: false,
+      date: null,
+      method: null,
+      stampText: null,
+      message:
+        "No stamped date could be found on page 1 of Conformance Notification.pdf. Enter the conformed date below.",
+    });
+    expect(await job()).toEqual(before);
+  });
+
+  it("answers 'couldn't be read' for a PDF that cannot be read, as a result and not a failure", async () => {
+    const file = await insertFile(db, storage, jobId, {
+      bytes: "not a pdf",
+      name: "Notice.pdf",
+      checkpointKey: "i4_2",
+      slot: "conformance",
+      scanStatus: "clean",
+    });
+    const handler = conformanceReadHandler({
+      db,
+      storage,
+      parser: createParser(),
+      metrics: { recordStampReading: vi.fn() },
+      config: {
+        UPLOAD_MAX_BYTES: 1024,
+        PDF_MAX_PAGES: 60,
+        FEATURE_AI_STAMP_READING: false,
+        ANTHROPIC_API_KEY: undefined,
+      },
+    });
+    const op = await enqueue(db, jobId, "conformance.read", { fileId: file.id, allowAi: false });
+    expect(await handler.run(handlerContext(op))).toMatchObject({
+      found: false,
+      message: "Notice.pdf couldn't be read. Enter the conformed date below.",
+    });
+  });
+
+  it("fails a time limit instead of calling it unreadable", async () => {
+    const slow: Parser = { run: () => Promise.reject(new TaskError("timeout", "Too slow.")) };
+    expect((await read({ parser: slow })).error?.code).toBe("timeout");
+  });
+
+  it("fails for a file that is not a clean PDF in the 4.2 box, and for an archived job", async () => {
+    expect((await read({ scanStatus: "pending" })).error?.code).toBe("file_unavailable");
+    await db.updateTable("jobs").set({ deleted_at: new Date() }).where("id", "=", jobId).execute();
+    expect((await read({ name: "notice 20260316.pdf" })).error?.code).toBe("job_unavailable");
   });
 });
