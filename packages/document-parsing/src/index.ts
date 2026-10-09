@@ -10,3 +10,4 @@ export { pdfStampAnnotations, pdfFirstPage } from "./pdf/annotations.js";
 export { renderFirstPagePng, type RenderOptions } from "./pdf/render.js";
 export { parseMsg } from "./email/msg.js";
 export { parseEml } from "./email/eml.js";
+export { emailToText } from "./email/text.js";
