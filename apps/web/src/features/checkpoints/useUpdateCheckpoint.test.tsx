@@ -76,4 +76,23 @@ describe("useUpdateCheckpoint (through the card controls)", () => {
       expect(screen.getByRole("button", { name: "Not completed" })).toHaveAttribute("aria-pressed", "true");
     });
   });
+
+  it("sends the second of two quick edits with the version the first one produced", async () => {
+    const job = syntheticJob();
+    const { served } = renderCard(job, "i4_0");
+    const versions: (string | null)[] = [];
+    server.use(
+      handlerFor("updateCheckpoint", ({ request }) => {
+        versions.push(request.headers.get("if-match"));
+        const answer = { ...checkpointOf(job, "i4_0"), version: versions.length + 1 };
+        served.job = withCheckpoint(job, "i4_0", answer);
+        return HttpResponse.json(answer);
+      }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Completed" }));
+    await userEvent.selectOptions(screen.getByRole("combobox"), "Client");
+    await waitFor(() => {
+      expect(versions).toEqual(['"1"', '"2"']);
+    });
+  });
 });
