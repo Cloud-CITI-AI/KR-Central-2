@@ -2,12 +2,20 @@
 .panel {
   display: grid;
   gap: 10px;
+  min-width: 0;
+}
+.panel > * {
+  min-width: 0;
 }
 .row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+/* a long button label wraps instead of widening the card on a phone */
+.row > button {
+  white-space: normal;
 }
 .confirm {
   display: flex;
