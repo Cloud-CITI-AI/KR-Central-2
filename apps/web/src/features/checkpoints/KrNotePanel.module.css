@@ -1,0 +1,10 @@
+/* prototype .paid-box.kn and .ccm */
+.note {
+  display: grid;
+  gap: 6px;
+}
+textarea.field {
+  padding: 6px 9px;
+  background: var(--surface);
+  font-size: 13px;
+}
