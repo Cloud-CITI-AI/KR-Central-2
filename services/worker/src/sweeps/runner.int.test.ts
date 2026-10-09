@@ -70,7 +70,15 @@ describe("the sweeper", () => {
   });
 
   it("sweeps on a schedule and stop() waits for a sweep in progress", async () => {
-    const run = vi.fn(() => Promise.resolve({}));
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let block = false;
+    const run = vi.fn(async () => {
+      if (block) await gate;
+      return {};
+    });
     const sweeper = createSweeper({
       db,
       log: captureLog().log,
@@ -83,9 +91,34 @@ describe("the sweeper", () => {
       () => Promise.resolve(run.mock.calls.length),
       (n) => n >= 2,
     );
-    await sweeper.stop();
+    // Block the next sweep on a deferred promise and wait until it is running.
+    block = true;
+    const before = run.mock.calls.length;
+    await until(
+      () => Promise.resolve(run.mock.calls.length),
+      (n) => n > before,
+    );
+
+    expect(await sweeper.stop(10)).toBe(false);
+    let settled: boolean | undefined;
+    const stopping = sweeper.stop().then((result) => {
+      settled = result;
+      return result;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(settled).toBeUndefined();
+    release();
+    expect(await stopping).toBe(true);
+
     const calls = run.mock.calls.length;
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(run.mock.calls.length).toBe(calls);
+  });
+
+  it("stop() returns true at once when no sweep is running", async () => {
+    const sweeper = createSweeper({ db, log: captureLog().log, tasks: [], firstDelayMs: 60_000 });
+    sweeper.start();
+    expect(await sweeper.stop()).toBe(true);
+    expect(await sweeper.stop(10)).toBe(true);
   });
 });

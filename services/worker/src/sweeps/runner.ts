@@ -95,9 +95,14 @@ export function createSweeper(o: SweeperOptions): Sweeper {
     start: () => {
       schedule(o.firstDelayMs ?? FIRST_SWEEP_DELAY_MS);
     },
-    stop: async (timeoutMs = Infinity) => {
+    stop: async (timeoutMs) => {
       stopped = true;
       clearTimeout(timer);
+      // No (or an unbounded) timeout waits for the sweep itself: a timer of Infinity would fire after 1 ms in Node.
+      if (timeoutMs === undefined || !Number.isFinite(timeoutMs)) {
+        await running;
+        return true;
+      }
       const cancel = new AbortController();
       const finished = await Promise.race([
         running.then(() => true),
