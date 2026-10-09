@@ -126,3 +126,16 @@ export function isDuplicateGrant(error: unknown): boolean {
   const e = error as { code?: unknown; constraint?: unknown } | null;
   return typeof e === "object" && e !== null && e.code === "23505" && e.constraint === OPEN_GRANT_KEY;
 }
+
+export async function recordInvitation(
+  trx: Transaction<Database>,
+  grantId: string,
+  status: "sent" | "failed",
+  error: string | null,
+): Promise<void> {
+  await trx
+    .updateTable("access_grants")
+    .set({ invitation_status: status, invitation_error: error })
+    .where("id", "=", grantId)
+    .execute();
+}

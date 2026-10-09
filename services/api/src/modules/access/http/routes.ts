@@ -1,4 +1,5 @@
 /** listAccessGrants, createAccessGrant and revokeAccessGrant (PRODUCT_SPEC §3.4, §6): the staff-only access manager. */
+import type { AccessGrantRow } from "@kr/db";
 import type { FastifyInstance } from "fastify";
 import { toAccessGrant } from "../../_shared/index.js";
 import { audit, auditContext, withTransaction } from "../../../platform/audit.js";
@@ -14,13 +15,15 @@ import {
   isDuplicateGrant,
   listGrantRows,
   lockGrant,
+  recordInvitation,
   revokeGrantRow,
   userName,
 } from "../data/grants.js";
 import { decodeGrantCursor, encodeGrantCursor } from "../domain/cursor.js";
 import { duplicateGrantMessage, planGrant } from "../domain/grant-plan.js";
+import { invitationErrorText, type GuestInviter } from "../domain/guest-inviter.js";
 
-export function registerAccessRoutes(app: FastifyInstance, deps: ModuleDeps): void {
+export function registerAccessRoutes(app: FastifyInstance, deps: ModuleDeps, inviter: GuestInviter): void {
   defineRoute(app, "listAccessGrants", async ({ auth, query }) => {
     requireCapability(auth, "access.manage");
     const after = query.cursor === undefined ? null : decodeGrantCursor(query.cursor);
@@ -62,6 +65,27 @@ export function registerAccessRoutes(app: FastifyInstance, deps: ModuleDeps): vo
             at: now,
             activatedAt: plan.activatedAt,
           });
+          const invite = async (grant: AccessGrantRow): Promise<AccessGrantRow> => {
+            if (grant.status !== "pending" || !deps.flags.isEnabled("entra-guest-invites")) return grant;
+            const failure = await inviter
+              .invite({ email: grant.email, displayName: grant.display_name, redirectUrl: deps.config.PUBLIC_BASE_URL })
+              .then(
+                () => null,
+                (error: unknown) => invitationErrorText(error),
+              );
+            if (failure !== null)
+              deps.log.warn({ event: "guest_invitation_failed", grantId: grant.id }, "Guest invitation failed");
+            const status = failure === null ? "sent" : "failed";
+            await recordInvitation(trx, grant.id, status, failure);
+            await audit(trx, auditContext(request), {
+              action: `access_grant.invitation_${status}`,
+              entityType: "access_grant",
+              entityId: grant.id,
+              jobId: job.id,
+              changes: { invitationStatus: { from: "not_sent", to: status } },
+            });
+            return { ...grant, invitation_status: status, invitation_error: failure };
+          };
           await audit(trx, auditContext(request), {
             action: "access_grant.created",
             entityType: "access_grant",
@@ -73,8 +97,10 @@ export function registerAccessRoutes(app: FastifyInstance, deps: ModuleDeps): vo
               status: { from: null, to: row.status },
             },
           });
+          // A grant bound to an existing account needs no invitation. A failed invitation never fails the grant.
+          const invited = await invite(row);
           const accountName = await userName(trx, row.user_id);
-          return { status: 201, body: accessGrantView(row, job.job_number, accountName, auth.user.displayName) };
+          return { status: 201, body: accessGrantView(invited, job.job_number, accountName, auth.user.displayName) };
         },
       );
       return await sendIdempotent(reply, result);
