@@ -1,11 +1,17 @@
-/** Checkpoint routes: updateCheckpoint now; recordDecision, markPaid and undoPaid follow. */
+/** Checkpoint routes: updateCheckpoint and recordDecision; markPaid and undoPaid follow. */
 import type { FastifyInstance } from "fastify";
 import { resolveJobAccess } from "../../../platform/authz.js";
 import { setEtag } from "../../../platform/concurrency.js";
-import { BadRequestError } from "../../../platform/errors.js";
+import { BadRequestError, ConflictError } from "../../../platform/errors.js";
 import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
-import { capabilitiesForUpdate, hasNoteBox, planCheckpointUpdate } from "../domain/checkpoint-update.js";
+import {
+  capabilitiesForUpdate,
+  hasApprovalPanel,
+  hasNoteBox,
+  planCheckpointUpdate,
+  planDecision,
+} from "../domain/checkpoint-update.js";
 import { applyCheckpointPlan, requireFeeProposalAccess } from "./apply-plan.js";
 
 export function registerCheckpointRoutes(app: FastifyInstance, deps: ModuleDeps): void {
@@ -29,5 +35,23 @@ export function registerCheckpointRoutes(app: FastifyInstance, deps: ModuleDeps)
     });
     setEtag(reply, state.version);
     return state;
+  });
+
+  defineRoute(app, "recordDecision", async ({ auth, request, params, body }) => {
+    // The client's own grant, or staff acting on the client's behalf; architects have no decision capability.
+    const access = await resolveJobAccess(deps.db, auth, params.jobId, "checkpoint.decision.record");
+    requireFeeProposalAccess(access, params.checkpointKey);
+    if (!hasApprovalPanel(params.checkpointKey)) {
+      throw new ConflictError({ detail: "This checkpoint has no approval panel." });
+    }
+    // R14 (a declined decision needs a comment) is enforced by the contract schema and by the database CHECK.
+    return applyCheckpointPlan({
+      deps,
+      request,
+      auth,
+      access,
+      checkpointKey: params.checkpointKey,
+      plan: (row) => planDecision(row, body, auth.user.id, deps.clock.now()),
+    });
   });
 }
