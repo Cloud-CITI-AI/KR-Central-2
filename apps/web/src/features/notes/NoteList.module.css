@@ -1,0 +1,52 @@
+/* prototype .dn-list, .dn-meta, .dn-text, .jn-for */
+.list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.note {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field);
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.audience {
+  padding: 1px 7px;
+  border-radius: var(--radius);
+  background: var(--grey-bg);
+  color: var(--grey-ink);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.audience[data-audience="surveyor"] {
+  background: var(--item-soft);
+  color: var(--item);
+}
+.audience[data-audience="client"] {
+  background: var(--fee-soft);
+  color: var(--fee);
+}
+.text {
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.error {
+  margin: 0;
+  color: var(--red-ink);
+  font-size: 12px;
+}

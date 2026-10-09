@@ -1,0 +1,28 @@
+/* prototype .pkg.acc.jobnotes and .pkg-t */
+.box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--brand);
+  border-radius: var(--radius);
+}
+.head {
+  display: grid;
+  gap: 2px;
+}
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.text {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+}
