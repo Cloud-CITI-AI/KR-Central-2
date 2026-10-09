@@ -7,7 +7,9 @@ export const WorkerConfigSchema = z
     NODE_ENV: NodeEnv.default("production"),
     APP_ENV: AppEnv.default("local"),
     LOG_LEVEL: LogLevel.default("info"),
+    /** Health endpoint only. Railway sets PORT and health-checks it; 8081 is the local default. */
     PORT: z.coerce.number().int().min(1).max(65535).default(8081).meta({ description: "Health endpoint only" }),
+    HOST: z.string().min(1).default("::"),
 
     DATABASE_URL: PostgresUrl,
     DATABASE_SSL: BooleanFromString.default(false),
@@ -23,6 +25,21 @@ export const WorkerConfigSchema = z
     CLAMAV_HOST: z.string().min(1).default("clamav.railway.internal"),
     CLAMAV_PORT: z.coerce.number().int().default(3310),
     CLAMAV_TIMEOUT_MS: z.coerce.number().int().min(1000).default(60_000),
+    /** Must not exceed clamd's StreamMaxLength (infra/clamav/clamd.conf, 60M); must be ≥ UPLOAD_MAX_BYTES. */
+    CLAMAV_STREAM_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024 * 1024)
+      .default(60 * 1024 * 1024),
+    /** Same value as the api's UPLOAD_MAX_BYTES; checked against CLAMAV_STREAM_MAX_BYTES at startup. */
+    UPLOAD_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(200 * 1024 * 1024)
+      .default(50 * 1024 * 1024),
+    /** Automatic re-scans of files whose scan ended in 'error' (hourly sweep) before the error is final. */
+    SCAN_ERROR_MAX_RETRIES: z.coerce.number().int().min(0).max(10).default(3),
 
     FEATURE_AI_STAMP_READING: BooleanFromString.default(false),
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
@@ -41,6 +58,10 @@ export const WorkerConfigSchema = z
   .refine((c) => !c.FEATURE_AI_STAMP_READING || Boolean(c.ANTHROPIC_API_KEY), {
     message: "FEATURE_AI_STAMP_READING requires ANTHROPIC_API_KEY",
     path: ["ANTHROPIC_API_KEY"],
+  })
+  .refine((c) => c.MALWARE_SCAN_MODE !== "required" || c.UPLOAD_MAX_BYTES <= c.CLAMAV_STREAM_MAX_BYTES, {
+    message: "UPLOAD_MAX_BYTES exceeds CLAMAV_STREAM_MAX_BYTES: large files could never be scanned",
+    path: ["CLAMAV_STREAM_MAX_BYTES"],
   })
   .refine((c) => c.APP_ENV === "local" || c.MALWARE_SCAN_MODE === "required", {
     message: "MALWARE_SCAN_MODE=disabled is not allowed outside local",

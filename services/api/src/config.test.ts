@@ -34,4 +34,37 @@ describe("API config", () => {
       ConfigError,
     );
   });
+
+  it("pins the identity provider host in staging and production", () => {
+    for (const APP_ENV of ["staging", "production"]) {
+      expect(() =>
+        parseConfig(ApiConfigSchema, { ...valid, APP_ENV, ENTRA_AUTHORITY_HOST: "https://idp.attacker.example" }),
+      ).toThrow(ConfigError);
+    }
+    expect(
+      parseConfig(ApiConfigSchema, { ...valid, APP_ENV: "preview", ENTRA_AUTHORITY_HOST: "https://mock-idp.example" })
+        .ENTRA_AUTHORITY_HOST,
+    ).toBe("https://mock-idp.example");
+  });
+
+  it("defaults rate limits, body limit and bind address to the spec values", () => {
+    const c = parseConfig(ApiConfigSchema, valid);
+    expect([
+      c.RATE_LIMIT_SIGNIN_PER_MINUTE_PER_IP,
+      c.RATE_LIMIT_WRITES_PER_MINUTE,
+      c.RATE_LIMIT_UPLOADS_PER_MINUTE,
+      c.RATE_LIMIT_READS_PER_MINUTE,
+    ]).toEqual([20, 120, 30, 600]);
+    expect(c.JSON_BODY_LIMIT_BYTES).toBe(102_400);
+    expect(c.HOST).toBe("::");
+    expect(c.TRUST_PROXY_HOPS).toBe(1);
+  });
+
+  it("requires an authentication context id when MFA evidence is acrs", () => {
+    expect(() => parseConfig(ApiConfigSchema, { ...valid, ADMIN_MFA_EVIDENCE: "acrs" })).toThrow(ConfigError);
+    expect(
+      parseConfig(ApiConfigSchema, { ...valid, ADMIN_MFA_EVIDENCE: "acrs", ENTRA_ADMIN_AUTH_CONTEXT_ID: "c1" })
+        .ENTRA_ADMIN_AUTH_CONTEXT_ID,
+    ).toBe("c1");
+  });
 });

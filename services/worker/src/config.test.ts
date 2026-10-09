@@ -21,4 +21,10 @@ describe("worker config", () => {
   it("requires an API key when AI stamp reading is on", () => {
     expect(() => parseConfig(WorkerConfigSchema, { ...valid, FEATURE_AI_STAMP_READING: "true" })).toThrow(ConfigError);
   });
+
+  it("refuses an upload limit larger than what clamd will stream", () => {
+    expect(() => parseConfig(WorkerConfigSchema, { ...valid, UPLOAD_MAX_BYTES: String(80 * 1024 * 1024) })).toThrow(
+      ConfigError,
+    );
+  });
 });

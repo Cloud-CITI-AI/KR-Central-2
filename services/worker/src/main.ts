@@ -1,5 +1,5 @@
 /**
- * Worker entry point (skeleton). WP-07 replaces this with the operations poller, handlers and health endpoint.
+ * Worker entry point (skeleton). WP-12 replaces this with the operations poller, handlers and health endpoint.
  */
 import { createLogger } from "@kr/logger";
 import { loadWorkerConfig } from "./config.js";
