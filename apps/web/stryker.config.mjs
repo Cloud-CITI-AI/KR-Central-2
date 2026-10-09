@@ -6,6 +6,10 @@ export default {
   ...runnerSettings("vitest.unit.config.ts"),
   checkers: ["typescript"],
   tsconfigFile: "tsconfig.json",
+  // Stryker's default also puts `// @ts-nocheck` on every .js/.mjs file it can reach, including the vendored pdf.js
+  // runtime in public/pdfjs, and pdfjs-assets.test.ts asserts those files are byte for byte the installed pdfjs-dist, so
+  // the initial dry run would fail. Limit the type-check disabling to the sources that are mutated.
+  disableTypeChecks: "src/**/*.{js,ts,jsx,tsx,mjs,cjs,mts,cts}",
   incremental: true,
   incrementalFile: ".stryker-tmp/incremental.json",
   mutate: [
