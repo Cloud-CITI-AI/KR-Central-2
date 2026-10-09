@@ -85,6 +85,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: ModuleDeps, oidc:
     const user = await provisionSignIn(deps.db, identity.identity, {
       now,
       staffDomains: deps.config.KR_STAFF_EMAIL_DOMAINS,
+      requestId: request.id,
     });
     if (!user.ok) return fail(user.reason, identity.identity.oid);
 
@@ -109,6 +110,8 @@ export function registerAuthRoutes(app: FastifyInstance, deps: ModuleDeps, oidc:
         event: "authn_success",
         subject: pseudonymise(identity.identity.oid, deps.config.LOG_PSEUDONYM_SALT),
         role: user.user.role,
+        created: user.created,
+        firstAdmin: user.firstAdmin,
       },
       "Signed in",
     );
