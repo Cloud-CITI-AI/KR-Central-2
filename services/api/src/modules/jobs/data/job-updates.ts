@@ -1,7 +1,7 @@
 /** Versioned job writes (DATA_MODEL §6: `UPDATE … SET …, version = version + 1 WHERE id = $1 AND version = $2`). */
 import type { Database, JobRow } from "@kr/db";
 import type { Transaction } from "kysely";
-import { PreconditionFailedError } from "../../../platform/errors.js";
+import { NotFoundError, PreconditionFailedError } from "../../../platform/errors.js";
 import type { JobUpdateColumns } from "../domain/job-update.js";
 import { duplicateJobNumberError, isDuplicateJobNumber } from "./job-writes.js";
 
@@ -60,4 +60,19 @@ export async function archiveJobRow(
     .returning("id")
     .executeTakeFirst();
   if (!row) throw staleJobError();
+}
+
+/**
+ * Bump the job's version (and updated_at) for a change made through another module, so the job's ETag and the dashboard
+ * card reflect every edit. 404 when the job was archived meanwhile.
+ */
+export async function bumpJobVersion(trx: Transaction<Database>, jobId: string): Promise<void> {
+  const row = await trx
+    .updateTable("jobs")
+    .set((eb) => ({ version: eb("version", "+", 1) }))
+    .where("id", "=", jobId)
+    .where("deleted_at", "is", null)
+    .returning("id")
+    .executeTakeFirst();
+  if (!row) throw new NotFoundError();
 }
