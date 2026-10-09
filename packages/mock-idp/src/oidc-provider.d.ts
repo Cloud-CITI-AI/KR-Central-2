@@ -21,7 +21,12 @@ declare module "oidc-provider" {
   }
   export default class Provider {
     constructor(issuer: string, configuration: Record<string, unknown>);
-    readonly Client: { readonly prototype: { redirectUriAllowed(uri: string): boolean } };
+    readonly Client: {
+      readonly prototype: {
+        redirectUriAllowed(uri: string): boolean;
+        postLogoutRedirectUriAllowed(uri: string): boolean;
+      };
+    };
     callback(): (req: Req, res: Res) => void;
     interactionDetails(req: Req, res: Res): Promise<{ uid: string; params: Record<string, string | undefined> }>;
     interactionFinished(

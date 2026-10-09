@@ -38,6 +38,8 @@ export interface MockIdpOptions {
   readonly issuer?: string;
   /** Allowed redirect URIs; when omitted every redirect URI is accepted (mock only). */
   readonly redirectUris?: readonly string[];
+  /** Allowed post-logout redirect URIs; when omitted every one is accepted. */
+  readonly postLogoutRedirectUris?: readonly string[];
 }
 
 export interface MockIdp {

@@ -31,6 +31,7 @@ interface Discovery {
   authorization_endpoint: string;
   token_endpoint: string;
   jwks_uri: string;
+  end_session_endpoint: string;
 }
 const b64json = (part: string | undefined): Record<string, unknown> =>
   JSON.parse(Buffer.from(part ?? "", "base64url").toString("utf8")) as Record<string, unknown>;
@@ -128,5 +129,62 @@ describe("mock Entra IdP", () => {
     expect(callback.searchParams.get("error")).toBe("access_denied");
     expect(callback.searchParams.get("state")).toBe("st-1");
     expect(callback.searchParams.has("code")).toBe(false);
+  });
+
+  it("offers a picker when there is no hint, with pick and cancel links", async () => {
+    const start = await fetch(authorizeUrl("v".repeat(43)), { redirect: "manual" });
+    const cookies = start.headers.getSetCookie().map((c) => c.split(";")[0] ?? "");
+    const interactionUrl = new URL(start.headers.get("location") ?? "", idp.authorityHost);
+    const page = await fetch(interactionUrl, { headers: { cookie: cookies.join("; ") }, redirect: "manual" });
+    const html = await page.text();
+    expect(page.status).toBe(200);
+    expect(html).toContain("Mia Member");
+    expect(html).toContain(`pick?oid=${member.oid}`);
+    expect(html).toContain("/cancel");
+  });
+
+  it("requires PKCE and the client secret", async () => {
+    const noPkce = new URL(authorizeUrl("v".repeat(43)));
+    noPkce.searchParams.delete("code_challenge");
+    noPkce.searchParams.delete("code_challenge_method");
+    const callback = await followAuthorize(idp, noPkce.toString(), member.oid);
+    expect(callback.searchParams.get("error")).toBe("invalid_request");
+
+    const verifier = randomBytes(32).toString("base64url");
+    const ok = await followAuthorize(idp, authorizeUrl(verifier), member.oid);
+    const bad = await exchange(ok.searchParams.get("code") ?? "", verifier, "wrong-secret");
+    expect(bad.status).toBe(401);
+  });
+
+  it("serves an auto-submitting end-session form", async () => {
+    const res = await fetch(`${meta.end_session_endpoint}?post_logout_redirect_uri=${encodeURIComponent(REDIRECT)}`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("document.forms[0].submit()");
+  });
+
+  it("rejects redirect URIs outside an explicit allow-list and honours a configured issuer", async () => {
+    const strict = await startMockIdp({
+      tenantId: TENANT,
+      clientId: CLIENT,
+      clientSecret: SECRET,
+      users: [member],
+      redirectUris: [REDIRECT],
+      issuer: `http://127.0.0.1:1/custom/${TENANT}/v2.0`,
+    });
+    try {
+      expect(strict.issuer).toBe(`http://127.0.0.1:1/custom/${TENANT}/v2.0`);
+      const url = new URL(`${strict.authorityHost}/custom/${TENANT}/v2.0/oauth2/v2.0/authorize`);
+      url.search = new URLSearchParams({
+        client_id: CLIENT,
+        response_type: "code",
+        redirect_uri: "https://evil.test/cb",
+        scope: "openid",
+      }).toString();
+      const res = await fetch(url, { redirect: "manual" });
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.headers.get("location")).toBeNull();
+    } finally {
+      await strict.stop();
+    }
   });
 });

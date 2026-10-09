@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { AddressInfo } from "node:net";
 import Provider, { type OidcContext } from "oidc-provider";
 import type { MockIdp, MockIdpOptions, MockUser } from "./index.js";
+import { logoutPage, signedOutPage, userPickerPage } from "./pages.js";
 
 /** Entra's `sub` is pairwise per application; the mock derives one so nothing can mistake it for the `oid`. */
 export function pairwiseSub(clientId: string, oid: string): string {
@@ -27,6 +28,43 @@ export function idTokenClaims(user: MockUser, tenantId: string, clientId: string
 
 const TTL = { Interaction: 600, Grant: 3600, Session: 3600, AccessToken: 300, IdToken: 300, AuthorizationCode: 60 };
 
+type Payload = Record<string, unknown> & { grantId?: string; uid?: string; consumed?: number };
+
+/** oidc-provider's storage contract on a Map: a mock holds nothing across restarts (and stays quiet in logs). */
+class MemoryAdapter {
+  readonly store: Map<string, Payload>;
+  constructor(stores: Map<string, Map<string, Payload>>, name: string) {
+    this.store = stores.get(name) ?? new Map<string, Payload>();
+    stores.set(name, this.store);
+  }
+  upsert(id: string, payload: Payload): Promise<void> {
+    this.store.set(id, payload);
+    return Promise.resolve();
+  }
+  find(id: string): Promise<Payload | undefined> {
+    return Promise.resolve(this.store.get(id));
+  }
+  findByUid(uid: string): Promise<Payload | undefined> {
+    return Promise.resolve([...this.store.values()].find((p) => p.uid === uid));
+  }
+  findByUserCode(): Promise<undefined> {
+    return Promise.resolve(undefined);
+  }
+  destroy(id: string): Promise<void> {
+    this.store.delete(id);
+    return Promise.resolve();
+  }
+  consume(id: string): Promise<void> {
+    const found = this.store.get(id);
+    if (found) found.consumed = Math.floor(Date.now() / 1000);
+    return Promise.resolve();
+  }
+  revokeByGrantId(grantId: string): Promise<void> {
+    for (const [id, p] of this.store) if (p.grantId === grantId) this.store.delete(id);
+    return Promise.resolve();
+  }
+}
+
 function signingKeys() {
   const jwk = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ format: "jwk" });
   return { keys: [{ ...jwk, use: "sig", alg: "RS256", kid: randomBytes(8).toString("hex") }] };
@@ -38,6 +76,7 @@ function send(res: ServerResponse, status: number, html: string): void {
 }
 
 export async function startMockIdp(opts: MockIdpOptions): Promise<MockIdp> {
+  const stores = new Map<string, Map<string, Payload>>();
   const users = new Map(opts.users.map((u) => [u.oid, u]));
   const bySub = (sub: string) => [...users.values()].find((u) => pairwiseSub(opts.clientId, u.oid) === sub);
   let handler: (req: IncomingMessage, res: ServerResponse) => void = () => undefined;
@@ -58,6 +97,7 @@ export async function startMockIdp(opts: MockIdpOptions): Promise<MockIdp> {
         client_id: opts.clientId,
         client_secret: opts.clientSecret,
         redirect_uris: opts.redirectUris ?? ["https://mock-idp.invalid/callback"],
+        post_logout_redirect_uris: opts.postLogoutRedirectUris ?? ["https://mock-idp.invalid/signed-out"],
         response_types: ["code"],
         grant_types: ["authorization_code"],
         token_endpoint_auth_method: "client_secret_post",
@@ -66,6 +106,12 @@ export async function startMockIdp(opts: MockIdpOptions): Promise<MockIdp> {
       },
     ],
     jwks: signingKeys(),
+    // One store per mock instance: providers started side by side never share artifacts.
+    adapter: class extends MemoryAdapter {
+      constructor(name: string) {
+        super(stores, name);
+      }
+    },
     ttl: TTL,
     cookies: { keys: [randomBytes(32).toString("hex")] },
     pkce: { required: () => true },
@@ -103,9 +149,18 @@ export async function startMockIdp(opts: MockIdpOptions): Promise<MockIdp> {
     },
     features: {
       devInteractions: { enabled: false },
+      rpInitiatedLogout: {
+        logoutSource: (ctx: OidcContext, form: string) => {
+          ctx.body = logoutPage(form);
+        },
+        postLogoutSuccessSource: (ctx: OidcContext) => {
+          ctx.body = signedOutPage();
+        },
+      },
     },
   });
   if (opts.redirectUris === undefined) provider.Client.prototype.redirectUriAllowed = () => true;
+  if (opts.postLogoutRedirectUris === undefined) provider.Client.prototype.postLogoutRedirectUriAllowed = () => true;
 
   const finish = async (req: IncomingMessage, res: ServerResponse, result: Record<string, unknown>) => {
     await provider.interactionFinished(req, res, result, { mergeWithLastSubmission: false });
@@ -117,16 +172,27 @@ export async function startMockIdp(opts: MockIdpOptions): Promise<MockIdp> {
   const denied = (req: IncomingMessage, res: ServerResponse) =>
     finish(req, res, { error: "access_denied", error_description: "The user cancelled the sign-in." });
 
-  /** `/interaction/<uid>` signs in the user named by `login_hint` (email, UPN or oid); anyone else cancels (access_denied). */
-  const interaction = async (req: IncomingMessage, res: ServerResponse, uid: string): Promise<void> => {
+  /** `/interaction/<uid>` signs in the `login_hint` user (or shows the picker); `/pick?oid=` and `/cancel` for people. */
+  const interaction = async (req: IncomingMessage, res: ServerResponse, rest: string): Promise<void> => {
+    const [uid, action] = rest.split("?")[0]?.split("/").filter(Boolean) ?? [];
     const details = await provider.interactionDetails(req, res);
-    const hint = details.params.login_hint?.toLowerCase();
-    const user = [...users.values()].find(
-      (u) => u.email?.toLowerCase() === hint || u.preferredUsername.toLowerCase() === hint || u.oid === hint,
-    );
-    if (uid !== details.uid) send(res, 404, "unknown interaction");
-    else if (user) await signInAs(req, res, user);
-    else await denied(req, res);
+    if (uid !== details.uid) {
+      send(res, 404, "unknown interaction");
+    } else if (action === "cancel") {
+      await denied(req, res);
+    } else if (action === "pick") {
+      const user = users.get(new URL(rest, "http://x").searchParams.get("oid") ?? "");
+      if (user) await signInAs(req, res, user);
+      else send(res, 404, "unknown user");
+    } else {
+      const hint = details.params.login_hint?.toLowerCase();
+      const user = [...users.values()].find(
+        (u) => u.email?.toLowerCase() === hint || u.preferredUsername.toLowerCase() === hint || u.oid === hint,
+      );
+      if (hint === undefined) send(res, 200, userPickerPage(`${mount}/interaction/${uid}`, [...users.values()]));
+      else if (user) await signInAs(req, res, user);
+      else await denied(req, res);
+    }
   };
 
   const oidc = provider.callback();
@@ -136,7 +202,7 @@ export async function startMockIdp(opts: MockIdpOptions): Promise<MockIdp> {
     if (!url.startsWith(`${mount}/`)) {
       send(res, 404, "not found");
     } else if (rest.startsWith("/interaction/")) {
-      interaction(req, res, rest.slice("/interaction/".length).split("?")[0] ?? "").catch(() => {
+      interaction(req, res, rest.slice("/interaction/".length)).catch(() => {
         send(res, 400, "interaction failed");
       });
     } else {
