@@ -59,11 +59,16 @@ const frame = (data: Uint8Array): Buffer => {
   return Buffer.concat([header, data]);
 };
 
-/** Resolves when the socket is writable again, or at once when it closed meanwhile. */
+/** Resolves when the socket is writable again, or at once when it closed meanwhile (the other listener is removed, so none pile up). */
 const drained = (socket: net.Socket): Promise<void> =>
   new Promise((resolve) => {
-    socket.once("drain", resolve);
-    socket.once("close", resolve);
+    const done = (): void => {
+      socket.off("drain", done);
+      socket.off("close", done);
+      resolve();
+    };
+    socket.once("drain", done);
+    socket.once("close", done);
   });
 
 async function feed(socket: net.Socket, body: Readable, maxBytes: number): Promise<void> {
