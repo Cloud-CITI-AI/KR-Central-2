@@ -10,7 +10,12 @@ import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
 import { toOperation } from "../../operations/index.js";
 import { countCurrentConditions, findRequestedFile } from "../data/start-requests.js";
-import { rejectExtractionFile, replaceExistingMessage, type Rejection } from "../domain/start-request.js";
+import {
+  rejectConformanceFile,
+  rejectExtractionFile,
+  replaceExistingMessage,
+  type Rejection,
+} from "../domain/start-request.js";
 
 /** Starting work is not safe to repeat blindly, so the key is mandatory here (the contract leaves it optional elsewhere). */
 function requireIdempotencyKey(request: FastifyRequest): void {
@@ -66,6 +71,35 @@ export function registerStartRoutes(app: FastifyInstance, deps: ModuleDeps): voi
             fileId: { from: null, to: body.fileId },
             replaceExisting: { from: null, to: body.replaceExisting },
           },
+        });
+        return { status: 202, body: toOperation(op) };
+      },
+    );
+    return accepted(reply, result);
+  });
+
+  defineRoute(app, "startConformanceReading", async ({ auth, request, reply, params, body }) => {
+    const access = await resolveJobAccess(deps.db, auth, params.jobId, "conformance.read");
+    requireIdempotencyKey(request);
+    const result = await withIdempotency(
+      deps.db,
+      idempotent(request, auth.user.id, "startConformanceReading", body),
+      async (trx: Transaction<Database>) => {
+        const jobId = access.job.id;
+        assertAccepted(rejectConformanceFile(await findRequestedFile(trx, jobId, body.fileId), jobId));
+        const allowAi = deps.flags.isEnabled("ai-stamp-reading");
+        const op = await enqueueOperation(trx, {
+          jobId,
+          type: "conformance.read",
+          payload: { jobId, fileId: body.fileId, allowAi },
+          createdBy: auth.user.id,
+        });
+        await audit(trx, auditContext(request), {
+          action: "conformance.reading_requested",
+          entityType: "operation",
+          entityId: op.id,
+          jobId,
+          changes: { fileId: { from: null, to: body.fileId } },
         });
         return { status: 202, body: toOperation(op) };
       },

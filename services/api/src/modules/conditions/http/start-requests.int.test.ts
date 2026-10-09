@@ -28,10 +28,20 @@ describe("startConditionsExtraction and startConformanceReading (real Postgres)"
       name: o.name ?? "WAPC Decision Letter.pdf",
       ...(o.scanStatus ? { scanStatus: o.scanStatus } : {}),
     });
+  const notice = (job: Pick<JobRow, "id">, scanStatus: "pending" | "clean" = "clean") =>
+    f.makeFile({ jobId: job.id, checkpointKey: "i4_2", slot: "conformance", name: "notice.pdf", scanStatus });
   const extract = (who: SignedIn | undefined, job: Pick<JobRow, "id">, body: unknown, key: string | null = newKey()) =>
     apiRequest(t, {
       method: "POST",
       url: `/v1/jobs/${job.id}/conditions/extractions`,
+      ...(who ? { as: who } : {}),
+      body,
+      ...(key ? { headers: { "idempotency-key": key } } : {}),
+    });
+  const conform = (who: SignedIn | undefined, job: Pick<JobRow, "id">, body: unknown, key: string | null = newKey()) =>
+    apiRequest(t, {
+      method: "POST",
+      url: `/v1/jobs/${job.id}/conformance-readings`,
       ...(who ? { as: who } : {}),
       body,
       ...(key ? { headers: { "idempotency-key": key } } : {}),
@@ -239,6 +249,87 @@ describe("startConditionsExtraction and startConformanceReading (real Postgres)"
       const archived = await f.makeJob({ deletedAt: new Date() });
       expect((await extract(staff, archived, { fileId: file.id })).statusCode).toBe(404);
       expect((await extract(staff, job, { fileId: "not-a-uuid" })).statusCode).toBe(400);
+      expect(await operations(job.id)).toEqual([]);
+    });
+  });
+
+  describe("startConformanceReading", () => {
+    it("queues one conformance.read operation with allowAi from the ai-stamp-reading flag", async () => {
+      const job = await fresh();
+      const file = await notice(job);
+      const res = await conform(staff, job, { fileId: file.id });
+      expect(res.statusCode).toBe(202);
+      const op = res.json<Operation>();
+      expect(op).toMatchObject({ jobId: job.id, type: "conformance.read", status: "queued" });
+      expect(res.headers.location).toBe(`/v1/operations/${op.id}`);
+      expect((await operations(job.id))[0]).toMatchObject({
+        type: "conformance.read",
+        created_by: staff.user.id,
+        payload: { jobId: job.id, fileId: file.id, allowAi: false },
+      });
+      expect((await audits(job.id, "conformance.%"))[0]).toMatchObject({
+        action: "conformance.reading_requested",
+        entity_id: op.id,
+        changes: { fileId: { from: null, to: file.id } },
+      });
+    });
+
+    it("sends allowAi true when the flag is on", async () => {
+      const on = await createTestApp({ db: t.db, flags: { "ai-stamp-reading": true } });
+      try {
+        const job = await f.makeJob();
+        const file = await notice(job);
+        const res = await apiRequest(on, {
+          method: "POST",
+          url: `/v1/jobs/${job.id}/conformance-readings`,
+          as: await signIn(on, await f.makeUser({ role: "staff" })),
+          body: { fileId: file.id },
+          headers: { "idempotency-key": newKey() },
+        });
+        expect(res.statusCode).toBe(202);
+        expect((await operations(job.id))[0]?.payload).toMatchObject({ allowAi: true });
+      } finally {
+        await on.close();
+      }
+    });
+
+    it("the same Idempotency-Key returns the same operation id; a missing key is 400", async () => {
+      const job = await fresh();
+      const file = await notice(job);
+      const key = newKey();
+      const first = await conform(staff, job, { fileId: file.id }, key);
+      const again = await conform(staff, job, { fileId: file.id }, key);
+      expect(again.json<Operation>().id).toBe(first.json<Operation>().id);
+      expect(again.headers["idempotent-replayed"]).toBe("true");
+      expect(await operations(job.id)).toHaveLength(1);
+      expect((await conform(staff, job, { fileId: file.id }, null)).statusCode).toBe(400);
+    });
+
+    it("rejects files outside the 4.2 slot, from other jobs and not yet scanned (409)", async () => {
+      const job = await fresh();
+      const decision = await letter(job);
+      const elsewhere = await notice(await fresh());
+      const pending = await notice(job, "pending");
+      for (const id of [decision.id, elsewhere.id]) {
+        const res = await conform(staff, job, { fileId: id });
+        expect(res.statusCode).toBe(409);
+        expect(res.json()).toMatchObject({
+          detail: "The conformed date can only be read from a PDF in the Conformance Notification box (4.2).",
+        });
+      }
+      const res = await conform(staff, job, { fileId: pending.id });
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toMatchObject({ type: "urn:kr:problem:file-not-ready" });
+      expect(await operations(job.id)).toEqual([]);
+    });
+
+    it("is staff only (403 for client and architect, 404 without access, 401 without a session)", async () => {
+      const job = await fresh();
+      const file = await notice(job);
+      for (const who of [client, architect])
+        expect((await conform(who, job, { fileId: file.id })).statusCode).toBe(403);
+      expect((await conform(outsider, job, { fileId: file.id })).statusCode).toBe(404);
+      expect((await conform(undefined, job, { fileId: file.id })).statusCode).toBe(401);
       expect(await operations(job.id)).toEqual([]);
     });
   });
