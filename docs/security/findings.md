@@ -1,16 +1,18 @@
 # Security findings from the WP-20 suite
 
-Defects the security tests in `services/api/test/security/` found in code outside WP-20's owned paths. Per the brief,
-the suite commits only passing tests: each defect below carries the failing test that reproduces it (run with
-`pnpm --filter @kr/api exec vitest run --project integration <file>` after pasting it into
-`services/api/test/security/defects.int.test.ts`; the output shown was recorded on the commit that added this file).
+Defects that the WP-20 work (the tests in `services/api/test/security/`, the ZAP scan and the mutation-runner check) found in
+code outside WP-20's owned paths. WP-20 commits only passing tests, so each defect carries its reproduction: D-1 and D-2 a
+failing test (paste it into `services/api/test/security/defects.int.test.ts` and run
+`pnpm --filter @kr/api exec vitest run --project integration defects`), D-3 to D-5 the command and its recorded output.
 Fixing them belongs to the owning module, with the test moved into the suite in the same change.
 
-| ID  | Severity | Area                                                       | Summary                                                                                     | Owner path                                                                |
-| --- | -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| D-1 | Low      | `services/api/src/platform/rate-limit.ts`                  | The per-IP sign-in limit keys on the raw rightmost `X-Forwarded-For` entry, valid or not    | `/services/api/src/platform/**` (security CODEOWNER)                      |
-| D-2 | Low      | `services/api/src/app.ts` (Fastify options)                | A path parameter over 100 characters is answered by Fastify's own 414, outside the platform | `/services/api/src/**` (security CODEOWNER)                               |
-| D-3 | Low      | `apps/web/src/proxy.ts` matcher, `apps/web/next.config.ts` | Framework 404 pages for paths ending in a file extension, `/api` and `/api/v1` carry no CSP | `/apps/web/src/proxy.ts`, `/apps/web/next.config.ts` (security CODEOWNER) |
+| ID  | Severity | Area                                                                       | Summary                                                                                                                                                          | Owner path                                                                |
+| --- | -------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| D-1 | Low      | `services/api/src/platform/rate-limit.ts`                                  | The per-IP sign-in limit keys on the raw rightmost `X-Forwarded-For` entry, valid or not                                                                         | `/services/api/src/platform/**` (security CODEOWNER)                      |
+| D-2 | Low      | `services/api/src/app.ts` (Fastify options)                                | A path parameter over 100 characters is answered by Fastify's own 414, outside the platform                                                                      | `/services/api/src/**` (security CODEOWNER)                               |
+| D-3 | Low      | `apps/web/src/proxy.ts` matcher, `apps/web/next.config.ts`                 | Framework 404 pages for paths ending in a file extension, `/api` and `/api/v1` carry no CSP                                                                      | `/apps/web/src/proxy.ts`, `/apps/web/next.config.ts` (security CODEOWNER) |
+| D-4 | Medium   | `.github/workflows/reusable-ci-node.yml`                                   | The CI mutation step passes `--thresholds.break`, which Stryker 10 does not accept, so the step fails whenever a PR changes a mutated file                       | `/.github/**` (platform and security CODEOWNERs)                          |
+| D-5 | Medium   | `services/api/test/helpers/contract.ts`, `services/api/stryker.config.mjs` | In Stryker's sandbox copy the initial test run of services/api fails (the OpenAPI file is read by a path relative to the test), so no API mutation run can start | `/services/api/**`                                                        |
 
 ## D-1: the sign-in rate-limit key is whatever text the trusted hop sent
 
@@ -117,6 +119,61 @@ that protects every other HTML page. `zap.md` carries a narrow `OUTOFSCOPE` line
 source patterns the proxy skips (`/:path*.:ext`, `/api`, `/api/v1`) that is `default-src 'none'; frame-ancestors 'none'`
 (these paths serve no scripts), or render a custom `not-found` with the nonce. Then delete the `10038` line in
 `infra/zap/rules.tsv`. This needs the web CODEOWNER (`proxy.ts` and `next.config.ts` are protected paths).
+
+## D-4: the CI mutation step uses an option Stryker does not have
+
+**What happens.** `.github/workflows/reusable-ci-node.yml` (mutation step) runs
+
+```
+pnpm exec stryker run --incremental --mutate "$files" --thresholds.break "$BREAK"
+```
+
+`@stryker-mutator/core` 10.0.0 has no `--thresholds.break` option (thresholds are configuration only):
+
+```
+$ cd services/api && pnpm exec stryker run --incremental --mutate 'src/modules/users/domain/cursor.ts,src/modules/users/domain/user-view.ts' --thresholds.break 60
+error: unknown option '--thresholds.break'
+exit=1
+```
+
+**Impact.** Every pull request that changes a file matched by a package's `mutate` globs fails the mutation step before
+any mutant runs (a PR with no such file skips the step, so nothing has failed yet). The reusable workflow's
+`mutation-break` input has no effect even if it worked: all packages configure `thresholds.break: 60` themselves.
+
+**Suggested fix.** Remove `--thresholds.break "$BREAK"` from the command (the threshold stays in each
+`stryker.config.mjs`) and drop the unused `mutation-break` input, or generate a temporary config that sets it. Protected
+path: needs the platform and security CODEOWNERs.
+
+## D-5: services/api cannot start a mutation run
+
+**What happens.** Stryker copies the package to `services/api/.stryker-tmp/sandbox-*` and runs the unit tests there.
+`services/api/test/helpers/contract.ts` loads `packages/contracts/openapi.yaml` by a path four levels above the test file
+(`new URL("../../../../packages/contracts/openapi.yaml", import.meta.url)`), which is the repository root from
+`services/api/test/helpers/` but `services/api/` from inside the sandbox. `src/app.test.ts` and
+`src/platform/security-headers.test.ts` import the helper, so the initial test run fails and Stryker stops:
+
+```
+ERROR DryRunExecutor One or more tests failed in the initial test run:
+ FAIL  src/app.test.ts [ src/app.test.ts ]
+ FAIL  src/platform/security-headers.test.ts [ src/platform/security-headers.test.ts ]
+Error: ENOENT: no such file or directory, open '/home/claude/wt/wp-20/services/api/packages/contracts/openapi.yaml'
+ ❯ test/helpers/contract.ts:11:3
+```
+
+**Impact.** No mutation result is ever produced for `services/api` (the package with the most domain logic), in CI or
+locally, so its `break: 60` threshold enforces nothing. The same failure applies once D-4 is fixed.
+
+**Verified workaround.** `--inPlace` (mutate the checkout instead of a copy): the same command then passes its dry run and
+mutates (2 files, 17 mutants, 1 min 3 s). `runnerSettings(vitestConfig, { inPlace: true })` in `stryker.shared.mjs` now
+offers this as an opt-in; turning it on is a one-line change to `services/api/stryker.config.mjs`, which WP-20 does not
+own:
+
+```js
+...runnerSettings("vitest.unit.config.ts", { inPlace: true, isolate: false }),
+```
+
+(`isolate: false` is the speed-up measured in `mutation-runner.md`.) The alternative is to resolve the OpenAPI path in
+`contract.ts` from the workspace root instead of from the test file.
 
 ## Observations (no defect, for the reviewers)
 
