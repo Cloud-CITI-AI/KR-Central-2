@@ -2,8 +2,10 @@
 import type { Condition } from "@kr/contracts";
 import { CONDITION_RESPONSIBILITIES, RESPONSIBILITY_LABELS } from "@kr/workflow";
 import { Select } from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
 import { VisuallyHidden } from "@/components/ui/VisuallyHidden";
 import type { ConditionPermissions } from "./capabilities";
+import { useAutosaveText } from "@/features/checkpoints";
 import type { UpdateConditionBody } from "./cache";
 import styles from "./ConditionCard.module.css";
 
@@ -14,9 +16,39 @@ export interface ConditionEditorProps {
   readonly save: (body: UpdateConditionBody) => Promise<unknown>;
 }
 
+interface CommentFieldProps {
+  readonly label: string;
+  readonly number: number;
+  readonly value: string;
+  readonly editable: boolean;
+  readonly onSave: (text: string) => Promise<unknown>;
+}
+
+/** One comment: autosaves 700 ms after typing and on blur, and is never replaced under the cursor (§5.6, §15). */
+function CommentField({ label, number, value, editable, onSave }: CommentFieldProps) {
+  const field = useAutosaveText({ value, onSave });
+  return (
+    <label className={styles.field}>
+      <span className={styles.label}>{label}</span>
+      <Textarea
+        className={styles.comment}
+        rows={2}
+        maxLength={4000}
+        placeholder={label}
+        aria-label={`${label} – condition ${number}`}
+        readOnly={!editable}
+        value={field.text}
+        onChange={field.onChange}
+        onFocus={field.onFocus}
+        onBlur={field.onBlur}
+      />
+    </label>
+  );
+}
+
 /**
- * The editor row of a condition card (§5.6): the cleared tick ("Open" / "Cleared") and the responsibility select (Unassigned /
- * KR Surveys / Client). Both are disabled without `conditions.edit`.
+ * The editor row of a condition card (§5.6): the cleared tick ("Open" / "Cleared"), the responsibility select, and the KR
+ * Surveys and client comments side by side (stacked below 640 px). Without `conditions.edit` only the client comment can change.
  */
 export function ConditionEditor({ condition, permissions, save }: ConditionEditorProps) {
   const { number } = condition;
@@ -53,6 +85,22 @@ export function ConditionEditor({ condition, permissions, save }: ConditionEdito
             </option>
           ))}
         </Select>
+      </div>
+      <div className={styles.fields}>
+        <CommentField
+          label="KR Surveys comment"
+          number={number}
+          value={condition.krComment}
+          editable={permissions.edit}
+          onSave={(krComment) => save({ krComment })}
+        />
+        <CommentField
+          label="Client comment"
+          number={number}
+          value={condition.clientComment}
+          editable={permissions.comment}
+          onSave={(clientComment) => save({ clientComment })}
+        />
       </div>
     </div>
   );

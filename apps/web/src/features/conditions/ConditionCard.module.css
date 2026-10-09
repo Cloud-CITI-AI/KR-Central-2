@@ -1,3 +1,4 @@
+/* prototype .ev-c (+ .done), .ev-h, .cn, .agency, .guess, .agency-sel, .link-btn, .ced, .lbl, .ctick, .cstate, .cfields, .cfield, .ccm */
 .card {
   display: grid;
   gap: 6px;
@@ -110,6 +111,30 @@
   width: auto;
   padding: 3px 6px;
   font-size: 12.5px;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.field {
+  display: grid;
+  gap: 3px;
+}
+.card textarea.comment {
+  padding: 6px 9px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+}
+.card[data-cleared="true"] textarea.comment {
+  opacity: 0.8;
+}
+@media (max-width: 640px) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 @media print {
   .card {
