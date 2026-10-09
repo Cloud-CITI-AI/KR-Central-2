@@ -1,0 +1,19 @@
+.status {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.status progress {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--accent);
+}
+.errors {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--red-ink);
+  font-size: 12px;
+}
