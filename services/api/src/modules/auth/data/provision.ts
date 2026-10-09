@@ -1,6 +1,6 @@
 /**
- * Provisioning at sign-in: ONE transaction that finds or creates the user, claims the first-admin bootstrap
- * and writes the audit events (PRODUCT_SPEC §3.1 step 4, §3.3); grants follow in the next PR. Sessions are created after
+ * Provisioning at sign-in: ONE transaction that finds or creates the user, claims the first-admin bootstrap, activates
+ * pending grants and writes the audit events (PRODUCT_SPEC §3.1 steps 4 and 6, §3.3, §3.4). Sessions are created after
  * it commits, by the caller.
  */
 import type { Database, Db, UserRow } from "@kr/db";
@@ -9,6 +9,7 @@ import { audit, type AuditContext } from "../../../platform/audit.js";
 import type { Identity } from "../domain/claims.js";
 import { assignRole, isFirstAdminEligible } from "../domain/roles.js";
 import { claimFirstAdmin } from "./bootstrap.js";
+import { activateGrants, countActivatableGrants } from "./grants.js";
 
 export interface SignInPolicy {
   readonly now: Date;
@@ -22,8 +23,16 @@ export type Provisioned =
       readonly user: UserRow;
       readonly created: boolean;
       readonly firstAdmin: boolean;
+      readonly grantsActivated: number;
     }
-  | { readonly ok: false; readonly reason: "disabled" };
+  | { readonly ok: false; readonly reason: "disabled" | "unverified_email" };
+
+/** Thrown inside the transaction to roll everything back (user, grants, audit) with a reason for the user. */
+class SignInRefused extends Error {
+  constructor(readonly reason: "unverified_email") {
+    super(reason);
+  }
+}
 
 /**
  * Upsert the user by (tid, oid) with the current name, guest flag and email; only a new user gets a role. A disabled
@@ -93,10 +102,32 @@ async function provision(trx: Transaction<Database>, id: Identity, policy: SignI
     });
   }
 
+  let grantsActivated = 0;
+  if (id.email !== null) {
+    // Grants are matched on the email only when the IdP vouches for its domain (xms_edov); otherwise refuse and say why.
+    if (!id.emailVerified && (await countActivatableGrants(trx, id.email)) > 0)
+      throw new SignInRefused("unverified_email");
+    for (const grant of await activateGrants(trx, id.email, user.id, policy.now)) {
+      grantsActivated += 1;
+      await audit(trx, ctx, {
+        action: "grant.activated",
+        entityType: "access_grant",
+        entityId: grant.id,
+        jobId: grant.job_id,
+        changes: { status: { from: "pending", to: "active" }, user_id: { from: null, to: user.id } },
+      });
+    }
+  }
+
   await audit(trx, ctx, { action: "auth.signin", entityType: "user", entityId: user.id });
-  return { ok: true, user, created: upserted.created, firstAdmin };
+  return { ok: true, user, created: upserted.created, firstAdmin, grantsActivated };
 }
 
-export function provisionSignIn(db: Db, id: Identity, policy: SignInPolicy): Promise<Provisioned> {
-  return db.transaction().execute((trx) => provision(trx, id, policy));
+export async function provisionSignIn(db: Db, id: Identity, policy: SignInPolicy): Promise<Provisioned> {
+  try {
+    return await db.transaction().execute((trx) => provision(trx, id, policy));
+  } catch (err) {
+    if (err instanceof SignInRefused) return { ok: false, reason: err.reason };
+    throw err;
+  }
 }

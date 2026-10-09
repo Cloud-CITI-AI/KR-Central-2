@@ -112,6 +112,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: ModuleDeps, oidc:
         role: user.user.role,
         created: user.created,
         firstAdmin: user.firstAdmin,
+        grantsActivated: user.grantsActivated,
       },
       "Signed in",
     );
