@@ -12,6 +12,7 @@ import {
   PanelBox,
   SlotZone,
 } from "@/features/checkpoints";
+import { ExtractionActions } from "./ExtractionActions";
 import { LETTER_GOES_HERE } from "./messages";
 import styles from "./Conditions.module.css";
 
@@ -22,8 +23,8 @@ export interface ConditionsPanelProps {
 }
 
 /**
- * 5.0 body (§5.5 `conditions`): the "WAPC conditional approval" folder with its PDF zone. The extract buttons of the Decision
- * Letter and the conditions checklist follow.
+ * 5.0 body (§5.5 `conditions`): the "WAPC conditional approval" folder with its PDF zone, the extract buttons of the Decision
+ * Letter and the result message. The conditions checklist follows once conditions exist.
  */
 export function ConditionsPanel({ job, checkpoint }: ConditionsPanelProps) {
   const slot = slotsOf(getCheckpoint(checkpoint.key))[0];
@@ -40,6 +41,7 @@ export function ConditionsPanel({ job, checkpoint }: ConditionsPanelProps) {
             <FolderHint>{LETTER_GOES_HERE}</FolderHint>
           )}
         </Folder>
+        <ExtractionActions job={job} pdfs={files.filter((file) => file.kind === "pdf")} />
       </div>
     </PanelBox>
   );

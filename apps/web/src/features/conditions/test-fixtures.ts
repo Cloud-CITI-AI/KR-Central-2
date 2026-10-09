@@ -1,7 +1,10 @@
 /** Synthetic conditions for conditions tests (TD-1: nothing here comes from the prototype's real job). */
-import { Condition, type JobDetail } from "@kr/contracts";
+import { Condition, Operation, type JobDetail } from "@kr/contracts";
 import type { Agency } from "@kr/workflow";
 import { syntheticJob, type SyntheticJobOptions } from "@/features/tracker/test-fixtures";
+
+export const OPERATION_ID = "6f1d3b0e-5c1a-4b64-9d4e-0d8b1a2c3d4e";
+const AT = "2026-09-28T03:50:56.543Z";
 
 export interface SyntheticConditionJobOptions extends Omit<SyntheticJobOptions, "conditionAgencies"> {
   /** One condition per entry, numbered from 1. */
@@ -31,4 +34,28 @@ export function conditionAt(job: JobDetail, index: number): Condition {
   const found = job.conditions[index];
   if (!found) throw new Error(`No condition at ${index}`);
   return found;
+}
+
+/** A `conditions.extract` operation in `status`, with `result` once it succeeded. */
+export function extractionOperation(
+  jobId: string,
+  status: "queued" | "running" | "succeeded" | "failed",
+  result: unknown = null,
+  error: { code: string; message: string } = { code: "unreadable", message: "Could not read the PDF" },
+) {
+  return Operation.parse({
+    id: OPERATION_ID,
+    jobId,
+    type: "conditions.extract",
+    status,
+    createdAt: AT,
+    completedAt: status === "succeeded" || status === "failed" ? AT : null,
+    result,
+    error: status === "failed" ? error : null,
+  });
+}
+
+/** The result of an extraction that found `conditionsCount` conditions. */
+export function extractionResult(conditionsCount: number, message: string | null = null) {
+  return { conditionsCount, guessedNumbers: [], approvalDate: null, approvalExpiry: null, message };
 }
