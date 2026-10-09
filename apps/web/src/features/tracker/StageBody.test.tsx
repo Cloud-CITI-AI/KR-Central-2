@@ -1,5 +1,5 @@
 import { CHECKPOINTS, STAGES } from "@kr/workflow";
-import { render, screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { syntheticJob } from "./test-fixtures";
 import { StageBody } from "./StageBody";
@@ -31,7 +31,7 @@ describe("StageBody", () => {
   it("renders a card per checkpoint through CheckpointCard with job, checkpoint and definition unchanged", () => {
     const job = syntheticJob();
     features.CheckpointCard.mockClear();
-    render(<StageBody job={job} stage={stage("wapc-approval")} />);
+    renderTracker(<StageBody job={job} stage={stage("wapc-approval")} />);
     const defs = stage("wapc-approval").checkpoints;
     expect(features.CheckpointCard).toHaveBeenCalledTimes(defs.length);
     for (const [index, definition] of defs.entries()) {
@@ -47,7 +47,7 @@ describe("StageBody", () => {
 
   it("renders cards in workflow order and all 46 across the stages", () => {
     const job = syntheticJob();
-    const { container } = render(
+    const { container } = renderTracker(
       <>
         {STAGES.map((s) => (
           <StageBody key={s.key} job={job} stage={s} />
@@ -67,14 +67,34 @@ describe("StageBody", () => {
       ["wapc", "WAPC"],
     ] as const) {
       features.AgencyConditions.mockClear();
-      const { container, unmount } = render(<StageBody job={job} stage={stage(key)} />);
+      const { unmount } = renderTracker(<StageBody job={job} stage={stage(key)} />);
       expect(features.AgencyConditions.mock.calls[0]?.[0]).toEqual({ job, agency });
-      expect(container.firstElementChild).toHaveTextContent(`conditions ${agency}`);
+      const conditions = screen.getByText(`conditions ${agency}`);
+      expect(
+        conditions.compareDocumentPosition(screen.getAllByText(/^card /)[0]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
       unmount();
     }
     features.AgencyConditions.mockClear();
-    render(<StageBody job={job} stage={stage("preliminaries")} />);
+    renderTracker(<StageBody job={job} stage={stage("preliminaries")} />);
     expect(features.AgencyConditions).not.toHaveBeenCalled();
+  });
+});
+
+describe("outcome box", () => {
+  it("sits after 4.2 inside WAPC Approval and nowhere else", () => {
+    const job = syntheticJob();
+    const { container } = renderTracker(
+      <>
+        {STAGES.map((s) => (
+          <StageBody key={s.key} job={job} stage={s} />
+        ))}
+      </>,
+    );
+    const boxes = screen.getAllByRole("group", { name: "WAPC outcome" });
+    expect(boxes).toHaveLength(1);
+    expect(document.getElementById("checkpoint-i4_2")?.nextElementSibling).toBe(boxes[0]);
+    expect(within(container).getAllByRole("group")).toHaveLength(1);
   });
 });
 

@@ -10,8 +10,8 @@ export interface DateFieldProps {
   readonly disabled: boolean;
   /** Save the new value (`null` when cleared). Failures are shown by the caller's mutation (banner), so a rejection only ends the draft. */
   readonly onCommit: (next: string | null) => Promise<unknown>;
-  readonly className?: string;
-  readonly labelClassName?: string;
+  readonly className?: string | undefined;
+  readonly labelClassName?: string | undefined;
   /** Id of the element under the input (status or hint) that describes it. */
   readonly describedBy?: string | undefined;
   /** Hint or status under the input; not part of the label's accessible name. */
