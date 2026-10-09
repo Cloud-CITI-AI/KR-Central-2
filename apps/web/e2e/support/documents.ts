@@ -9,7 +9,10 @@ export interface SyntheticFile {
 }
 
 /** A PDF with one string array per page, one line of text per string (so the worker's text rules can read it). */
-export async function pdfFile(name: string, pages: readonly (readonly string[])[] = [["Synthetic test document"]]) {
+export async function pdfFile(
+  name: string,
+  pages: readonly (readonly string[])[] = [["Synthetic test document"]],
+): Promise<SyntheticFile> {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   for (const lines of pages) {
@@ -18,7 +21,7 @@ export async function pdfFile(name: string, pages: readonly (readonly string[])[
       page.drawText(line, { x: 50, y: 780 - i * 18, size: 11, font });
     });
   }
-  return { name, mimeType: "application/pdf", buffer: Buffer.from(await pdf.save()) } satisfies SyntheticFile;
+  return { name, mimeType: "application/pdf", buffer: Buffer.from(await pdf.save()) };
 }
 
 function chunk(type: string, data: Buffer): Buffer {
