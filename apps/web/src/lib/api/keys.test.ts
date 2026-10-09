@@ -19,6 +19,8 @@ describe("queryKeys", () => {
     expect(queryKeys.jobs.list({ q: "x" })).toEqual(queryKeys.jobs.list({ q: "x" }));
     expect(queryKeys.jobs.list({ q: "x" })).not.toEqual(queryKeys.jobs.list({ q: "y" }));
     expect(queryKeys.operation("o1")).toEqual(["operations", "o1"]);
+    expect(queryKeys.files.text("f1")).toEqual(["files", "text", "f1"]);
+    expect(queryKeys.files.text("f1")).not.toEqual(queryKeys.files.text("f2"));
   });
 
   it("keeps the admin lists apart", () => {

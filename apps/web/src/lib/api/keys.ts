@@ -10,6 +10,10 @@ export const queryKeys = {
     detail: (jobId: string) => ["jobs", "detail", jobId] as const,
     notes: (jobId: string) => ["jobs", "notes", jobId] as const,
   },
+  files: {
+    /** The text of a text, CSV, Markdown or email file (what the document viewer shows). */
+    text: (fileId: string) => ["files", "text", fileId] as const,
+  },
   grants: (query: Query = {}) => ["grants", query] as const,
   audit: (query: Query = {}) => ["audit", query] as const,
   users: (query: Query = {}) => ["users", query] as const,
