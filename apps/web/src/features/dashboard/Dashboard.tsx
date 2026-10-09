@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { ApiProblem } from "@/lib/api";
+import { AccessManager } from "@/features/access";
 import { useSession } from "@/lib/session";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardJobbar } from "./DashboardJobbar";
@@ -71,6 +72,7 @@ export function Dashboard() {
         {facets.data && <SummaryChips facets={facets.data} />}
         <JobGrid params={params} visibleJobs={facets.data?.statusCounts.all} />
       </div>
+      <AccessManager />
     </>
   );
 }
