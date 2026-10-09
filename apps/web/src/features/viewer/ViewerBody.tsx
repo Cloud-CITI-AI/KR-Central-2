@@ -1,11 +1,16 @@
 "use client";
 import type { FileMeta } from "@kr/contracts";
 import Image from "next/image";
+import { lazy, Suspense } from "react";
 import { ButtonLink } from "@/components/ui/ButtonLink";
+import { Spinner } from "@/components/ui/Spinner";
 import { contentUrl, viewFor } from "./content";
 import { VIEWER_MESSAGES } from "./messages";
 import { TextView } from "./TextView";
 import styles from "./ViewerBody.module.css";
+
+/** pdf.js and the page drawing load only when a PDF is opened (bundle budget, FE-9). */
+const PdfView = lazy(() => import("./PdfView").then((module) => ({ default: module.PdfView })));
 
 export interface ViewerBodyProps {
   readonly file: FileMeta;
@@ -48,6 +53,10 @@ export function ViewerBody({ file }: ViewerBodyProps) {
         </div>
       );
     case "pdf":
-      return null; // the PDF renderer follows in a later change
+      return (
+        <Suspense fallback={<Spinner label={VIEWER_MESSAGES.loading} />}>
+          <PdfView file={file} />
+        </Suspense>
+      );
   }
 }

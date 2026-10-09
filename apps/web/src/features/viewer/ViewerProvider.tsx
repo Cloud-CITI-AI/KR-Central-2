@@ -1,6 +1,8 @@
 "use client";
 import type { FileMeta } from "@kr/contracts";
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { PdfRendererContext } from "./pdf-context";
+import { pdfjsRenderer, type PdfRenderer } from "./pdf-renderer";
 import { ViewerDialog } from "./ViewerDialog";
 
 export interface ViewerApi {
@@ -12,6 +14,8 @@ const ViewerContext = createContext<ViewerApi>({ open: () => undefined });
 
 export interface ViewerProviderProps {
   readonly children: ReactNode;
+  /** The PDF engine; pdf.js unless a test supplies another adapter. */
+  readonly pdfRenderer?: PdfRenderer;
 }
 
 interface Opened {
@@ -20,7 +24,7 @@ interface Opened {
 }
 
 /** Document viewer dialog provider (§11.1). Mounted once by the authenticated layout `(app)/layout.tsx` (WP-03). */
-export function ViewerProvider({ children }: ViewerProviderProps) {
+export function ViewerProvider({ children, pdfRenderer = pdfjsRenderer }: ViewerProviderProps) {
   // `opened` keeps the last files while the dialog is closed, so the Dialog sees open go true -> false and returns focus.
   const [opened, setOpened] = useState<Opened | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -33,20 +37,22 @@ export function ViewerProvider({ children }: ViewerProviderProps) {
 
   return (
     <ViewerContext.Provider value={api}>
-      {children}
-      {opened && (
-        <ViewerDialog
-          open={isOpen}
-          files={opened.files}
-          index={opened.index}
-          onIndexChange={(index) => {
-            setOpened({ files: opened.files, index });
-          }}
-          onClose={() => {
-            setIsOpen(false);
-          }}
-        />
-      )}
+      <PdfRendererContext.Provider value={pdfRenderer}>
+        {children}
+        {opened && (
+          <ViewerDialog
+            open={isOpen}
+            files={opened.files}
+            index={opened.index}
+            onIndexChange={(index) => {
+              setOpened({ files: opened.files, index });
+            }}
+            onClose={() => {
+              setIsOpen(false);
+            }}
+          />
+        )}
+      </PdfRendererContext.Provider>
     </ViewerContext.Provider>
   );
 }
