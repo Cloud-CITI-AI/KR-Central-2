@@ -88,6 +88,7 @@ const stampReader =
         apiKey: config.ANTHROPIC_API_KEY,
         model: config.ANTHROPIC_MODEL,
         timeoutMs: config.ANTHROPIC_TIMEOUT_MS,
+        breaker: { onStateChange: circuitLogger("anthropic") },
       })
     : undefined;
 

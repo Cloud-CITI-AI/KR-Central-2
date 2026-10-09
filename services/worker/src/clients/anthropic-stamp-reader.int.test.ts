@@ -98,3 +98,96 @@ describe("the Anthropic stamp reader", () => {
     expect(error).not.toBeInstanceOf(StampReaderError);
   });
 });
+
+describe("the circuit breaker", () => {
+  const OPTIONS = { apiKey: "test-key", model: "claude-sonnet-5-5", timeoutMs: 5000, maxRetries: 0 } as const;
+  const found = answer({ found: true, date: "2026-03-16", stampText: "DATE 16-Mar-2026" });
+
+  function clocked() {
+    let now = new Date("2026-10-09T08:00:00.000Z");
+    const changes: string[] = [];
+    return {
+      changes,
+      advance: (ms: number) => {
+        now = new Date(now.getTime() + ms);
+      },
+      breaker: {
+        failureThreshold: 2,
+        coolDownMs: 1000,
+        clock: { now: () => now },
+        onStateChange: ({ from, to }: { from: string; to: string }) => changes.push(`${from}>${to}`),
+      },
+    };
+  }
+
+  it("opens after consecutive server errors, then fails fast as an 'error' without calling the API", async () => {
+    fake = await startFakeAnthropic({ status: 503 });
+    const c = clocked();
+    const reader = createAnthropicStampReader({ ...OPTIONS, baseURL: fake.baseURL, breaker: c.breaker });
+    expect(await failure(reader.read(PNG))).toMatchObject({ reason: "error", unavailable: true });
+    expect(await failure(reader.read(PNG))).toMatchObject({ reason: "error", unavailable: true });
+    expect(fake.requests).toHaveLength(2);
+    const open = await failure(reader.read(PNG));
+    expect(open).toBeInstanceOf(StampReaderError);
+    expect(open).toMatchObject({ reason: "error", unavailable: true });
+    expect(fake.requests).toHaveLength(2);
+    expect(c.changes).toEqual(["closed>open"]);
+  });
+
+  it("counts timeouts and unreachable hosts too, but not a bad request, a refusal or unparseable output", async () => {
+    const c = clocked();
+    fake = await startFakeAnthropic({ status: 400 });
+    const bad = createAnthropicStampReader({ ...OPTIONS, baseURL: fake.baseURL, breaker: c.breaker });
+    for (let i = 0; i < 4; i += 1) expect(await failure(bad.read(PNG))).toMatchObject({ unavailable: false });
+    expect(fake.requests).toHaveLength(4);
+    await fake.stop();
+
+    fake = await startFakeAnthropic("hang");
+    const slow = createAnthropicStampReader({
+      ...OPTIONS,
+      timeoutMs: 100,
+      baseURL: fake.baseURL,
+      breaker: c.breaker,
+    });
+    expect(await failure(slow.read(PNG))).toMatchObject({ reason: "timeout", unavailable: true });
+    expect(await failure(slow.read(PNG))).toMatchObject({ reason: "timeout", unavailable: true });
+    expect(fake.requests).toHaveLength(2);
+    await failure(slow.read(PNG));
+    expect(fake.requests).toHaveLength(2);
+    expect(c.changes).toEqual(["closed>open"]);
+
+    await fake.stop();
+    fake = undefined;
+    const gone = await startFakeAnthropic(found);
+    const baseURL = gone.baseURL;
+    await gone.stop();
+    const unreachable = createAnthropicStampReader({ ...OPTIONS, baseURL, breaker: { ...c.breaker } });
+    expect(await failure(unreachable.read(PNG))).toMatchObject({ unavailable: true });
+  });
+
+  it("allows one trial call after the cool-down: it re-opens the circuit when it fails and closes it when it succeeds", async () => {
+    fake = await startFakeAnthropic({ status: 500 });
+    const c = clocked();
+    const reader = createAnthropicStampReader({ ...OPTIONS, baseURL: fake.baseURL, breaker: c.breaker });
+    await failure(reader.read(PNG));
+    await failure(reader.read(PNG));
+    c.advance(1000);
+    expect(await failure(reader.read(PNG))).toMatchObject({ unavailable: true });
+    expect(fake.requests).toHaveLength(3); // the trial call reached the API and failed
+    await failure(reader.read(PNG));
+    expect(fake.requests).toHaveLength(3); // open again, for a full cool-down
+
+    fake.respondWith(found);
+    c.advance(1000);
+    expect((await reader.read(PNG)).found).toBe(true);
+    expect((await reader.read(PNG)).found).toBe(true);
+    expect(fake.requests).toHaveLength(5);
+    expect(c.changes).toEqual([
+      "closed>open",
+      "open>half_open",
+      "half_open>open",
+      "open>half_open",
+      "half_open>closed",
+    ]);
+  });
+});

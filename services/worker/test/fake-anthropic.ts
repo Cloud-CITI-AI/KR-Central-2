@@ -5,13 +5,16 @@ export interface FakeAnthropic {
   readonly baseURL: string;
   /** Request bodies (parsed JSON) and headers seen so far. */
   readonly requests: { body: Record<string, unknown>; headers: IncomingMessage["headers"] }[];
+  /** Change what the next requests are answered with (a service that recovers). */
+  respondWith(next: Reply): void;
   stop(): Promise<void>;
 }
 
 export type Reply = { text: string; stopReason?: string } | { status: number } | "hang";
 
 /** A local stand-in for api.anthropic.com's POST /v1/messages that answers with the canned reply. */
-export async function startFakeAnthropic(reply: Reply): Promise<FakeAnthropic> {
+export async function startFakeAnthropic(initial: Reply): Promise<FakeAnthropic> {
+  let reply = initial;
   const requests: FakeAnthropic["requests"] = [];
   const sockets = new Set<ServerResponse>();
   const server = createServer((req, res) => {
@@ -50,6 +53,9 @@ export async function startFakeAnthropic(reply: Reply): Promise<FakeAnthropic> {
   return {
     baseURL: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
     requests,
+    respondWith: (next) => {
+      reply = next;
+    },
     stop: () =>
       new Promise<void>((done) => {
         for (const res of sockets) res.destroy();

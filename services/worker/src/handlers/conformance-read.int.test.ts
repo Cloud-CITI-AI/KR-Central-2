@@ -3,8 +3,10 @@ import type { Db } from "@kr/db";
 import { createMemoryStorage } from "@kr/storage/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { enqueue, insertJob, openDb } from "../../test/db.js";
+import { startFakeAnthropic } from "../../test/fake-anthropic.js";
 import { handlerContext, insertFile } from "../../test/files.js";
 import { makePdf } from "../../test/pdf.js";
+import { createAnthropicStampReader } from "../clients/anthropic-stamp-reader.js";
 import { StampReaderError, type StampReader, type StampReading } from "../clients/stamp-reader.js";
 import { TaskError } from "../errors.js";
 import { staticFlags } from "../flags.js";
@@ -218,6 +220,29 @@ describe("conformance.read: when the AI may be called", () => {
     const { result, metrics } = await read({ reader: readerOf(failure) });
     expect(result).toMatchObject({ found: true, date: "2026-03-16", method: "text" });
     expect(metrics.recordStampReading).toHaveBeenCalledExactlyOnceWith(label);
+  });
+
+  it("falls through to the text rule at once, without calling the API, when the Anthropic circuit is open", async () => {
+    const fake = await startFakeAnthropic({ status: 500 });
+    try {
+      const reader = createAnthropicStampReader({
+        apiKey: "test-key",
+        model: "claude-sonnet-5-5",
+        timeoutMs: 5000,
+        maxRetries: 0,
+        baseURL: fake.baseURL,
+        breaker: { failureThreshold: 1, coolDownMs: 60_000 },
+      });
+      const first = await read({ reader });
+      expect(first.result).toMatchObject({ method: "text" });
+      expect(fake.requests).toHaveLength(1);
+      const second = await read({ reader });
+      expect(second.result).toMatchObject({ found: true, date: "2026-03-16", method: "text" });
+      expect(fake.requests).toHaveLength(1);
+      expect(second.metrics.recordStampReading).toHaveBeenCalledExactlyOnceWith("error");
+    } finally {
+      await fake.stop();
+    }
   });
 
   it("falls through to the text rule when the AI finds no stamp", async () => {

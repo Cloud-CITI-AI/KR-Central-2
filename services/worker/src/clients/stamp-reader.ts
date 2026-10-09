@@ -18,11 +18,17 @@ export type StampFailure = "refused" | "timeout" | "unparseable" | "error";
 
 export class StampReaderError extends Error {
   readonly reason: StampFailure;
+  /** True when the service itself was down or unreachable (connection error, timeout, 5xx, 429, open circuit): counts toward the circuit breaker. */
+  readonly unavailable: boolean;
 
-  constructor(reason: StampFailure, options?: { readonly cause?: unknown }) {
-    super(`The stamp could not be read (${reason}).`, options);
+  constructor(reason: StampFailure, options?: { readonly cause?: unknown; readonly unavailable?: boolean }) {
+    super(
+      `The stamp could not be read (${reason}).`,
+      options?.cause === undefined ? undefined : { cause: options.cause },
+    );
     this.name = "StampReaderError";
     this.reason = reason;
+    this.unavailable = options?.unavailable ?? false;
   }
 }
 
