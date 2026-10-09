@@ -6,9 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { syntheticFile } from "@/features/checkpoints/test-fixtures";
 import { renderCard, withCheckpoint } from "@/features/checkpoints/test-utils";
 import { expectNoAxeViolations } from "@/test/axe";
-import { handlerFor } from "@/test/msw/handlers";
+import { handlerFor, mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
-import { extractionOperation, syntheticConditionJob } from "./test-fixtures";
+import { extractionOperation, extractionResult, syntheticConditionJob } from "./test-fixtures";
 
 vi.mock("@/features/viewer", () => ({ useViewer: () => ({ open: vi.fn() }) }));
 
@@ -72,6 +72,124 @@ describe("conditions panel: the folder and the extraction", () => {
       "i5_0",
     );
     expect(screen.getByRole("button", EXTRACT)).toBeDisabled();
+  });
+
+  it("starts the extraction with an Idempotency-Key, shows progress, then the count and the guessed-agency note", async () => {
+    const job = withFiles(["Decision Letter.pdf"]);
+    const letter = job.checkpoints.find((c) => c.key === "i5_0")?.files[0];
+    const { served } = renderCard(job, "i5_0");
+    const started: { body: unknown; key: string | null }[] = [];
+    let polls = 0;
+    let jobReads = 0;
+    const guessed = "Check the agency for conditions 3, 7 – no agency was named in brackets, so it was guessed.";
+    server.use(
+      handlerFor("startConditionsExtraction", async ({ request }) => {
+        started.push({ body: await request.json(), key: request.headers.get("idempotency-key") });
+        return HttpResponse.json(extractionOperation(job.id, "queued"), { status: 202 });
+      }),
+      handlerFor("getOperation", () => {
+        polls += 1;
+        return HttpResponse.json(
+          polls < 2
+            ? extractionOperation(job.id, "running")
+            : extractionOperation(job.id, "succeeded", extractionResult(13, guessed)),
+        );
+      }),
+      handlerFor("getJob", () => {
+        jobReads += 1;
+        return HttpResponse.json(served.job);
+      }),
+    );
+    await userEvent.click(screen.getByRole("button", EXTRACT));
+    expect(started).toHaveLength(1);
+    expect(started[0]?.body).toEqual({ fileId: letter?.id, replaceExisting: false });
+    expect(started[0]?.key).toMatch(/^[0-9a-f-]{36}$/);
+    const busy = await screen.findByRole("button", { name: "Reading Decision Letter…" });
+    expect(busy).toBeDisabled();
+    expect(await screen.findByText("13 conditions extracted", {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByText(guessed)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reading Decision Letter…" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(jobReads).toBeGreaterThan(0);
+    });
+  });
+
+  it("says when no numbered conditions were found", async () => {
+    const job = withFiles(["Decision Letter.pdf"]);
+    renderCard(job, "i5_0");
+    const message =
+      "No numbered conditions were found in this PDF. Check it is the WAPC conditional approval letter (not a scanned image).";
+    server.use(
+      handlerFor("startConditionsExtraction", () =>
+        HttpResponse.json(extractionOperation(job.id, "queued"), { status: 202 }),
+      ),
+      handlerFor("getOperation", () =>
+        HttpResponse.json(extractionOperation(job.id, "succeeded", extractionResult(0, message))),
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", EXTRACT));
+    expect(await screen.findByText(message, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.queryByText(/conditions? extracted/)).not.toBeInTheDocument();
+  });
+
+  it("says the PDF could not be read when the extraction fails", async () => {
+    const job = withFiles(["Decision Letter.pdf"]);
+    renderCard(job, "i5_0");
+    server.use(
+      handlerFor("startConditionsExtraction", () =>
+        HttpResponse.json(extractionOperation(job.id, "queued"), { status: 202 }),
+      ),
+      handlerFor("getOperation", () => HttpResponse.json(extractionOperation(job.id, "failed"))),
+    );
+    await userEvent.click(screen.getByRole("button", EXTRACT));
+    expect(
+      await screen.findByText(
+        "This PDF couldn't be read. Try re-saving it as a PDF and uploading again.",
+        {},
+        { timeout: 4000 },
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", EXTRACT)).toBeEnabled();
+  });
+
+  it.each([
+    ["timeout", "Reading the document took too long. Try again."],
+    ["file_unavailable", "The Decision Letter is no longer available. Upload it again."],
+  ])("shows the message of a %s failure instead of the unreadable-PDF advice", async (code, message) => {
+    const job = withFiles(["Decision Letter.pdf"]);
+    renderCard(job, "i5_0");
+    server.use(
+      handlerFor("startConditionsExtraction", () =>
+        HttpResponse.json(extractionOperation(job.id, "queued"), { status: 202 }),
+      ),
+      handlerFor("getOperation", () =>
+        HttpResponse.json(extractionOperation(job.id, "failed", null, { code, message })),
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", EXTRACT));
+    expect(await screen.findByText(message, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.queryByText(/couldn't be read/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", EXTRACT)).toBeEnabled();
+  });
+
+  it("shows the reason of a 409 that is not about replacing, and a request id for any other failure", async () => {
+    const job = withFiles(["Decision Letter.pdf"]);
+    renderCard(job, "i5_0");
+    server.use(
+      mockProblem("startConditionsExtraction", 409, PROBLEM_TYPES.fileNotReady, {
+        detail: "Decision Letter.pdf is still being checked for viruses. Try again in a moment.",
+      }),
+    );
+    await userEvent.click(screen.getByRole("button", EXTRACT));
+    expect(
+      await screen.findByText("Decision Letter.pdf is still being checked for viruses. Try again in a moment."),
+    ).toBeInTheDocument();
+    server.use(mockProblem("startConditionsExtraction", 500));
+    await userEvent.click(screen.getByRole("button", EXTRACT));
+    expect(
+      await screen.findByText("Conditions couldn't be extracted from Decision Letter.pdf (Request ID: req-test-0001)"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/still being checked/)).not.toBeInTheDocument();
   });
 
   it("asks before replacing existing conditions: Cancel sends nothing, Replace sends replaceExisting", async () => {
