@@ -30,7 +30,7 @@ export function ConditionsChecklist({ job }: ConditionsChecklistProps) {
       </summary>
       <div className={styles.list}>
         {conditions.map((condition) => (
-          <ConditionCard key={condition.id} condition={condition} variant="checklist" />
+          <ConditionCard key={condition.id} job={job} condition={condition} variant="checklist" />
         ))}
       </div>
       {conditionsSource && <p className={cx(styles.msg, styles.ok)}>{extractedFromText(conditionsSource.fileName)}</p>}

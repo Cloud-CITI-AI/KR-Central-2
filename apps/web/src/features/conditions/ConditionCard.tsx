@@ -1,10 +1,14 @@
 "use client";
-import type { Condition } from "@kr/contracts";
+import type { Condition, JobDetail } from "@kr/contracts";
 import { STAGES, type Agency } from "@kr/workflow";
+import { conditionPermissions } from "./capabilities";
+import { ConditionEditor } from "./ConditionEditor";
 import { GUESSED_BADGE, GUESSED_TITLE } from "./messages";
+import { useUpdateCondition } from "./useUpdateCondition";
 import styles from "./ConditionCard.module.css";
 
 export interface ConditionCardProps {
+  readonly job: JobDetail;
   readonly condition: Condition;
   /** "checklist" in 5.0: "Go to <agency> ↓". "agency" in an agency stage: the plain agency badge only. */
   readonly variant: "checklist" | "agency";
@@ -17,9 +21,13 @@ function stageKeyOf(agency: Agency): string | undefined {
 
 /**
  * One condition (§5.6): "Condition N", its agency badge, the guessed badge, the link to the agency's stage, the text (struck through
- * once cleared) and the card colour (red open, green cleared). The checklist and the agency box render the same job.conditions entry.
+ * once cleared), the editor row and the card colour (red open, green cleared). The checklist and the agency box render the same
+ * job.conditions entry through the same cache write, so an edit in one shows in the other at once.
  */
-export function ConditionCard({ condition, variant }: ConditionCardProps) {
+export function ConditionCard({ job, condition, variant }: ConditionCardProps) {
+  const update = useUpdateCondition(job.id, condition.id);
+  const permissions = conditionPermissions(job.capabilities);
+  const save = (body: Parameters<typeof update.mutateAsync>[0]) => update.mutateAsync(body).catch(() => undefined);
   const { agency } = condition;
   const stageKey = stageKeyOf(agency);
   return (
@@ -46,6 +54,7 @@ export function ConditionCard({ condition, variant }: ConditionCardProps) {
         )}
       </div>
       <div className={styles.text}>{condition.text}</div>
+      <ConditionEditor condition={condition} permissions={permissions} save={save} />
     </div>
   );
 }

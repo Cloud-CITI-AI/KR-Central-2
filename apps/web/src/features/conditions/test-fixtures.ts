@@ -59,3 +59,14 @@ export function extractionOperation(
 export function extractionResult(conditionsCount: number, message: string | null = null) {
   return { conditionsCount, guessedNumbers: [], approvalDate: null, approvalExpiry: null, message };
 }
+
+/** What the API answers for `body` applied to `condition`: the fields it sets, the guess ended by an agency choice, version + 1. */
+export function conditionAfter(condition: Condition, body: Record<string, unknown>): Condition {
+  const { agencyConfirmed, ...fields } = body;
+  return Condition.parse({
+    ...condition,
+    ...fields,
+    agencyGuessed: agencyConfirmed === true || "agency" in fields ? false : condition.agencyGuessed,
+    version: condition.version + 1,
+  });
+}
