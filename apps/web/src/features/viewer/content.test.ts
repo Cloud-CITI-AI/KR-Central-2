@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { contentUrl } from "./content";
+import { contentUrl, opensInTab, viewFor } from "./content";
+import { syntheticFile } from "./test-fixtures";
 
 describe("contentUrl", () => {
   it("is the same-origin BFF path of getFileContent", () => {
@@ -10,5 +11,65 @@ describe("contentUrl", () => {
 
   it("asks for a download when the disposition is attachment", () => {
     expect(contentUrl("abc", "attachment")).toBe("/api/v1/files/abc/content?disposition=attachment");
+  });
+});
+
+describe("viewFor", () => {
+  it.each([
+    ["pending", "This file is still being checked for viruses."],
+    ["infected", "Blocked – failed the virus scan"],
+    ["error", "Couldn't be checked for viruses – remove it and upload it again"],
+  ] as const)("a %s file shows its message whatever its kind", (scanStatus, message) => {
+    expect(viewFor(syntheticFile({ scanStatus }))).toEqual({ type: "unavailable", message });
+    expect(viewFor(syntheticFile({ scanStatus, kind: "dwg", contentType: "image/vnd.dwg" }))).toEqual({
+      type: "unavailable",
+      message,
+    });
+  });
+
+  it.each(["clean", "skipped"] as const)("opens a %s file by its kind", (scanStatus) => {
+    expect(viewFor(syntheticFile({ scanStatus }))).toEqual({ type: "pdf" });
+    expect(viewFor(syntheticFile({ scanStatus, kind: "image", contentType: "image/png" }))).toEqual({ type: "image" });
+    expect(viewFor(syntheticFile({ scanStatus, kind: "video", contentType: "video/mp4" }))).toEqual({ type: "video" });
+    expect(viewFor(syntheticFile({ scanStatus, kind: "text", contentType: "text/plain" }))).toEqual({ type: "text" });
+    expect(viewFor(syntheticFile({ scanStatus, kind: "dwg", contentType: "image/vnd.dwg" }))).toEqual({ type: "dwg" });
+  });
+
+  it("treats an email, and a pasted email stored as text, as an email; an Outlook .msg has no body", () => {
+    const email = {
+      parseStatus: "parsed",
+      subject: "Query",
+      from: null,
+      to: null,
+      cc: null,
+      sentAt: null,
+      isPasted: true,
+    } as const;
+    expect(viewFor(syntheticFile({ kind: "email", contentType: "message/rfc822", email }))).toEqual({
+      type: "email",
+      body: true,
+    });
+    expect(viewFor(syntheticFile({ kind: "text", contentType: "text/plain", email }))).toEqual({
+      type: "email",
+      body: true,
+    });
+    expect(viewFor(syntheticFile({ kind: "email", contentType: "application/vnd.ms-outlook", email }))).toEqual({
+      type: "email",
+      body: false,
+    });
+  });
+});
+
+describe("opensInTab", () => {
+  it("is true only for the kinds the server answers inline", () => {
+    expect(["pdf", "image", "video", "text"].map((type) => opensInTab({ type } as never))).toEqual([
+      true,
+      true,
+      true,
+      true,
+    ]);
+    expect(opensInTab({ type: "dwg" })).toBe(false);
+    expect(opensInTab({ type: "email", body: true })).toBe(false);
+    expect(opensInTab({ type: "unavailable", message: "x" })).toBe(false);
   });
 });

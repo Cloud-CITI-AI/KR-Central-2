@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import buttonStyles from "@/components/ui/Button.module.css";
 import { Dialog } from "@/components/ui/Dialog";
 import { cx } from "@/lib/cx";
-import { contentUrl } from "./content";
+import { contentUrl, opensInTab, viewFor } from "./content";
 import { VIEWER_MESSAGES } from "./messages";
 import { ViewerBody } from "./ViewerBody";
 import styles from "./ViewerDialog.module.css";
@@ -38,6 +38,7 @@ export function ViewerDialog({ open, files, index, onIndexChange, onClose }: Vie
   }, [index]);
 
   if (!file) return null;
+  const view = viewFor(file);
   return (
     <Dialog
       open={open}
@@ -80,14 +81,16 @@ export function ViewerDialog({ open, files, index, onIndexChange, onClose }: Vie
               {index + 1} of {files.length}
             </span>
           )}
-          <a
-            className={cx(buttonStyles.btn, buttonStyles.small)}
-            href={contentUrl(file.id)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {VIEWER_MESSAGES.openInNewTab}
-          </a>
+          {opensInTab(view) && (
+            <a
+              className={cx(buttonStyles.btn, buttonStyles.small)}
+              href={contentUrl(file.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {VIEWER_MESSAGES.openInNewTab}
+            </a>
+          )}
         </>
       }
     >

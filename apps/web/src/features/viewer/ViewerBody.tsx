@@ -1,21 +1,51 @@
 "use client";
 import type { FileMeta } from "@kr/contracts";
 import Image from "next/image";
-import { contentUrl } from "./content";
+import { ButtonLink } from "@/components/ui/ButtonLink";
+import { contentUrl, viewFor } from "./content";
+import { VIEWER_MESSAGES } from "./messages";
 import styles from "./ViewerBody.module.css";
 
 export interface ViewerBodyProps {
   readonly file: FileMeta;
 }
 
-/** What the dialog shows for one file, by kind (§11.1). The other kinds follow in the next changes. */
+/** What the dialog shows for one file, by kind (§11.1). Scan states that block the file replace the content. */
 export function ViewerBody({ file }: ViewerBodyProps) {
-  if (file.kind === "image") {
-    return (
-      <div className={styles.picture}>
-        <Image className={styles.image} src={contentUrl(file.id)} alt={file.name} fill unoptimized />
-      </div>
-    );
+  const view = viewFor(file);
+  switch (view.type) {
+    case "unavailable":
+      return (
+        <p role="status" className={styles.notice}>
+          {view.message}
+        </p>
+      );
+    case "image":
+      return (
+        <div className={styles.picture}>
+          <Image className={styles.image} src={contentUrl(file.id)} alt={file.name} fill unoptimized />
+        </div>
+      );
+    case "video":
+      return (
+        <video className={styles.video} src={contentUrl(file.id)} controls preload="metadata">
+          <track kind="captions" />
+        </video>
+      );
+    case "text":
+    case "email":
+      return null; // text and email follow in the next change
+    case "dwg":
+      return (
+        <div className={styles.notice}>
+          <b>{VIEWER_MESSAGES.dwgTitle}</b>
+          <span>{VIEWER_MESSAGES.dwgHint}</span>
+          <ButtonLink href={contentUrl(file.id, "attachment")} variant="primary">
+            Download {file.name}
+          </ButtonLink>
+        </div>
+      );
+    case "pdf":
+      return null; // the PDF renderer follows in a later change
   }
-  return null;
 }

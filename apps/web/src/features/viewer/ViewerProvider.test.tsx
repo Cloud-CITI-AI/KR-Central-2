@@ -17,6 +17,7 @@ function OpenButtons({ files }: { readonly files: readonly FileMeta[] }) {
       <button onClick={open(files, 0)}>Open first</button>
       <button onClick={open(files, files.length - 1)}>Open last</button>
       <button onClick={open([], 0)}>Open none</button>
+      <button onClick={open(files, 99)}>Open past the end</button>
     </>
   );
 }
@@ -46,6 +47,21 @@ describe("ViewerProvider and the viewer dialog", () => {
     setup([png("a.png")]);
     await userEvent.click(screen.getByRole("button", { name: "Open none" }));
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("clamps an index past the end to the last file", async () => {
+    setup([png("a.png"), png("b.png")]);
+    await userEvent.click(screen.getByRole("button", { name: "Open past the end" }));
+    expect(screen.getByRole("dialog", { name: "b.png" })).toBeInTheDocument();
+  });
+
+  it("moves focus to the other arrow when stepping disables the one that was used", async () => {
+    setup([png("a.png"), png("b.png")]);
+    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next file" }));
+    expect(screen.getByRole("button", { name: "Previous file" })).toHaveFocus();
+    await userEvent.click(screen.getByRole("button", { name: "Previous file" }));
+    expect(screen.getByRole("button", { name: "Next file" })).toHaveFocus();
   });
 
   it("with one file shows no ‹ ›, no position and no extra controls", async () => {
@@ -104,13 +120,15 @@ describe("ViewerProvider and the viewer dialog", () => {
     expect(close).toHaveFocus();
   });
 
-  it("offers 'Open in new tab' to the inline content", async () => {
+  it("offers 'Open in new tab' to the inline content for an image and not for a DWG", async () => {
     const image = png("site.png");
-    setup([image]);
+    setup([image, syntheticFile({ name: "plan.dwg", kind: "dwg", contentType: "image/vnd.dwg" })]);
     await userEvent.click(screen.getByRole("button", { name: "Open first" }));
     const link = screen.getByRole("link", { name: "Open in new tab" });
     expect(link).toHaveAttribute("href", `/api/v1/files/${image.id}/content`);
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+    await userEvent.click(screen.getByRole("button", { name: "Next file" }));
+    expect(screen.queryByRole("link", { name: "Open in new tab" })).toBeNull();
   });
 });

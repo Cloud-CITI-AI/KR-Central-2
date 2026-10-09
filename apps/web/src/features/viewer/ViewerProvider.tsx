@@ -26,7 +26,7 @@ export function ViewerProvider({ children }: ViewerProviderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const open = useCallback((files: readonly FileMeta[], index: number) => {
     if (files.length === 0) return;
-    setOpened({ files, index });
+    setOpened({ files, index: Math.min(Math.max(index, 0), files.length - 1) });
     setIsOpen(true);
   }, []);
   const api = useMemo<ViewerApi>(() => ({ open }), [open]);
