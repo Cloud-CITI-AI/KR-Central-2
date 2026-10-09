@@ -28,3 +28,25 @@
 .msg.ok {
   color: var(--ink-3);
 }
+
+/* prototype details.conds, its summary, .n and .clist2 */
+.checklist {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.summary {
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.count {
+  color: var(--ink-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.list {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+}

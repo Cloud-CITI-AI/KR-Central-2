@@ -38,3 +38,17 @@ export const UNREADABLE_LETTER = "This PDF couldn't be read. Try re-saving it as
 export function extractionNotStartedText(name: string, requestId: string | undefined): string {
   return `Conditions couldn't be extracted from ${name}${requestId ? ` (Request ID: ${requestId})` : ""}`;
 }
+
+/** The badge of a condition whose agency was guessed, and its hover text (§5.6, §10.2). */
+export const GUESSED_BADGE = "Agency guessed – please check";
+export const GUESSED_TITLE = "No agency was named in brackets in the Decision Letter, so it was guessed";
+
+/** The summary of the checklist: "5 of 13 cleared". */
+export function clearedText(cleared: number, total: number): string {
+  return `${cleared} of ${total} cleared`;
+}
+
+/** The checklist's footer once the conditions came from a file (§5.5). */
+export function extractedFromText(fileName: string): string {
+  return `Extracted from ${fileName} · changes here and in each agency section update each other`;
+}

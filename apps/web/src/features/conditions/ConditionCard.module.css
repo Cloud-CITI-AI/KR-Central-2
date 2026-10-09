@@ -1,0 +1,57 @@
+/* prototype .ev-c (+ .done), .ev-h, .cn, .agency, .guess and the struck-through text */
+.card {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--red-bg);
+  border: 1px solid var(--red-line);
+}
+.card[data-cleared="true"] {
+  background: var(--green-bg);
+  border-color: var(--green-line);
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.number {
+  font-weight: 600;
+  font-size: 13px;
+}
+.agency {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.guess {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  background: var(--fee-soft);
+  color: var(--fee);
+}
+.goTo {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: 12.5px;
+}
+.text {
+  overflow-wrap: anywhere;
+}
+.card[data-cleared="true"] .text {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
+@media print {
+  .card {
+    break-inside: avoid;
+  }
+}

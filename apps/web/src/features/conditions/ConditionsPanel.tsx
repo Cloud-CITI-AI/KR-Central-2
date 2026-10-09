@@ -12,6 +12,7 @@ import {
   PanelBox,
   SlotZone,
 } from "@/features/checkpoints";
+import { ConditionsChecklist } from "./ConditionsChecklist";
 import { ExtractionActions } from "./ExtractionActions";
 import { LETTER_GOES_HERE } from "./messages";
 import styles from "./Conditions.module.css";
@@ -42,6 +43,7 @@ export function ConditionsPanel({ job, checkpoint }: ConditionsPanelProps) {
           )}
         </Folder>
         <ExtractionActions job={job} pdfs={files.filter((file) => file.kind === "pdf")} />
+        <ConditionsChecklist job={job} />
       </div>
     </PanelBox>
   );
