@@ -3,6 +3,7 @@
  * Audit action names: see README.md.
  */
 import type { ApiModule } from "../../platform/module.js";
+import { registerJobRoutes } from "./http/job-routes.js";
 import { registerListRoutes } from "./http/list-routes.js";
 
 export const jobsModule: ApiModule = {
@@ -10,5 +11,6 @@ export const jobsModule: ApiModule = {
   operations: ["listJobs", "getJobFacets", "createJob", "getJob", "updateJob", "deleteJob"],
   register(app, deps) {
     registerListRoutes(app, deps);
+    registerJobRoutes(app, deps);
   },
 };
