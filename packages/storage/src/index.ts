@@ -6,6 +6,10 @@
 import type { Readable } from "node:stream";
 import type { FileKind } from "@kr/workflow";
 
+export { SNIFF_BYTES, classifyContent, isAcceptedForSlot } from "./classify.js";
+export type { ClassifyResult, ContentRejection } from "./classify.js";
+export { sanitiseFileName } from "./file-name.js";
+
 export interface PutObjectInput {
   readonly key: string;
   readonly body: Readable | Uint8Array;
