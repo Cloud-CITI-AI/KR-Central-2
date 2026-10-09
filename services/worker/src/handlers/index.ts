@@ -6,7 +6,9 @@ import type { ClamdClient } from "../clients/clamd.js";
 import type { WorkerConfig } from "../config.js";
 import type { Parser } from "../parsing/isolate.js";
 import type { Clock } from "../clock.js";
+import type { StampReader } from "../clients/stamp-reader.js";
 import { conditionsExtractHandler } from "./conditions-extract.js";
+import { conformanceReadHandler } from "./conformance-read.js";
 import { emailParseHandler } from "./email-parse.js";
 import { fileScanHandler } from "./file-scan.js";
 import type { Handlers } from "./types.js";
@@ -17,6 +19,8 @@ export interface HandlerDeps {
   readonly clamd: ClamdClient;
   readonly parser: Parser;
   readonly clock: Clock;
+  /** Built by main only when FEATURE_AI_STAMP_READING is on and ANTHROPIC_API_KEY is set. */
+  readonly stampReader?: StampReader | undefined;
   readonly config: WorkerConfig;
   readonly metrics: KrMetrics;
 }
@@ -26,5 +30,6 @@ export function buildHandlers(deps: HandlerDeps): Handlers {
     "file.scan": fileScanHandler(deps),
     "email.parse": emailParseHandler(deps),
     "conditions.extract": conditionsExtractHandler(deps),
+    "conformance.read": conformanceReadHandler(deps),
   };
 }

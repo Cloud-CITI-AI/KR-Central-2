@@ -80,16 +80,9 @@ export async function queueEmailParse(trx: Transaction<Database>, file: ScanFile
   return true;
 }
 
-export type DocumentFile = Pick<
-  FileRow,
-  "id" | "job_id" | "storage_key" | "kind" | "checkpoint_key" | "slot" | "scan_status" | "deleted_at" | "purged_at"
->;
+export type DocumentFile = FileRow;
 
 /** A file as the document readers need it: where it is stored, which slot it sits in, whether it may be read. */
 export function findDocument(db: Db, id: string): Promise<DocumentFile | undefined> {
-  return db
-    .selectFrom("files")
-    .select(["id", "job_id", "storage_key", "kind", "checkpoint_key", "slot", "scan_status", "deleted_at", "purged_at"])
-    .where("id", "=", id)
-    .executeTakeFirst();
+  return db.selectFrom("files").selectAll().where("id", "=", id).executeTakeFirst();
 }
