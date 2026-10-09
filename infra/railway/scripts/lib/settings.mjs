@@ -12,7 +12,7 @@ export const SERVICE_ORDER = Object.freeze(["clamav", "migrate", "api", "worker"
 const servicesDir = new URL("../../services/", import.meta.url);
 const schema = JSON.parse(readFileSync(new URL("../service.schema.json", servicesDir), "utf8"));
 /** A tag can move; only an immutable digest reference is deployable (the attestation was verified for that digest). */
-const DIGEST_REF = /^ghcr\.io\/[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$/;
+export const DIGEST_REF = /^ghcr\.io\/[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$/;
 
 export class ConfigurationError extends Error {
   constructor(message) {

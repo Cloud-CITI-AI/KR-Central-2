@@ -4,7 +4,8 @@
  * settings from infra/railway/services/<service>.json plus the image digest from image-<image>.txt, FAIL if Railway
  * reports different values, trigger a deployment and wait until it is healthy; stop at the first failure.
  *
- *   node deploy-images.mjs --environment staging --services "clamav migrate api worker web backup"
+ *   node deploy-images.mjs --environment staging --services "clamav migrate api worker web backup" --record previous-staging.json
+ *   node deploy-images.mjs --environment staging --rollback previous-staging.json
  *   node deploy-images.mjs --environment staging --services "api web" --dry-run     (offline: prints the plan, calls nothing)
  *
  * Environment: RAILWAY_TOKEN (a project token scoped to one environment; never printed), RAILWAY_ENVIRONMENT (optional,
@@ -14,6 +15,7 @@
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 import { createRailwayClient } from "./lib/railway-client.mjs";
+import { alreadyRolledBack, rollbackTargets, writeRecord } from "./lib/record.mjs";
 import {
   ConfigurationError,
   SERVICE_ORDER,
@@ -35,7 +37,7 @@ export class DeployError extends Error {
 }
 
 const USAGE =
-  'Usage: deploy-images.mjs --environment <name> [--services "clamav migrate ..."] [--dry-run] [--images-dir <dir>] [--timeout-minutes <n>] [--poll-seconds <n>]';
+  'Usage: deploy-images.mjs --environment <name> [--services "clamav migrate ..."] [--record <file> | --rollback <file>] [--dry-run] [--images-dir <dir>] [--timeout-minutes <n>] [--poll-seconds <n>]';
 
 export function parseOptions(argv, env = {}) {
   let values;
@@ -46,6 +48,8 @@ export function parseOptions(argv, env = {}) {
       options: {
         environment: { type: "string" },
         services: { type: "string" },
+        record: { type: "string" },
+        rollback: { type: "string" },
         "dry-run": { type: "boolean", default: false },
         "images-dir": { type: "string", default: "." },
         "timeout-minutes": { type: "string" },
@@ -62,6 +66,7 @@ export function parseOptions(argv, env = {}) {
       `--environment ${environment} differs from RAILWAY_ENVIRONMENT ${env.RAILWAY_ENVIRONMENT}`,
     );
   }
+  if (values.rollback && values.record) throw new ConfigurationError("--record cannot be combined with --rollback");
   const number = (name, raw) => {
     const n = Number(raw);
     if (!(n > 0)) throw new ConfigurationError(`--${name} must be a positive number`);
@@ -70,6 +75,8 @@ export function parseOptions(argv, env = {}) {
   return {
     environment,
     services: values.services === undefined ? undefined : parseServices(values.services),
+    record: values.record,
+    rollback: values.rollback,
     dryRun: values["dry-run"],
     imagesDir: values["images-dir"],
     timeoutSeconds:
@@ -79,7 +86,8 @@ export function parseOptions(argv, env = {}) {
 }
 
 /** The services to act on, each with the state it should end in, in deployment order. */
-function buildTargets(options) {
+function buildTargets(options, log) {
+  if (options.rollback) return rollbackTargets(options.rollback, options.environment, options.services, log);
   return (options.services ?? SERVICE_ORDER).map((name) => {
     const settings = loadSettings(name);
     return { name, settings, state: desiredState(settings, readImageRef(options.imagesDir, settings.image)) };
@@ -89,9 +97,9 @@ function buildTargets(options) {
 const describe = (state) => JSON.stringify({ ...state, image: state.image?.replace(/^.*\//, "") });
 
 export async function run(options, { client, sleep, now, log, token }) {
-  const targets = buildTargets(options);
+  const targets = buildTargets(options, log);
   if (options.dryRun) {
-    log(`Dry run (deploy to ${options.environment}); nothing is sent to Railway.`);
+    log(`Dry run (${options.rollback ? "rollback" : "deploy"} to ${options.environment}); nothing is sent to Railway.`);
     for (const t of targets) log(`[${t.name}] would apply ${describe(t.state)} then deploy and wait for healthy`);
     return;
   }
@@ -110,11 +118,29 @@ export async function run(options, { client, sleep, now, log, token }) {
     if (!ids.has(name)) throw new ConfigurationError(`The Railway project has no service named "${name}"`);
     return ids.get(name);
   };
+  const current = new Map();
+  for (const t of targets) current.set(t.name, await client.serviceInstance(scope.environmentId, idOf(t.name)));
+
+  if (options.record) {
+    writeRecord(
+      options.record,
+      options.environment,
+      now(),
+      targets.map((t) => ({ ...t, serviceId: idOf(t.name), instance: current.get(t.name) })),
+    );
+    log(`Recorded the previous state of ${targets.length} service(s) in ${options.record}`);
+  }
 
   const pending = targets.map((t) => t.name);
   for (const target of targets) {
     const { name, state } = target;
     const serviceId = idOf(name);
+    const instance = current.get(name);
+    if (target.rollback && alreadyRolledBack(target, instance)) {
+      log(`[${name}] already on the recorded state and healthy; skipped`);
+      pending.shift();
+      continue;
+    }
     try {
       await client.updateServiceInstance(serviceId, scope.environmentId, toUpdateInput(state));
       const drift = diffState(state, stateFromInstance(await client.serviceInstance(scope.environmentId, serviceId)));
@@ -136,7 +162,7 @@ export async function run(options, { client, sleep, now, log, token }) {
       );
     }
   }
-  log(`Done: ${targets.length} service(s) deployed to ${options.environment}.`);
+  log(`Done: ${targets.length} service(s) ${options.rollback ? "rolled back" : "deployed"} to ${options.environment}.`);
 }
 
 async function waitHealthy({ client, deploymentId, target, options, sleep, now }) {
