@@ -2,9 +2,11 @@
 import multipart from "@fastify/multipart";
 import type { FastifyInstance } from "fastify";
 import { requireJobCapability, resolveJobAccess } from "../../../platform/authz.js";
+import { NotFoundError } from "../../../platform/errors.js";
 import { sendIdempotent } from "../../../platform/idempotency.js";
 import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
+import { conditionIsCurrent } from "../data/files.js";
 import { discard, readUpload } from "./read-upload.js";
 import { recordUpload } from "./record-upload.js";
 
@@ -29,9 +31,11 @@ export function registerUploadRoutes(app: FastifyInstance, deps: ModuleDeps): vo
       log: request.log,
       jobId: params.jobId,
       maxBytes: deps.config.UPLOAD_MAX_BYTES,
-      authorise: (target) => {
+      authorise: async (target) => {
         for (const capability of target.required) requireJobCapability(access, capability);
-        return Promise.resolve();
+        if (target.type === "evidence" && !(await conditionIsCurrent(deps.db, params.jobId, target.conditionId))) {
+          throw new NotFoundError({ detail: "That condition no longer exists." });
+        }
       },
     });
     const result = await recordUpload({ deps, request, auth, access, stored }).catch(async (error: unknown) => {

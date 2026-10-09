@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFactories, type Factories } from "../../../../test/factories.js";
 import { createTestApp, signIn, testConfig, type SignedIn, type TestApp } from "../../../../test/helpers/index.js";
-import { pdfBytes, pngBytes, uploadFile } from "../testing.js";
+import { emlBytes, msgBytes, pdfBytes, pngBytes, uploadFile } from "../testing.js";
 
 interface UploadBody {
   file: Record<string, unknown> & { id: string };
@@ -126,5 +126,67 @@ describe("uploadFile (real Postgres, in-memory storage)", () => {
     expect(png.json<{ detail: string }>().detail).toBe("This box accepts PDF or DWG files only.");
     expect(await filesOf(job.id)).toEqual([]);
     expect(await storedKeys(t)).toHaveLength(before);
+  });
+
+  it("MALWARE_SCAN_MODE=disabled stores the file as skipped and queues no scan", async () => {
+    const local = await createTestApp({ config: testConfig({ MALWARE_SCAN_MODE: "disabled" }) });
+    const lf = createFactories(local.db, 101);
+    const user = await signIn(local, await lf.makeUser({ role: "staff" }));
+    const job = await lf.makeJob();
+    const res = await uploadFile(local, {
+      jobId: job.id,
+      as: user,
+      fields: { checkpointKey: "i2_0", slot: "survey" },
+      file: { name: "a.pdf", data: pdfBytes() },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json<UploadBody>()).toMatchObject({ file: { scanStatus: "skipped" }, operation: null });
+    const ops = await local.db.selectFrom("operations").select("id").where("job_id", "=", job.id).execute();
+    expect(ops).toEqual([]);
+    await local.close();
+  });
+
+  it("an email in the 4.3 slot also gets a pending email_messages row (.eml and .msg)", async () => {
+    const job = await fresh();
+    for (const [name, data, contentType] of [
+      ["Query.eml", emlBytes(), "message/rfc822"],
+      ["Query.msg", msgBytes(), "application/vnd.ms-outlook"],
+    ] as const) {
+      const res = await slotUpload(job.id, staff, "i4_3", "email", name, data);
+      expect(res.statusCode, name).toBe(201);
+      const body = res.json<UploadBody>();
+      expect(body.file).toMatchObject({ kind: "email", contentType, slot: "email" });
+      expect(body.file.email).toMatchObject({ parseStatus: "pending", isPasted: false, subject: null });
+      const email = await t.db
+        .selectFrom("email_messages")
+        .selectAll()
+        .where("file_id", "=", body.file.id)
+        .executeTakeFirstOrThrow();
+      expect(email).toMatchObject({ parse_status: "pending", is_pasted: false });
+      expect(body.operation?.type).toBe("file.scan");
+    }
+  });
+
+  it("with scanning disabled an email queues its parse directly", async () => {
+    const local = await createTestApp({ config: testConfig({ MALWARE_SCAN_MODE: "disabled" }) });
+    const lf = createFactories(local.db, 102);
+    const user = await signIn(local, await lf.makeUser({ role: "staff" }));
+    const job = await lf.makeJob();
+    const res = await uploadFile(local, {
+      jobId: job.id,
+      as: user,
+      fields: { checkpointKey: "i4_3", slot: "email" },
+      file: { name: "q.eml", data: emlBytes() },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json<UploadBody>();
+    expect(body.operation?.type).toBe("email.parse");
+    const op = await local.db
+      .selectFrom("operations")
+      .selectAll()
+      .where("job_id", "=", job.id)
+      .executeTakeFirstOrThrow();
+    expect(op.payload).toEqual({ fileId: body.file.id });
+    await local.close();
   });
 });

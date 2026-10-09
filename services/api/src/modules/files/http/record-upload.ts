@@ -1,4 +1,4 @@
-/** The transaction of an upload: file row, scan operation, audit event and the stored response. */
+/** The transaction of an upload: file row, email record, scan operation, audit event and the stored response. */
 import type { UploadResult } from "@kr/contracts";
 import { enqueueOperation } from "@kr/db";
 import type { FastifyRequest } from "fastify";
@@ -7,10 +7,12 @@ import { toFileMeta } from "../../_shared/index.js";
 import { audit, auditContext } from "../../../platform/audit.js";
 import type { AuthContext } from "../../../platform/auth-context.js";
 import type { JobAccess } from "../../../platform/authz.js";
-import { BadRequestError, NotFoundError } from "../../../platform/errors.js";
+import { NotFoundError } from "../../../platform/errors.js";
 import { withIdempotency } from "../../../platform/idempotency.js";
 import type { ModuleDeps } from "../../../platform/module.js";
-import { insertFile, lockActiveJob } from "../data/files.js";
+import { toOperation } from "../../operations/index.js";
+import { insertEmailMessage, insertFile, lockActiveJob, lockCurrentCondition } from "../data/files.js";
+import { canDeleteFile } from "./file-view.js";
 import type { StoredUpload } from "./read-upload.js";
 
 export interface RecordUploadOptions {
@@ -24,8 +26,9 @@ export interface RecordUploadOptions {
 /** Records an upload that is already in storage. A failure leaves the object for the caller to remove. */
 export function recordUpload(o: RecordUploadOptions) {
   const { deps, request, auth, access, stored } = o;
-  const { target } = stored;
   const jobId = access.job.id;
+  const skipScan = deps.config.MALWARE_SCAN_MODE === "disabled";
+  const isEmail = stored.classification.kind === "email";
   return withIdempotency(
     deps.db,
     {
@@ -37,35 +40,36 @@ export function recordUpload(o: RecordUploadOptions) {
       clock: deps.clock,
     },
     async (trx) => {
-      // Condition evidence is recorded by the next commit; until then it is refused (the object is removed).
-      if (target.type !== "slot") {
-        throw new BadRequestError({
-          errors: [{ path: "conditionId", message: "Condition evidence is not supported yet." }],
-        });
-      }
-      // The job may have been archived while the bytes were streaming.
+      // The job may have been archived, or the condition superseded, while the bytes were streaming.
       if (!(await lockActiveJob(trx, jobId))) throw new NotFoundError();
+      if (stored.target.type === "evidence" && !(await lockCurrentCondition(trx, jobId, stored.target.conditionId))) {
+        throw new NotFoundError({ detail: "That condition no longer exists." });
+      }
       const file = await insertFile(trx, {
         id: stored.fileId,
         jobId,
-        target: { checkpointKey: target.checkpointKey, slot: target.slot.key },
+        target:
+          stored.target.type === "evidence"
+            ? { conditionId: stored.target.conditionId }
+            : { checkpointKey: stored.target.checkpointKey, slot: stored.target.slot.key },
         storageKey: stored.storageKey,
         originalName: stored.originalName,
         kind: stored.classification.kind,
         contentType: stored.classification.contentType,
         sizeBytes: stored.sizeBytes,
         sha256: stored.sha256,
-        scanStatus: "pending",
+        scanStatus: skipScan ? "skipped" : "pending",
         uploadedBy: auth.user.id,
         uploadedAt: deps.clock.now(),
       });
-      // The worker scans the object; the file stays unopenable until it is clean (ADR-0011).
-      const queued = await enqueueOperation(trx, {
-        jobId,
-        type: "file.scan",
-        payload: { fileId: file.id },
-        createdBy: auth.user.id,
-      });
+      const email = isEmail
+        ? await insertEmailMessage(trx, { fileId: file.id, parseStatus: "pending", isPasted: false })
+        : null;
+      // The worker scans, then (for an email) parses; with scanning off nothing else would queue the parse.
+      const type = skipScan ? (isEmail ? "email.parse" : null) : "file.scan";
+      const queued = type
+        ? await enqueueOperation(trx, { jobId, type, payload: { fileId: file.id }, createdBy: auth.user.id })
+        : null;
       await audit(trx, auditContext(request), {
         action: "file.uploaded",
         entityType: "file",
@@ -75,27 +79,21 @@ export function recordUpload(o: RecordUploadOptions) {
           name: { from: null, to: file.original_name },
           kind: { from: null, to: file.kind },
           sizeBytes: { from: null, to: stored.sizeBytes },
-          checkpointKey: { from: null, to: target.checkpointKey },
-          slot: { from: null, to: target.slot.key },
+          ...(stored.target.type === "evidence"
+            ? { conditionId: { from: null, to: stored.target.conditionId } }
+            : {
+                checkpointKey: { from: null, to: stored.target.checkpointKey },
+                slot: { from: null, to: stored.target.slot.key },
+              }),
         },
       });
       const body: z.output<typeof UploadResult> = {
         file: toFileMeta(file, {
           uploader: { id: auth.user.id, display_name: auth.user.displayName },
-          canDelete:
-            access.capabilities.includes("files.delete.any") || access.capabilities.includes("files.delete.own"),
-          email: null,
+          canDelete: canDeleteFile({ id: auth.user.id, capabilities: access.capabilities }, file),
+          email,
         }),
-        operation: {
-          id: queued.id,
-          jobId,
-          type: queued.type,
-          status: queued.status,
-          createdAt: queued.created_at.toISOString(),
-          completedAt: null,
-          result: null,
-          error: null,
-        },
+        operation: queued ? toOperation(queued) : null,
       };
       return { status: 201, body };
     },
