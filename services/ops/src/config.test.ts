@@ -15,6 +15,7 @@ describe("ops config", () => {
   it("parses a minimal migrate-service environment with defaults", () => {
     const c = parseConfig(OpsConfigSchema, valid);
     expect(c.PORT).toBe(8082);
+    expect(c.HOST).toBe("::");
     expect(c.BACKUP_RETENTION_DAYS).toBe(35);
   });
 

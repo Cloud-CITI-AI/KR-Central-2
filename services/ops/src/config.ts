@@ -12,6 +12,8 @@ export const OpsConfigSchema = z.object({
   LOG_LEVEL: LogLevel.default("info"),
   /** Health endpoint of the migrate service: 200 only after migrations succeeded (Railway healthcheck gate). */
   PORT: z.coerce.number().int().min(1).max(65535).default(8082),
+  /** Bind address of that endpoint: `::` is dual-stack, which Railway's private network (IPv6) needs. */
+  HOST: z.string().min(1).default("::"),
 
   /** tracker_migrator role (DDL). Never set on api/worker/web. */
   MIGRATION_DATABASE_URL: PostgresUrl,
@@ -33,6 +35,7 @@ export const OpsConfigSchema = z.object({
   S3_SECRET_ACCESS_KEY: Secret(16).optional(),
   S3_FORCE_PATH_STYLE: BooleanFromString.default(true),
 
+  /** pg_dump 17 binary. The child process gets no PATH, so use an absolute path unless it is in /usr/bin or /bin. */
   PG_DUMP_PATH: z.string().min(1).default("pg_dump"),
   RELEASE_VERSION: z.string().default("dev"),
 });
