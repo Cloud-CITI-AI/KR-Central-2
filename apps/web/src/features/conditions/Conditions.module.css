@@ -1,0 +1,30 @@
+/* prototype .approval children of the 5.0 card: .row.wrap, .confirm, .msg, .msg.ok */
+.panel {
+  display: grid;
+  gap: 10px;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  color: var(--red-ink);
+  font-size: 12px;
+}
+.notice:empty {
+  display: none;
+}
+.msg {
+  margin: 0;
+  color: var(--red-ink);
+  font-size: 12px;
+}
+.msg.ok {
+  color: var(--ink-3);
+}
