@@ -12,7 +12,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "format": "prettier --write .",
-    "test:unit": "vitest run --coverage --passWithNoTests",
+    "test:unit": "vitest run --coverage --coverage.reportsDirectory=coverage/unit --passWithNoTests",
     "test:watch": "vitest",
     "test:integration": "echo 'no integration layer in this package'",
     "test:contract": "echo 'no contract layer in this package'",

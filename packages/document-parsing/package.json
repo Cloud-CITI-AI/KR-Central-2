@@ -20,7 +20,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "format": "prettier --write .",
-    "test:unit": "vitest run --project unit --coverage --passWithNoTests",
+    "test:unit": "vitest run --project unit --coverage --coverage.reportsDirectory=coverage/unit --passWithNoTests",
     "test:integration": "echo 'no integration layer in this package'",
     "test:contract": "echo 'no contract layer in this package'",
     "test:e2e": "echo 'no e2e layer in this package'",
@@ -30,13 +30,13 @@
   "dependencies": {
     "@kr/workflow": "workspace:*",
     "@napi-rs/canvas": "1.0.10",
+    "cfb": "1.2.2",
     "html-to-text": "10.0.1",
     "pdfjs-dist": "6.4.299"
   },
   "devDependencies": {
     "@faker-js/faker": "10.6.0",
     "@types/html-to-text": "9.0.4",
-    "cfb": "1.2.2",
     "pdf-lib": "1.17.1"
   }
 }

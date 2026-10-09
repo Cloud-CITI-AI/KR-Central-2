@@ -2,7 +2,7 @@
   "name": "@kr/mock-idp",
   "version": "0.0.0",
   "private": true,
-  "description": "Local mock of Microsoft Entra ID (OIDC) for integration and e2e tests — never deployed.",
+  "description": "Local mock of Microsoft Entra ID (OIDC) for integration and e2e tests \u2014 never deployed.",
   "license": "UNLICENSED",
   "type": "module",
   "exports": {
@@ -20,7 +20,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "format": "prettier --write .",
-    "test:unit": "vitest run --project unit --coverage --passWithNoTests",
+    "test:unit": "vitest run --project unit --coverage --coverage.reportsDirectory=coverage/unit --passWithNoTests",
     "test:integration": "echo 'no integration layer in this package'",
     "test:contract": "echo 'no contract layer in this package'",
     "test:e2e": "echo 'no e2e layer in this package'",

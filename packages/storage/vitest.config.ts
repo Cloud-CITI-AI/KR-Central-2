@@ -16,6 +16,17 @@ export default defineConfig({
           environment: "node",
         },
       },
+      {
+        extends: true,
+        // S3 adapter tests against adobe/s3mock via Testcontainers (WP-06); no global setup needed.
+        test: {
+          name: "integration",
+          include: ["src/**/*.int.test.ts", "test/**/*.int.test.ts"],
+          testTimeout: 60_000,
+          hookTimeout: 180_000,
+          pool: "forks",
+        },
+      },
     ],
   },
 });

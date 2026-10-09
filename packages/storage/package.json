@@ -20,8 +20,8 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "format": "prettier --write .",
-    "test:unit": "vitest run --project unit --coverage --passWithNoTests",
-    "test:integration": "echo 'no integration layer in this package'",
+    "test:unit": "vitest run --project unit --coverage --coverage.reportsDirectory=coverage/unit --passWithNoTests",
+    "test:integration": "vitest run --project integration --coverage --coverage.reportsDirectory=coverage/integration --passWithNoTests",
     "test:contract": "echo 'no contract layer in this package'",
     "test:e2e": "echo 'no e2e layer in this package'",
     "test:mutation": "stryker run",
@@ -32,5 +32,8 @@
     "@aws-sdk/lib-storage": "3.1147.0",
     "@kr/workflow": "workspace:*",
     "file-type": "22.1.1"
+  },
+  "devDependencies": {
+    "testcontainers": "12.2.0"
   }
 }
