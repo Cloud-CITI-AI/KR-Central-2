@@ -141,3 +141,21 @@
     transition: none;
   }
 }
+/* Print (§12): every stage open, no tools row, no breaks inside a card */
+@media print {
+  .tools {
+    display: none;
+  }
+  .body[hidden] {
+    display: block;
+  }
+  .bar {
+    break-after: avoid;
+  }
+  .bar .chev {
+    transform: rotate(45deg);
+  }
+  .item {
+    break-inside: avoid;
+  }
+}

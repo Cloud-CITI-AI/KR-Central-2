@@ -106,3 +106,11 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+@media print {
+  .outcome {
+    break-inside: avoid;
+  }
+  .reset {
+    display: none;
+  }
+}

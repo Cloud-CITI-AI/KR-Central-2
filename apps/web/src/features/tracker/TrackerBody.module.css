@@ -4,3 +4,14 @@
   gap: 16px;
   margin-top: 24px;
 }
+
+/* Print / Save as PDF (§12): A4 portrait; whatever is marked .no-pdf (drop zones, access manager, controls) is left out */
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
+@media print {
+  :global(.no-pdf) {
+    display: none !important;
+  }
+}

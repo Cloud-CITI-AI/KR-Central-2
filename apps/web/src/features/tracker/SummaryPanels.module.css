@@ -134,3 +134,9 @@
     transition: none;
   }
 }
+@media print {
+  .summary > * {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+}
