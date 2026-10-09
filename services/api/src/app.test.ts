@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
 import { parseConfig } from "@kr/config";
 import { ROUTES } from "@kr/contracts";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createTestApp, dummyDb } from "../test/helpers/index.js";
 import { registeredOperations, requestIdFor, trustHops, unregisteredOperations } from "./app.js";
 import { ApiConfigSchema } from "./config.js";
 import { MODULES } from "./modules/index.js";
+
+const UUID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 
 describe("route table", () => {
   it("registers only operations declared in the contract, health included", async () => {
@@ -37,6 +39,26 @@ describe("platform behaviour", () => {
       const res = await t.app.inject({ method, url });
       expect(res.statusCode, `${method} ${url}`).toBe(401);
       expect(res.json()).toMatchObject({ type: "urn:kr:problem:unauthenticated", status: 401 });
+    }
+    await t.close();
+  });
+});
+
+describe("module registration", () => {
+  it("buildApp registers every module in MODULES", async () => {
+    const spies = MODULES.map((m) => vi.spyOn(m, "register"));
+    const t = await createTestApp({ db: dummyDb() });
+    for (const spy of spies) expect(spy).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+    await t.close();
+  });
+
+  it("every contract route that needs a session answers 401 without one (route-table check)", async () => {
+    const t = await createTestApp({ db: dummyDb() });
+    for (const r of ROUTES.filter((x) => x.auth === "session")) {
+      const url = r.path.replaceAll(/\{(\w+)\}/g, (_, name: string) => (name === "checkpointKey" ? "i1_0p" : UUID));
+      const res = await t.app.inject({ method: r.method, url });
+      expect(res.statusCode, `${r.operationId} ${r.method} ${url}`).toBe(401);
     }
     await t.close();
   });
