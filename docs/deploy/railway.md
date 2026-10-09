@@ -224,3 +224,92 @@ accepts `null` to clear `startCommand`, health-check and cron fields and does no
 (there is a CLI issue about `ON_FAILURE` retries comparing against null); (3) triggering `serviceInstanceDeployV2` after an
 image change deploys the new digest rather than redeploying the old one; (4) the backup cron deployment status;
 (5) registry credentials survive an image change. If a call needs a different shape, change `railway-client.mjs` and its test only.
+
+## Verifying X-Forwarded-For handling in staging
+
+The sign-in limit (20 per minute per client IP) and the audit trail depend on the API seeing the real client address.
+The chain is: Railway edge, then `web` (which forwards `X-Forwarded-For` exactly as received, never replacing it with its own
+socket view; `apps/web/src/lib/bff/headers.ts`), then `api`, where Fastify's `trustProxy` is `TRUST_PROXY_HOPS` (1: the web hop
+only). Railway's exact edge behaviour (append or replace, and `X-Real-IP`) is **unverified**; prove it in staging before
+production, and again if Railway changes its edge or a CDN is put in front (then the hop count changes).
+
+1. Set `TRUST_PROXY_HOPS=1` on `api` (staging) and sign in once so the session exists.
+2. From one machine, send 25 requests to `https://<staging>/api/v1/auth/login` (a public sign-in route; a 302 is a pass for
+   one request), each with a different forged header, for example `X-Forwarded-For: 203.0.113.<n>`.
+   **Pass:** the request after the 20th answers `429` with `Retry-After`. The limiter keyed on the real address, so forging did
+   not help. **Fail:** all 25 pass (the limiter keyed on the forged value: raise or lower `TRUST_PROXY_HOPS` or find the
+   header Railway really sets, then repeat).
+3. Immediately, from a different network (a phone on mobile data), request the same route once.
+   **Pass:** not 429. **Fail:** 429 means every user shares one bucket (the API sees the web service's address, so
+   `TRUST_PROXY_HOPS` is too low or `X-Forwarded-For` is not forwarded).
+4. Wait a minute and record the result, date and Railway edge behaviour in the operations log.
+
+## Entra app registration checklist
+
+Create **one app registration per environment** (staging and production) in the KR tenant, so redirect URIs and secrets
+never mix. Keep the checklist result with the go-live record. ADR-0002 and ADR-0014 are the source of every item.
+
+| #   | Step (Entra admin centre, App registrations)                                                                                                                                                                                                                                              | Done |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| E1  | New registration, **single tenant** ("Accounts in this organizational directory only"). Record the tenant and application (client) IDs for `ENTRA_TENANT_ID` and `ENTRA_CLIENT_ID`.                                                                                                       | [ ]  |
+| E2  | Authentication, platform **Web**, redirect URI `https://<web domain>/api/v1/auth/callback`. No localhost or wildcard URIs in production.                                                                                                                                                  | [ ]  |
+| E3  | Authentication, **front-channel logout URL** `https://<web domain>/signed-out`. Also register `https://<web domain>/signed-out` as a redirect URI: Entra matches the app's `post_logout_redirect_uri` (`/signed-out`) against registered URIs (confirm at the first sign-out in staging). | [ ]  |
+| E4  | Authentication: **implicit grant and hybrid flows off** (neither access nor ID tokens ticked). The app uses the code flow with PKCE and a client secret.                                                                                                                                  | [ ]  |
+| E5  | Token configuration, optional claims, **ID** token: add `email`, `acct` and `xms_edov`. Accept the prompt to add the Microsoft Graph `email` permission.                                                                                                                                  | [ ]  |
+| E6  | API permissions: delegated `openid`, `profile`, `email` only. Grant admin consent. Add application permission `User.Invite.All` (with admin consent) **only** when `FEATURE_ENTRA_GUEST_INVITES` is turned on (ADR-0014).                                                                 | [ ]  |
+| E7  | Certificates and secrets: **one client secret, expiry 90 days at most**, stored as the sealed `ENTRA_CLIENT_SECRET` on `api` only. Never in the repository, CI or chat.                                                                                                                   | [ ]  |
+| E8  | Calendar reminders 14 days before expiry. Rotation: create the new secret, update the sealed variable, redeploy `api`, check a sign-in, delete the old secret. Also on departure of anyone who saw it.                                                                                    | [ ]  |
+| E9  | Enterprise application: consider **assignment required = yes** with a security group of staff and invited guests (an extra gate in front of the app's own grants). Optional hardening.                                                                                                    | [ ]  |
+| E10 | Conditional Access: a policy for this application that **requires MFA** (all users of the app is simplest and gives every admin session `amr` evidence), or an authentication context (for example `c1`) for step-up, with `ADMIN_MFA_EVIDENCE=acrs` and `ENTRA_ADMIN_AUTH_CONTEXT_ID`.   | [ ]  |
+| E11 | External collaboration settings: restrict who may invite guests to KR IT. Decide whether email one-time passcode is allowed for clients without Microsoft accounts (open question in ADR-0014).                                                                                           | [ ]  |
+| E12 | Cross-tenant access: if guests' home tenants perform MFA, consider trusting their MFA claims so they are not prompted twice. Optional.                                                                                                                                                    | [ ]  |
+
+The authority host stays `https://login.microsoftonline.com`; the API refuses to start in staging or production with any other.
+
+## Go-live checks
+
+Run these in **staging with production-like settings** (`REQUIRE_MFA_FOR_ADMIN=true`, `MALWARE_SCAN_MODE=required`), record the
+result and date, and only then enable production. An unproven item blocks go-live.
+
+| #   | Check                           | How                                                                                                                                                                                                                                                                                    | Pass                                                                                          |
+| --- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| G1  | **Admin MFA evidence (`amr`)**  | Sign in as an admin account covered by E10. Open `/admin/users`. Then read the session: `SELECT s.amr, s.acrs, s.auth_time FROM tracker.sessions s JOIN tracker.users u ON u.id = s.user_id WHERE u.email = '<admin email>' ORDER BY s.created_at DESC LIMIT 1;` (run by an operator). | `amr` contains `mfa` and `/admin/users` loads. With `ADMIN_MFA_EVIDENCE=amr` this proves it.  |
+| G2  | **Fallback `acrs`**             | If G1 shows an empty `amr` and `/admin/users` answers 403 "Multi-factor sign-in required", create the authentication context, target it with a Conditional Access policy, set `ADMIN_MFA_EVIDENCE=acrs` and `ENTRA_ADMIN_AUTH_CONTEXT_ID=<id>`, redeploy `api`, repeat G1.             | `acrs` contains the context id and the admin pages load.                                      |
+| G3  | **No MFA, no admin pages**      | Sign in as an admin without satisfying MFA (a test account excluded from the policy, then removed).                                                                                                                                                                                    | `/admin/users` and `/admin/audit` answer 403 `forbidden`, "Multi-factor sign-in required".    |
+| G4  | **Guest email claim**           | Invite a test guest (personal Microsoft account or another tenant), give them a grant on a synthetic job, sign in as the guest.                                                                                                                                                        | The job appears (grant activated from the `email` claim); the user row has `is_guest = true`. |
+| G5  | **Unverified email is refused** | If the tenant can produce a guest with `xms_edov=false`, repeat G4 for that guest.                                                                                                                                                                                                     | Redirect to `/sign-in-error?reason=unverified_email` and the grant stays pending.             |
+| G6  | **First admin**                 | On the empty staging database, the first staff member to sign in becomes `admin` (PRODUCT_SPEC 3.3).                                                                                                                                                                                   | `/admin/users` loads for them; a guest signing in first does not become admin.                |
+| G7  | **Forwarded address**           | The procedure under "Verifying X-Forwarded-For handling in staging".                                                                                                                                                                                                                   | Steps 2 and 3 pass.                                                                           |
+| G8  | **Deploy rehearsal**            | Run `deploy.yml` for a staging release (all six services deploy in order, smoke passes). Then force a failure in staging only (a tag whose api image fails its health check) and confirm automatic rollback restores the previous digests.                                             | Order, drift detection, rollback and smoke all behave as in `infra/railway/test`.             |
+| G9  | **Railway API shapes**          | Compare every row of "Railway API reference and what is verified" with the first real run and update the table and `railway-client.mjs`.                                                                                                                                               | Table has no "unverified" left, or each remaining one has an owner and a date.                |
+| G10 | **Backups and restore**         | Check the Postgres backup list, the `backups` bucket after the first 02:15 Perth run (SLO-6), and perform one restore drill into a scratch database.                                                                                                                                   | A dump restores; the bucket holds the dump and the object copy.                               |
+| G11 | **Malware scanning**            | Upload a harmless EICAR test file to a synthetic job in staging.                                                                                                                                                                                                                       | The file shows as infected and is not downloadable; a clean file scans and downloads.         |
+| G12 | **Alerts and SLOs**             | Confirm an OTLP backend is approved (ADR-0009) or accept the interim limits in `docs/slo.md`.                                                                                                                                                                                          | Decision recorded.                                                                            |
+
+## Bucket findings
+
+**Railway Buckets do not offer object versioning** (checked 2026-10-09 by web search only, not on a live project). A Railway
+staff reply quoted in Railway's community forum says the Buckets documentation lists object versioning, object locks, bucket
+lifecycle configuration and server-side encryption as **not yet supported**; Put, Get, Head, Delete, List, Copy, presigned
+URLs, tagging and multipart are supported. There are no automatic bucket backups, and a deleted bucket can be restored from the
+project's activity feed for about 52 hours. Public buckets are not supported (we need none). Re-check the live docs page before
+go-live and record the date of that check here: _unchecked by an operator yet_.
+
+Consequences, as ADR-0008 exception 5 already assumes: an overwritten or deleted object cannot be recovered from the bucket
+itself. Recovery points are the nightly `backup` service (database dump plus incremental object copy to the separate
+`backups` bucket, 35-day retention), the pre-migration dump, and Railway's Postgres backups. The app purges files 30 days
+after deletion (PRODUCT_SPEC section 14), so a mistaken delete is recoverable from the backup copy inside that window. Because no
+lifecycle rules exist, retention pruning is done by the `backup` job itself, never by a bucket rule.
+
+## Routine operations
+
+- **Freeze deploys** (incident, error budget exhausted): set repository variable `DEPLOYS_FROZEN=true`; both jobs stop at
+  their first step. Unset it to resume. Existing deployments keep running.
+- **Redeploy or roll back a release:** run `deploy.yml` with `workflow_dispatch` and the release tag (for a rollback, the
+  last good tag); staging deploys first and production waits for its approval. Migrations are expand-only, so the old images run on the new schema.
+- **A failed deploy** has already rolled back automatically; read the failing step (`[service] ...` names the service and why:
+  drift, status, timeout), fix forward in a new release, and do not edit Railway settings by hand (the next deploy reports it as drift).
+- **Settings changes** go through a pull request to `infra/railway/services/*.json` (CODEOWNERS review) and apply on the next deploy.
+- **Rotations (every 90 days):** `RAILWAY_TOKEN`, the GHCR token held by Railway, the Entra client secret, and the database
+  role passwords; each also on staff departure or suspicion. Record dates in the operations log; the token age alert is in ADR-0008.
+- **Quarterly:** review the accepted risks in ADR-0008, run a restore drill, and re-check Buckets versioning.
