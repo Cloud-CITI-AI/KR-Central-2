@@ -1,0 +1,20 @@
+# Playbook templates/project/.github/workflows/security.yml. Required check name: "security / scan"
+name: security
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * 1" # weekly full scan, catches newly disclosed CVEs
+permissions: {}
+
+jobs:
+  scan:
+    uses: ./.github/workflows/reusable-security.yml
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+      actions: read
+    with:
+      codeql-languages: '["javascript-typescript", "actions"]'

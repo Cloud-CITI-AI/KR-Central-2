@@ -1,0 +1,132 @@
+# Vendored from agentic-playbook v1.0.0 .github/workflows/reusable-ci-node.yml (ADR-0013: no org playbook repo yet),
+# adapted for a pnpm workspace: install once at the repo root, build workspace dependencies, then run the package's
+# required scripts. Actions are pinned by full SHA (N8).
+name: reusable-ci-node
+on:
+  workflow_call:
+    inputs:
+      packages: { type: string, required: true, description: "JSON array of package dirs" }
+      e2e-packages: { type: string, required: false, default: "[]" }
+      node-version: { type: string, required: false, default: "24" }
+      diff-coverage-min: { type: number, required: false, default: 80 }
+      mutation-break: { type: number, required: false, default: 60 }
+permissions: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg: ${{ fromJSON(inputs.packages) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: "${{ inputs.node-version }}", cache: pnpm }
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Build workspace dependencies of the package
+        env: { PKG: "${{ matrix.pkg }}" }
+        run: pnpm --filter "./${PKG}^..." build
+      - name: Lint
+        working-directory: ${{ matrix.pkg }}
+        run: pnpm lint
+      - name: Typecheck
+        working-directory: ${{ matrix.pkg }}
+        run: pnpm typecheck
+      - name: Unit tests
+        working-directory: ${{ matrix.pkg }}
+        run: pnpm test:unit
+      - name: Integration tests (Testcontainers; Docker is available on ubuntu-latest)
+        working-directory: ${{ matrix.pkg }}
+        run: pnpm test:integration
+      - name: Contract tests
+        working-directory: ${{ matrix.pkg }}
+        run: pnpm run --if-present test:contract
+      - name: Diff coverage
+        if: github.event_name == 'pull_request'
+        working-directory: ${{ matrix.pkg }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          MIN: ${{ inputs.diff-coverage-min }}
+        run: |
+          pipx install diff-cover >/dev/null
+          reports=$(find . -name 'cobertura-coverage.xml' -not -path './node_modules/*')
+          if [ -z "$reports" ]; then echo "No coverage report (package has no unit tests yet)"; exit 0; fi
+          diff-cover $reports --compare-branch="origin/$BASE_REF" --fail-under="$MIN"
+      - name: Restore Stryker incremental cache
+        if: github.event_name == 'pull_request'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ matrix.pkg }}/.stryker-tmp/incremental.json
+          key: stryker-${{ matrix.pkg }}-${{ github.base_ref }}
+      - name: Mutation testing on changed files
+        if: github.event_name == 'pull_request'
+        working-directory: ${{ matrix.pkg }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PKG: ${{ matrix.pkg }}
+          BREAK: ${{ inputs.mutation-break }}
+        run: |
+          changed=$(git diff --name-only "origin/$BASE_REF"...HEAD -- . | grep -E '\.(ts|tsx)$' | grep -vE '\.(test|spec|stories|int\.test|contract\.test)\.' | sed "s#^$PKG/##" || true)
+          if [ -z "$changed" ]; then echo "No changed source files; skipping mutation."; exit 0; fi
+          files=$(echo "$changed" | paste -sd, -)
+          pnpm exec stryker run --incremental --mutate "$files" --thresholds.break "$BREAK"
+      - name: Build
+        working-directory: ${{ matrix.pkg }}
+        run: pnpm build
+
+  e2e:
+    if: inputs.e2e-packages != '[]'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg: ${{ fromJSON(inputs.e2e-packages) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: "${{ inputs.node-version }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Build everything the e2e stack needs (packages, api, worker, web)
+        run: pnpm build
+      - working-directory: ${{ matrix.pkg }}
+        run: pnpm exec playwright install --with-deps chromium
+      - name: End-to-end, accessibility and visual tests (starts Postgres, S3 mock, API with fake IdP, web)
+        working-directory: ${{ matrix.pkg }}
+        run: pnpm test:e2e
+      - name: Report flaky tests (passed on retry)
+        if: always()
+        working-directory: ${{ matrix.pkg }}
+        run: |
+          f=test-results/results.json
+          [ -f "$f" ] || exit 0
+          python3 - "$f" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          flaky=[]
+          def walk(s):
+              for sp in s.get("specs",[]):
+                  for t in sp.get("tests",[]):
+                      if t.get("status")=="flaky": flaky.append(sp["title"])
+              for c in s.get("suites",[]): walk(c)
+          for s in r.get("suites",[]): walk(s)
+          for t in flaky: print(f"::warning::Flaky test (passed on retry): {t} — quarantine within 24h (docs/06 §6.5)")
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          {
+            name: "playwright-report-${{ strategy.job-index }}",
+            path: "${{ matrix.pkg }}/playwright-report",
+            retention-days: 14,
+          }

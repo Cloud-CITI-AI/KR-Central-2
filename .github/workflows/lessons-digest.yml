@@ -1,0 +1,22 @@
+# Playbook templates/project/.github/workflows/lessons-digest.yml using the vendored validator (ADR-0013).
+name: lessons-digest
+on:
+  schedule:
+    - cron: "0 21 * * 4" # Thursday 21:00 UTC
+  workflow_dispatch:
+permissions: {}
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, issues: write }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - name: Build digest
+        run: python3 scripts/playbook/validate-lessons.py --file LESSONS.md --digest --since-days 7 > digest.md
+      - name: Open digest issue
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          if grep -q "No new lessons" digest.md; then exit 0; fi
+          gh issue create --title "Lessons digest $(date -u +%F)" --label lessons-digest --body-file digest.md

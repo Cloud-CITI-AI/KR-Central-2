@@ -1,0 +1,24 @@
+name: Feature request
+description: Propose new behaviour (refine into Agent task issues before implementation).
+labels: ["feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes: { label: Problem, description: "Who has the problem and how we know." }
+    validations: { required: true }
+  - type: textarea
+    id: outcome
+    attributes: { label: Desired outcome and success measure }
+    validations: { required: true }
+  - type: textarea
+    id: constraints
+    attributes: { label: Constraints, description: "Security, compliance, performance, deadlines." }
+  - type: checkboxes
+    id: ready
+    attributes:
+      label: Definition of ready
+      options:
+        - label: Acceptance criteria are testable
+        - label: Dependencies and owners identified
+        - label: Risk tier agreed
+        - label: Design/ADR needed? (if yes, linked)

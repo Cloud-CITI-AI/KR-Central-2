@@ -1,0 +1,91 @@
+# Playbook templates/project/.github/workflows/playbook-guard.yml using the vendored scripts in scripts/playbook
+# (ADR-0013). Required check name: "playbook-guard"
+name: playbook-guard
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited, ready_for_review]
+permissions: {}
+
+jobs:
+  playbook-guard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      ENFORCE: ${{ vars.PLAYBOOK_ENFORCE != 'false' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { fetch-depth: 0, persist-credentials: false }
+
+      - name: Detect agent authorship
+        id: agent
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          agent=false
+          if [[ "$AUTHOR_TYPE" == "Bot" && "$AUTHOR" != "renovate[bot]" && "$AUTHOR" != "dependabot[bot]" ]]; then agent=true; fi
+          if [[ ",$LABELS," == *",agent-authored,"* ]]; then agent=true; fi
+          if git log --format=%B "$BASE..$HEAD" | grep -qiE '^AI-Agent:'; then trailer=true; else trailer=false; fi
+          if [[ "$trailer" == "true" ]]; then agent=true; fi
+          echo "agent=$agent" >> "$GITHUB_OUTPUT"
+          echo "trailer=$trailer" >> "$GITHUB_OUTPUT"
+
+      - name: Kill switch — block agent PRs while agents are disabled (docs/10 §10.5)
+        if: steps.agent.outputs.agent == 'true' && vars.AGENTS_ENABLED == 'false'
+        run: |
+          echo "::error::Agent activity is disabled (vars.AGENTS_ENABLED=false). Do not merge agent PRs."
+          exit 1
+
+      - name: N5 — agent PRs carry label and trailer
+        if: steps.agent.outputs.agent == 'true'
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          TRAILER: ${{ steps.agent.outputs.trailer }}
+        run: |
+          fail=0
+          [[ ",$LABELS," == *",agent-authored,"* ]] || { echo "::error::Agent-authored PR is missing the 'agent-authored' label (N5)"; fail=1; }
+          [[ "$TRAILER" == "true" ]] || { echo "::error::No commit carries an 'AI-Agent:' trailer (rule A3)"; fail=1; }
+          exit $fail
+
+      - name: N6 — agent PRs must not touch protected paths
+        if: steps.agent.outputs.agent == 'true'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE" "$HEAD")
+          bad=$(printf '%s\n' "$changed" | grep -E '(^|/)(AGENTS\.md|CLAUDE\.md|CODEOWNERS|renovate\.json)$|^\.github/|^\.claude/|^\.cursor/|(^|/)\.playbook-version$|^scripts/playbook/' || true)
+          if [[ -n "$bad" ]]; then
+            echo "::error::Agent-authored PR modifies protected paths (N6/X1):"; echo "$bad"; exit 1
+          fi
+
+      - name: N10 — LESSONS.md is append-only and well-formed
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/playbook/validate-lessons.py --base "$BASE" --head "$HEAD" --file LESSONS.md
+
+      - name: Instruction-file size budgets
+        run: bash scripts/playbook/check-instruction-budget.sh .
+
+      - name: No unfilled template placeholders
+        run: |
+          if git grep -nE '<<FILL|<<PLAYBOOK_SHA>>|<org>' -- ':!docs/adr/0000-template.md' ':!docs/security-checklist.md'; then
+            echo "::error::Unfilled playbook placeholders found"; exit 1
+          fi
+
+      - name: PR description has required sections filled
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          missing=0
+          for h in "## Summary" "## Risk tier" "## Authorship and AI disclosure" "## Evidence" "## Rollout and rollback" "## Security self-check"; do
+            grep -qF "$h" <<<"$BODY" || { echo "::error::PR description missing section: $h"; missing=1; }
+          done
+          grep -qE '^- \[x\] (Low|Medium|High)' <<<"$BODY" || { echo "::error::Tick exactly one risk tier"; missing=1; }
+          if [[ "$ENFORCE" == "true" ]]; then exit $missing; else exit 0; fi

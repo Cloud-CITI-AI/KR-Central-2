@@ -1,0 +1,50 @@
+name: Agent task
+description: A task brief an AI agent can execute (also fine for humans).
+title: "[task] "
+labels: ["agent-ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Good briefs are the biggest lever on agent PR quality. Be specific about scope, acceptance criteria and what NOT to do.
+        Never paste secrets, credentials, customer data or production logs into an issue.
+  - type: textarea
+    id: goal
+    attributes: { label: Goal, description: "One or two sentences: the user-visible outcome." }
+    validations: { required: true }
+  - type: textarea
+    id: context
+    attributes: { label: Context, description: "Relevant files, prior PRs, ADRs, constraints. Link, don't paste." }
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: "Numbered, testable statements. Each becomes at least one test or screenshot."
+      placeholder: |
+        1. GET /orders?status=open returns only open orders for the caller's tenant.
+        2. Returns 400 problem+json when status is not one of open|closed.
+    validations: { required: true }
+  - type: textarea
+    id: out_of_scope
+    attributes: { label: Out of scope, description: "What the agent must not change." }
+    validations: { required: true }
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk tier
+      options: ["Low", "Medium", "High (plan must be approved before coding)"]
+    validations: { required: true }
+  - type: checkboxes
+    id: permissions
+    attributes:
+      label: Permissions granted for this task
+      options:
+        - label: May add a runtime dependency (justify in PR)
+        - label: May change public API contract
+        - label: May add a database migration
+        - label: May update visual snapshots
+  - type: textarea
+    id: verification
+    attributes: { label: How to verify, description: "Commands or manual steps a reviewer will run." }
+    validations: { required: true }

@@ -1,0 +1,75 @@
+# Playbook templates/project/.github/workflows/ci.yml, calling the vendored reusable workflow (ADR-0013).
+# Required check names (org ruleset): "ci / verify", "ci / pr-size"
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+permissions: {}
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  node:
+    uses: ./.github/workflows/reusable-ci-node.yml
+    permissions:
+      contents: read
+    with:
+      packages: '["packages/workflow","packages/contracts","packages/design-tokens","packages/config","packages/logger","packages/telemetry","packages/db","packages/document-parsing","services/api","services/worker","apps/web"]'
+      e2e-packages: '["apps/web"]'
+      node-version: "24"
+      diff-coverage-min: 80
+      mutation-break: 60
+
+  api-contract:
+    # API-1/API-2: openapi.yaml is generated from the zod contract and must not break consumers silently.
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: "24", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: openapi.yaml is up to date
+        run: pnpm openapi:check
+      - name: No breaking changes (oasdiff)
+        if: github.event_name == 'pull_request'
+        env: { BASE_REF: "${{ github.base_ref }}" }
+        run: |
+          git show "origin/${BASE_REF}:packages/contracts/openapi.yaml" > /tmp/base-openapi.yaml 2>/dev/null || { echo "No base spec yet"; exit 0; }
+          docker run --rm -v /tmp:/base -v "$PWD/packages/contracts:/head" tufin/oasdiff:v1.32.1 breaking /base/base-openapi.yaml /head/openapi.yaml --fail-on ERR
+
+  pr-size:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Enforce PR size (N3)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: bash scripts/playbook/check-pr-size.sh
+
+  verify:
+    if: always()
+    needs: [node, api-contract, pr-size]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: All CI jobs passed or were skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for r in $RESULTS; do
+            if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then exit 1; fi
+          done

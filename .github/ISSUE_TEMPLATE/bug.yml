@@ -1,0 +1,26 @@
+name: Bug report
+description: Something is broken.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes: { label: What happened, description: "Observed vs expected behaviour." }
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes: { label: Steps to reproduce, description: "Minimal steps. Redact personal data." }
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes: { label: Version / commit / environment }
+    validations: { required: true }
+  - type: dropdown
+    id: escaped
+    attributes:
+      label: Found in production?
+      description: "Yes = escaped defect; it is counted in the quality scorecard."
+      options: ["No", "Yes"]
+    validations: { required: true }
+  - type: input
+    id: introduced_by
+    attributes: { label: Introducing PR (if known), description: "Helps measure agent vs human defect escape." }

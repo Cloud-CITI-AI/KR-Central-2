@@ -1,0 +1,97 @@
+# Playbook templates/project/.github/workflows/deploy.yml adapted for Railway (ADR-0008).
+# Promotion: staging (automatic on release) -> production (GitHub Environment "production" approval).
+# Railway has no OIDC federation: RAILWAY_TOKEN is a per-environment *project token* stored as a GitHub Environment
+# secret (required reviewers, 90-day rotation — SE-2 exception recorded in ADR-0008).
+# Railway has no traffic-splitting canary: progressive delivery = OpenFeature flags + health-checked deploys +
+# automatic rollback to the previous image digest (N9 exception in ADR-0008).
+name: deploy
+on:
+  workflow_dispatch:
+    inputs:
+      tag: { description: "Release tag to deploy", required: true }
+  release:
+    types: [published]
+permissions: {}
+concurrency:
+  group: deploy-${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.event.release.tag_name }}
+  SERVICES: "clamav worker api web"
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions: { contents: read, attestations: read }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: "24" }
+      - name: Download image digests from the release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: gh release download "$TAG" -p 'image-*.txt' -R "${{ github.repository }}"
+      - name: Verify provenance of every image before deploying (N8)
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          for s in $SERVICES; do
+            gh attestation verify "oci://$(cat image-$s.txt)" -R "${{ github.repository }}"
+          done
+      - name: Deploy by digest (migrations run as the api pre-deploy command; expand-only)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_ENVIRONMENT: staging
+        run: node infra/railway/scripts/deploy-images.mjs --environment staging --services "$SERVICES" --record previous-staging.json
+      - name: Smoke tests
+        env: { BASE_URL: "${{ vars.STAGING_URL }}" }
+        run: node infra/railway/scripts/smoke.mjs --base-url "$BASE_URL"
+      - name: DAST baseline (OWASP ZAP)
+        uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0
+        with:
+          target: ${{ vars.STAGING_URL }}
+          rules_file_name: infra/zap/rules.tsv
+          fail_action: true
+          allow_issue_writing: false
+      - name: Roll back staging on failure
+        if: failure()
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_ENVIRONMENT: staging
+        run: node infra/railway/scripts/deploy-images.mjs --environment staging --rollback previous-staging.json
+
+  production:
+    needs: staging
+    runs-on: ubuntu-latest
+    environment: production # required reviewers configured on the environment; agents are never reviewers
+    permissions: { contents: read, attestations: read, deployments: write }
+    steps:
+      - name: Kill-switch check
+        if: vars.DEPLOYS_FROZEN == 'true'
+        run: |
+          echo "Deploys are frozen (vars.DEPLOYS_FROZEN)"
+          exit 1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: "24" }
+      - name: Download and verify image digests
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release download "$TAG" -p 'image-*.txt' -R "${{ github.repository }}"
+          for s in $SERVICES; do gh attestation verify "oci://$(cat image-$s.txt)" -R "${{ github.repository }}"; done
+      - name: Deploy by digest (health-checked; Railway keeps the old deployment until the new one is healthy)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_ENVIRONMENT: production
+        run: node infra/railway/scripts/deploy-images.mjs --environment production --services "$SERVICES" --record previous-production.json
+      - name: Post-deploy smoke and SLO watch (10 min, aborts on error-rate/p99 breach)
+        env: { BASE_URL: "${{ vars.PRODUCTION_URL }}" }
+        run: node infra/railway/scripts/smoke.mjs --base-url "$BASE_URL" --watch-minutes 10
+      - name: Automatic rollback on failure (previous image digests; no down-migrations, expand/contract only)
+        if: failure()
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_ENVIRONMENT: production
+        run: node infra/railway/scripts/deploy-images.mjs --environment production --rollback previous-production.json

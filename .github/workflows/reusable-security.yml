@@ -1,0 +1,92 @@
+# Vendored from agentic-playbook v1.0.0 .github/workflows/reusable-security.yml (ADR-0013). Actions pinned by SHA.
+# Adds Squawk (migration lint) and Hadolint (Dockerfiles); Checkov is skipped because Railway config-as-code is
+# not IaC Checkov understands (ADR-0008).
+name: reusable-security
+on:
+  workflow_call:
+    inputs:
+      codeql-languages: { type: string, required: true }
+permissions: {}
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: gitleaks (commit range for PRs, full history otherwise)
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
+          if [ "$EVENT" = "pull_request" ]; then
+            ./gitleaks git --redact --log-opts="${BASE}..${HEAD}"
+          else
+            ./gitleaks git --redact
+          fi
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions: { contents: read, pull-requests: write }
+    steps:
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: high
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, MPL-2.0, Unlicense, CC0-1.0, Python-2.0, BlueOak-1.0.0
+          comment-summary-in-pr: on-failure
+
+  codeql:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, security-events: write, actions: read }
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(inputs.codeql-languages) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: github/codeql-action/init@9f759ee644a3e7c15c1390abf49868036c00067b # v3.38.3
+        with: { languages: "${{ matrix.language }}", queries: security-extended }
+      - uses: github/codeql-action/analyze@9f759ee644a3e7c15c1390abf49868036c00067b # v3.38.3
+        with: { category: "/language:${{ matrix.language }}" }
+
+  workflows:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - name: zizmor (GitHub Actions security lint)
+        run: |
+          pipx install zizmor >/dev/null
+          zizmor --min-severity medium --format github .github/workflows
+
+  migrations:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: "24", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Squawk (DB-3)
+        run: pnpm --filter @kr/db db:migration:lint
+
+  dockerfiles:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - name: Hadolint (ST-5)
+        run: |
+          for f in $(git ls-files '**/Dockerfile' 'Dockerfile'); do
+            docker run --rm -i hadolint/hadolint:v2.12.0 hadolint --failure-threshold warning - < "$f"
+          done

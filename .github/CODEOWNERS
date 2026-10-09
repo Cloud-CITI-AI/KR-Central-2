@@ -1,0 +1,22 @@
+# Playbook templates/project/.github/CODEOWNERS — team handles are placeholders until KR names owners (open risk R-1).
+# Last match wins; keep protected-path rules at the bottom.
+*                                       @cloudcitiwa/kr-tracker-maintainers
+
+# Tier High paths: require domain owner review (docs/05 §5.2)
+/services/api/src/modules/auth/**       @cloudcitiwa/kr-tracker-security
+/services/api/src/modules/access/**     @cloudcitiwa/kr-tracker-security
+/services/api/src/platform/**           @cloudcitiwa/kr-tracker-security
+/packages/contracts/src/permissions.ts  @cloudcitiwa/kr-tracker-security
+/packages/db/migrations/**              @cloudcitiwa/kr-tracker-data
+/infra/**                               @cloudcitiwa/kr-tracker-platform
+/apps/web/src/proxy.ts                  @cloudcitiwa/kr-tracker-security
+/apps/web/next.config.ts                @cloudcitiwa/kr-tracker-security
+
+# Protected paths (rule X1): agents cannot change these; humans need platform + security approval
+/AGENTS.md                              @cloudcitiwa/kr-tracker-platform
+**/AGENTS.md                            @cloudcitiwa/kr-tracker-platform
+/CLAUDE.md                              @cloudcitiwa/kr-tracker-platform
+/.claude/                               @cloudcitiwa/kr-tracker-platform @cloudcitiwa/kr-tracker-security
+/.github/                               @cloudcitiwa/kr-tracker-platform @cloudcitiwa/kr-tracker-security
+/.github/CODEOWNERS                     @cloudcitiwa/kr-tracker-platform @cloudcitiwa/kr-tracker-security
+/renovate.json                          @cloudcitiwa/kr-tracker-platform @cloudcitiwa/kr-tracker-security

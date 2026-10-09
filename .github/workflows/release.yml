@@ -1,0 +1,100 @@
+# Playbook templates/project/.github/workflows/release.yml, adapted for three deployables.
+# Releases are PR-based (release-please): a human approves the release PR. Each image gets an SPDX SBOM, a Grype
+# scan (fixable high/critical fail) and GitHub build-provenance + SBOM attestations. Railway deploys these exact
+# digests (ADR-0008) — Railway never builds from source in staging/production.
+name: release
+on:
+  push:
+    branches: [main]
+permissions: {}
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      releases_created: ${{ steps.rp.outputs.releases_created }}
+      tag: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  build-and-attest:
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - service: api
+            dockerfile: services/api/Dockerfile
+          - service: worker
+            dockerfile: services/worker/Dockerfile
+          - service: web
+            dockerfile: apps/web/Dockerfile
+          - service: clamav
+            dockerfile: infra/clamav/Dockerfile
+    permissions:
+      contents: write # upload digests to the release
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+      TAG: ${{ needs.release-please.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          provenance: false # GitHub attestation below is the provenance of record
+          build-args: RELEASE_VERSION=${{ env.TAG }}
+          tags: ${{ env.IMAGE }}:${{ env.TAG }}
+      - name: Generate SBOM (SPDX)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+      - name: Scan image (fail on high/critical with a fix available)
+        uses: anchore/scan-action@1638637db639e0ade3258b51db49a9a137574c3e # v6.5.1
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          severity-cutoff: high
+          only-fixed: true
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: sbom.spdx.json
+          push-to-registry: true
+      - name: Record the digest on the release (deploy reads it)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SERVICE: ${{ matrix.service }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          echo "${IMAGE}@${DIGEST}" > "image-${SERVICE}.txt"
+          gh release upload "$TAG" "image-${SERVICE}.txt" --clobber -R "${{ github.repository }}"
