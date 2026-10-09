@@ -45,3 +45,38 @@
   background: var(--green-bg);
   color: var(--green-ink);
 }
+@media (max-width: 760px) {
+  .table thead {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+  }
+  .table tr {
+    margin-bottom: 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--field);
+  }
+  .table td {
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    border-bottom: 0;
+  }
+  .table td[data-label]::before {
+    content: attr(data-label);
+    flex: none;
+    color: var(--ink-3);
+    font-size: 11px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+}
