@@ -23,6 +23,7 @@ import {
   type Found,
 } from "../domain/conformance.js";
 import { TaskError, describeError } from "../errors.js";
+import type { FeatureFlags } from "../flags.js";
 import { readObject } from "../objects.js";
 import { isUnreadable, type Parser } from "../parsing/isolate.js";
 import type { Handler } from "./types.js";
@@ -34,13 +35,12 @@ export interface ConformanceReadDeps {
   readonly db: Db;
   readonly storage: ObjectStorage;
   readonly parser: Parser;
+  /** `ai-stamp-reading` is read here (OpenFeature, CF-4), never from configuration. */
+  readonly flags: FeatureFlags;
   /** Present only when the worker could build one (the flag is on and there is a key). */
   readonly stampReader?: StampReader | undefined;
   readonly metrics: Pick<KrMetrics, "recordStampReading">;
-  readonly config: Pick<
-    WorkerConfig,
-    "UPLOAD_MAX_BYTES" | "PDF_MAX_PAGES" | "FEATURE_AI_STAMP_READING" | "ANTHROPIC_API_KEY"
-  >;
+  readonly config: Pick<WorkerConfig, "UPLOAD_MAX_BYTES" | "PDF_MAX_PAGES" | "ANTHROPIC_API_KEY">;
 }
 
 /** Runs `make` once; every later call gets the same promise. */
@@ -50,7 +50,7 @@ const once = <T>(make: () => Promise<T>): (() => Promise<T>) => {
 };
 
 export function conformanceReadHandler(deps: ConformanceReadDeps): Handler {
-  const { db, storage, parser, stampReader, metrics, config } = deps;
+  const { db, storage, parser, flags, stampReader, metrics, config } = deps;
   return {
     timeoutMs: 240_000,
     async run(ctx) {
@@ -73,7 +73,10 @@ export function conformanceReadHandler(deps: ConformanceReadDeps): Handler {
         );
 
       const aiAllowed =
-        allowAi && config.FEATURE_AI_STAMP_READING && Boolean(config.ANTHROPIC_API_KEY) && stampReader !== undefined;
+        allowAi &&
+        flags.isEnabled("ai-stamp-reading") &&
+        Boolean(config.ANTHROPIC_API_KEY) &&
+        stampReader !== undefined;
       const bytes = once(() => readObject(storage, file.storage_key, config.UPLOAD_MAX_BYTES));
       const page = once(async () =>
         parser.run("conformance-page", { data: await bytes(), maxPages: config.PDF_MAX_PAGES }, ctx.signal),

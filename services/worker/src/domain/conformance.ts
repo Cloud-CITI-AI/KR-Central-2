@@ -2,8 +2,10 @@
  * Reading the conformed date of a Conformance Notification (PRODUCT_SPEC §10.1). Pure: the order of the attempts, the
  * user-facing messages and the result shape live here; the steps themselves (file name, PDF, AI) are handed in.
  */
+import type { ConformanceReadResult } from "@kr/contracts";
 import type { ConformedMethod } from "@kr/document-parsing";
 import { formatDateWithWeekday } from "@kr/workflow";
+import type { z } from "zod";
 
 export interface Found {
   readonly date: string;
@@ -26,14 +28,8 @@ export async function findConformedDate(steps: ReadingSteps): Promise<Found | nu
   return steps.fileName() ?? (await steps.stampAnnotation()) ?? (await steps.stampImage()) ?? (await steps.text());
 }
 
-/** The stored operation result (contract ConformanceReadResult). */
-export interface ConformanceResult {
-  readonly found: boolean;
-  readonly date: string | null;
-  readonly method: ConformedMethod | null;
-  readonly stampText: string | null;
-  readonly message: string;
-}
+/** The stored operation result: the contract's ConformanceReadResult, never a local copy of it. */
+export type ConformanceResult = z.output<typeof ConformanceReadResult>;
 
 export function foundResult(found: Found): ConformanceResult {
   const shown = formatDateWithWeekday(found.date);

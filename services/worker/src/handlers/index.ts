@@ -7,6 +7,7 @@ import type { WorkerConfig } from "../config.js";
 import type { Parser } from "../parsing/isolate.js";
 import type { Clock } from "../clock.js";
 import type { StampReader } from "../clients/stamp-reader.js";
+import type { FeatureFlags } from "../flags.js";
 import { conditionsExtractHandler } from "./conditions-extract.js";
 import { conformanceReadHandler } from "./conformance-read.js";
 import { emailParseHandler } from "./email-parse.js";
@@ -19,7 +20,9 @@ export interface HandlerDeps {
   readonly clamd: ClamdClient;
   readonly parser: Parser;
   readonly clock: Clock;
-  /** Built by main only when FEATURE_AI_STAMP_READING is on and ANTHROPIC_API_KEY is set. */
+  /** Feature flags resolved through OpenFeature at startup (CF-4). */
+  readonly flags: FeatureFlags;
+  /** Built by main only when the `ai-stamp-reading` flag is on and ANTHROPIC_API_KEY is set. */
   readonly stampReader?: StampReader | undefined;
   readonly config: WorkerConfig;
   readonly metrics: KrMetrics;

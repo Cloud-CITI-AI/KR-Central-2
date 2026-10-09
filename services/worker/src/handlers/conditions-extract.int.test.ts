@@ -1,3 +1,4 @@
+import { ConditionsExtractResult } from "@kr/contracts";
 import type { Db } from "@kr/db";
 import { createMemoryStorage } from "@kr/storage/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -56,7 +57,10 @@ async function extract(fileId: string, o: { replaceExisting?: boolean; parser?: 
       (error: unknown) => ({ result: undefined, error: error as TaskError }),
     );
   const first = await run();
-  return { op, ...(o.again ? await run() : first) };
+  const last = o.again ? await run() : first;
+  // whatever is stored as operations.result must be the contract's shape, with nothing extra
+  if (last.result !== undefined) expect(ConditionsExtractResult.parse(last.result)).toEqual(last.result);
+  return { op, ...last };
 }
 
 const current = () =>

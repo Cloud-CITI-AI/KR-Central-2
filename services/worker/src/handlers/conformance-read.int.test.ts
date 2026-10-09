@@ -1,3 +1,4 @@
+import { ConformanceReadResult } from "@kr/contracts";
 import type { Db } from "@kr/db";
 import { createMemoryStorage } from "@kr/storage/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,6 +7,7 @@ import { handlerContext, insertFile } from "../../test/files.js";
 import { makePdf } from "../../test/pdf.js";
 import { StampReaderError, type StampReader, type StampReading } from "../clients/stamp-reader.js";
 import { TaskError } from "../errors.js";
+import { staticFlags } from "../flags.js";
 import { createParser, type Parser } from "../parsing/isolate.js";
 import { conformanceReadHandler } from "./conformance-read.js";
 
@@ -55,12 +57,12 @@ async function read(o: Options = {}) {
     db,
     storage,
     parser: o.parser ?? createParser(),
+    flags: staticFlags({ "ai-stamp-reading": o.flag ?? true }),
     stampReader: o.reader,
     metrics,
     config: {
       UPLOAD_MAX_BYTES: 10 * 1024 * 1024,
       PDF_MAX_PAGES: 60,
-      FEATURE_AI_STAMP_READING: o.flag ?? true,
       ANTHROPIC_API_KEY: "key" in o ? o.key : "test-key",
     },
   });
@@ -69,7 +71,13 @@ async function read(o: Options = {}) {
     (result) => ({ result: result as Record<string, unknown>, error: undefined }),
     (error: unknown) => ({ result: undefined, error: error as TaskError }),
   );
-  return { file, metrics, ...outcome };
+  return { file, metrics, ...checked(outcome) };
+}
+
+/** What is stored as operations.result must be the contract's ConformanceReadResult, with nothing extra. */
+function checked<T extends { result: Record<string, unknown> | undefined }>(outcome: T): T {
+  if (outcome.result !== undefined) expect(ConformanceReadResult.parse(outcome.result)).toEqual(outcome.result);
+  return outcome;
 }
 
 const job = () => db.selectFrom("jobs").selectAll().where("id", "=", jobId).executeTakeFirstOrThrow();
@@ -245,16 +253,18 @@ describe("conformance.read: nothing found, and files that cannot be read", () =>
       db,
       storage,
       parser: createParser(),
+      flags: staticFlags(),
       metrics: { recordStampReading: vi.fn() },
       config: {
         UPLOAD_MAX_BYTES: 1024,
         PDF_MAX_PAGES: 60,
-        FEATURE_AI_STAMP_READING: false,
         ANTHROPIC_API_KEY: undefined,
       },
     });
     const op = await enqueue(db, jobId, "conformance.read", { fileId: file.id, allowAi: false });
-    expect(await handler.run(handlerContext(op))).toMatchObject({
+    const result = await handler.run(handlerContext(op));
+    expect(ConformanceReadResult.parse(result)).toEqual(result);
+    expect(result).toMatchObject({
       found: false,
       message: "Notice.pdf couldn't be read. Enter the conformed date below.",
     });

@@ -33,6 +33,7 @@ const { buildHandlers } = await import("./handlers/index.js");
 const { createClamdClient } = await import("./clients/clamd.js");
 const { createParser } = await import("./parsing/isolate.js");
 const { createAnthropicStampReader } = await import("./clients/anthropic-stamp-reader.js");
+const { createFeatureFlags } = await import("./flags.js");
 
 const log = createLogger({ service: "kr-worker", env: config.APP_ENV, level: config.LOG_LEVEL });
 const exit = (code: number): never => process.exit(code);
@@ -66,9 +67,12 @@ const clamd = createClamdClient({
   maxBytes: config.CLAMAV_STREAM_MAX_BYTES,
 });
 
+// Flags go through OpenFeature, resolved once here (CF-4, ADR-0013).
+const flags = await createFeatureFlags(config);
+
 // The AI stamp reader exists only when the flag is on AND there is a key (ADR-0010); otherwise no Anthropic client is created.
 const stampReader =
-  config.FEATURE_AI_STAMP_READING && config.ANTHROPIC_API_KEY
+  flags.isEnabled("ai-stamp-reading") && config.ANTHROPIC_API_KEY
     ? createAnthropicStampReader({
         apiKey: config.ANTHROPIC_API_KEY,
         model: config.ANTHROPIC_MODEL,
@@ -91,6 +95,7 @@ try {
       clamd,
       parser: createParser(),
       clock: systemClock,
+      flags,
       stampReader,
       config,
       metrics,

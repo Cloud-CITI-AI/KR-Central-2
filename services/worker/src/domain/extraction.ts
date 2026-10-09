@@ -1,7 +1,9 @@
 /**
  * What a Decision Letter extraction stores and tells the user (PRODUCT_SPEC §10.2). Pure.
  */
+import type { ConditionsExtractResult } from "@kr/contracts";
 import type { ApprovalDates, ParsedCondition } from "@kr/document-parsing";
+import type { z } from "zod";
 
 /** conditions.text allows 1 to 10000 characters. */
 export const MAX_CONDITION_TEXT = 10_000;
@@ -9,14 +11,8 @@ export const MAX_CONDITION_TEXT = 10_000;
 export const NO_CONDITIONS_MESSAGE =
   "No numbered conditions were found in this PDF. Check it is the WAPC conditional approval letter (not a scanned image).";
 
-/** The result stored on the operation (contract ConditionsExtractResult). */
-export interface ExtractionSummary {
-  readonly conditionsCount: number;
-  readonly guessedNumbers: number[];
-  readonly approvalDate: string | null;
-  readonly approvalExpiry: string | null;
-  readonly message: string | null;
-}
+/** The result stored on the operation: the contract's ConditionsExtractResult, never a local copy of it. */
+export type ExtractionSummary = z.output<typeof ConditionsExtractResult>;
 
 export function summarise(conditions: readonly ParsedCondition[], dates: ApprovalDates): ExtractionSummary {
   const guessedNumbers = conditions.filter((c) => c.agencyGuessed).map((c) => c.number);
