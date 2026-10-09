@@ -1,13 +1,14 @@
 /**
- * Uploads, downloads, removal, job package zip, pasted emails. Public entry of the `files` module — STUB, implemented by WP-09.
- * Replace `register` with the real routes (http/ → domain/ → data/), keep `operations` accurate.
+ * Uploads, downloads, removal, job package zip, pasted emails. Public entry of the `files` module (WP-09).
+ * Audit action names and behaviour worth knowing: see README.md.
  */
 import type { ApiModule } from "../../platform/module.js";
+import { registerUploadRoutes } from "./http/upload-routes.js";
 
 export const filesModule: ApiModule = {
   name: "files",
   operations: ["uploadFile", "getFile", "getFileContent", "deleteFile", "downloadJobPackage", "pasteEmail"],
-  register() {
-    // Implemented by WP-09.
+  register(app, deps) {
+    registerUploadRoutes(app, deps);
   },
 };
