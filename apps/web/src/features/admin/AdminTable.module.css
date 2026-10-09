@@ -1,0 +1,47 @@
+/* tables of the admin pages; on phones each row becomes a labelled card */
+.tableWrap {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.table th {
+  padding: 6px 10px;
+  border-bottom: 2px solid var(--line);
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.07em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.strong {
+  font-weight: 500;
+}
+.chip {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius);
+  background: var(--field);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.disabled {
+  background: var(--red-bg);
+  color: var(--red-ink);
+}
+.active {
+  background: var(--green-bg);
+  color: var(--green-ink);
+}

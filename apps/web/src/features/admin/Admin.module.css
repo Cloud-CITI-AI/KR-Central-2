@@ -40,6 +40,33 @@
   border-color: var(--brand);
   color: var(--brand-ink);
 }
+.panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 10px;
+}
+.filters > * {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.summary {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+.more {
+  justify-self: start;
+}
 .muted {
   color: var(--ink-2);
   font-size: 12.5px;
