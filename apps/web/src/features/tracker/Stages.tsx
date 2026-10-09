@@ -4,6 +4,7 @@ import { STAGES } from "@kr/workflow";
 import { Button } from "@/components/ui/Button";
 import type { OpenStages } from "./openStages";
 import { StageBar } from "./StageBar";
+import { StageBody } from "./StageBody";
 import styles from "./Stages.module.css";
 
 export interface StagesProps {
@@ -40,7 +41,11 @@ export function Stages({ job, stages }: StagesProps) {
                   stages.toggle(stage.key);
                 }}
               />
-              {!summary.excluded && <div id={`body-${stage.key}`} className={styles.body} hidden={!open} />}
+              {!summary.excluded && (
+                <div id={`body-${stage.key}`} className={styles.body} hidden={!open}>
+                  <StageBody job={job} stage={stage} />
+                </div>
+              )}
             </section>
           );
         })}

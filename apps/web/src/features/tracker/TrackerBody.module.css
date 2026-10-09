@@ -1,0 +1,6 @@
+/* job notes and job files follow the stages */
+.after {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}

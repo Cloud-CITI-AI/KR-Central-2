@@ -106,6 +106,13 @@
 .body {
   padding: 10px 0 14px;
 }
+.items {
+  display: grid;
+  gap: 8px;
+}
+.item {
+  scroll-margin-top: 12px;
+}
 /* an excluded agency stage: disabled grey bar, cannot be opened */
 .off {
   cursor: not-allowed;
