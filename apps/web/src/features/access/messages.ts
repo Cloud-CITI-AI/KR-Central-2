@@ -8,6 +8,7 @@ export const ACCESS_MESSAGES = {
   invitationOn: "They are sent a Microsoft Entra invitation email automatically.",
   scope: "Clients and architects only see the job you choose.",
   noJob: "Choose which job they should see.",
+  loadFailed: "The access list couldn't be loaded. Reload the page and try again.",
   empty: "No one has been added yet.",
 } as const;
 
@@ -30,3 +31,6 @@ export function saveFailedText(requestId: string | undefined): string {
   const text = "That couldn't be saved. Try again.";
   return requestId ? `${text} (Request ID: ${requestId})` : text;
 }
+
+export const ROLE_LABELS = { client: "Client", architect: "Architect" } as const;
+export const STATUS_LABELS = { pending: "Pending", active: "Active", revoked: "Revoked" } as const;

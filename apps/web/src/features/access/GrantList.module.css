@@ -1,0 +1,70 @@
+/* prototype .acc-list, .acc-e, .acc-j, .acc-r, .acc-s */
+.list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field);
+  font-size: 13.5px;
+}
+.who {
+  min-width: 0;
+  margin-right: auto;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.job {
+  padding: 1px 8px;
+  border-radius: var(--radius);
+  background: var(--item-soft);
+  color: var(--item);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.role {
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.status {
+  padding: 2px 7px;
+  border-radius: var(--radius);
+  background: var(--fee-soft);
+  color: var(--fee);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.status[data-status="active"],
+.status[data-status="invitation-sent"] {
+  background: var(--green-bg);
+  color: var(--green-ink);
+}
+.status[data-status="revoked"] {
+  background: var(--grey-bg);
+  color: var(--grey-ink);
+}
+.status[data-status="invitation-failed"] {
+  background: var(--red-bg);
+  color: var(--red-ink);
+}
+.bound {
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.error {
+  margin: 0;
+  color: var(--red-ink);
+  font-size: 12px;
+}

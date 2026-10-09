@@ -6,13 +6,14 @@ import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
 import { AccessManager } from "./AccessManager";
 
-const emptyJobs = () => mockApi("listJobs", { items: [], nextCursor: null });
+const empty = { items: [], nextCursor: null };
+const emptyLists = () => [mockApi("listJobs", empty), mockApi("listAccessGrants", empty)];
 const description =
   "Add the people who should be able to view a job – choose the job from the list. KR Surveys staff see all jobs automatically.";
 
 describe("AccessManager", () => {
   it("shows staff the form and tells them KR IT must invite the guest in Entra (flag off)", async () => {
-    server.use(emptyJobs());
+    server.use(...emptyLists());
     renderWithProviders(<AccessManager />);
     expect(screen.getByRole("region", { name: "Access manager" })).toBeInTheDocument();
     expect(
@@ -24,7 +25,7 @@ describe("AccessManager", () => {
   });
 
   it("says the invitation is sent automatically when the flag is on", async () => {
-    server.use(emptyJobs());
+    server.use(...emptyLists());
     const me = syntheticMe("kr_admin", {
       features: { aiStampReading: false, guestInvites: true, malwareScanning: true },
     });

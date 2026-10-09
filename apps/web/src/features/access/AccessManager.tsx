@@ -1,6 +1,7 @@
 "use client";
 import { useSession } from "@/lib/session";
 import { AccessForm } from "./AccessForm";
+import { GrantList } from "./GrantList";
 import { ACCESS_MESSAGES } from "./messages";
 import styles from "./AccessManager.module.css";
 
@@ -23,6 +24,7 @@ export function AccessManager() {
         </p>
       </div>
       <AccessForm />
+      <GrantList />
     </section>
   );
 }
