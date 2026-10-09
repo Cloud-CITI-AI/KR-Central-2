@@ -1,0 +1,33 @@
+{
+  "name": "@kr/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Typed environment configuration helpers (zod), fail-fast at startup.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@kr/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "format": "prettier --write .",
+    "test:unit": "vitest run --project unit --coverage --passWithNoTests",
+    "test:integration": "echo 'no integration layer in this package'",
+    "test:contract": "echo 'no contract layer in this package'",
+    "test:e2e": "echo 'no e2e layer in this package'",
+    "test:mutation": "stryker run",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}

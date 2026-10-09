@@ -1,0 +1,21 @@
+# Local development dependencies (not used in Railway). `pnpm db:up`, then bootstrap + migrate:
+#   pnpm --filter @kr/db build && node packages/db/dist/bootstrap-cli.js && node packages/db/dist/migrate-cli.js
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tracker
+      POSTGRES_PASSWORD: local-superuser-password
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+  s3:
+    # S3-compatible stand-in for Railway Buckets (adobe/s3mock: no auth, path-style; bucket auto-created).
+    image: adobe/s3mock:latest
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: tracker-files-local
+    ports: ["9090:9090"]
+  clamav:
+    image: clamav/clamav:stable
+    ports: ["3310:3310"]
+volumes:
+  pgdata: {}

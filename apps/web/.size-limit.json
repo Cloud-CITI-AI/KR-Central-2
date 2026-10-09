@@ -1,0 +1,8 @@
+[
+  {
+    "name": "first-load JS (all route chunks, gzip) — budget FE-9",
+    "path": ".next/static/chunks/**/*.js",
+    "limit": "400 KB",
+    "gzip": true
+  }
+]

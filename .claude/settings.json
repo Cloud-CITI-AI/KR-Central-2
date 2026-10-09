@@ -1,0 +1,78 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gcloud/**)",
+      "Read(~/.azure/**)",
+      "Read(~/.npmrc)",
+      "Read(~/.pypirc)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push origin main:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr review --approve:*)",
+      "Bash(terraform apply:*)",
+      "Bash(terraform destroy:*)",
+      "Bash(kubectl:*)",
+      "Bash(helm:*)",
+      "Bash(aws:*)",
+      "Bash(gcloud:*)",
+      "Bash(az:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(railway:*)",
+      "Bash(gh secret:*)",
+      "Bash(gh variable:*)",
+      "Read(./**/.env.local)"
+    ],
+    "allow": [
+      "Bash(pnpm install --frozen-lockfile)",
+      "Bash(pnpm verify)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm build)",
+      "Bash(pnpm format)",
+      "Bash(make verify)",
+      "Bash(make lint)",
+      "Bash(make typecheck)",
+      "Bash(make test-*)",
+      "Bash(make format)",
+      "Bash(uv sync --frozen)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git switch:*)",
+      "Bash(git push -u origin agent/*)",
+      "Bash(pnpm --filter * lint)",
+      "Bash(pnpm --filter * typecheck)",
+      "Bash(pnpm --filter * test:*)",
+      "Bash(pnpm --filter * build)",
+      "Bash(pnpm db:up)",
+      "Bash(docker compose up -d *)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-instruction-files.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

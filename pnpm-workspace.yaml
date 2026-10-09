@@ -1,0 +1,21 @@
+# pnpm 11 workspace. Supply-chain settings follow playbook DP-2/DP-3 (templates/project/pnpm-workspace.snippet.yaml).
+packages:
+  - apps/*
+  - services/*
+  - packages/*
+
+minimumReleaseAge: 1440 # minutes; refuse versions younger than 1 day
+minimumReleaseAgeExclude: [] # add a package ONLY for an urgent security fix, with an issue link in the PR
+strictDepBuilds: true # lifecycle scripts blocked unless allowlisted below
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+  "@swc/core": false
+  protobufjs: false
+  lefthook: false
+  cpu-features: false
+  ssh2: false
+  msw: false
+savePrefix: ""
+engineStrict: true

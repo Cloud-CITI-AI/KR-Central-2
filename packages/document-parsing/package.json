@@ -1,0 +1,39 @@
+{
+  "name": "@kr/document-parsing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure parsers for WAPC decision letters, conformance notifications, dates and Outlook/MIME emails, plus a PDF text adapter.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@kr/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "format": "prettier --write .",
+    "test:unit": "vitest run --project unit --coverage --passWithNoTests",
+    "test:integration": "echo 'no integration layer in this package'",
+    "test:contract": "echo 'no contract layer in this package'",
+    "test:e2e": "echo 'no e2e layer in this package'",
+    "test:mutation": "stryker run",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build"
+  },
+  "dependencies": {
+    "@kr/workflow": "workspace:*",
+    "@napi-rs/canvas": "1.0.10",
+    "html-to-text": "10.0.1",
+    "pdfjs-dist": "6.4.299"
+  },
+  "devDependencies": {
+    "@types/html-to-text": "9.0.4"
+  }
+}

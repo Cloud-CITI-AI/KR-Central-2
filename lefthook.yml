@@ -1,0 +1,13 @@
+# Playbook templates/project/lefthook.yml — install: `pnpm exec lefthook install`
+pre-commit:
+  parallel: true
+  commands:
+    secrets:
+      run: gitleaks git --staged --redact --no-banner
+    format:
+      glob: "*.{ts,tsx,js,mjs,jsx,json,md,css,yml,yaml}"
+      run: pnpm exec prettier --check {staged_files}
+commit-msg:
+  commands:
+    conventional:
+      run: pnpm exec commitlint --edit {1}

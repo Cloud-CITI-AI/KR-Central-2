@@ -1,0 +1,43 @@
+{
+  "name": "@kr/worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Background job runner: malware scanning, document extraction, email parsing, housekeeping.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --conditions=@kr/source src/main.ts",
+    "start": "node dist/main.js",
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "format": "prettier --write .",
+    "test:unit": "vitest run --project unit --coverage --passWithNoTests",
+    "test:integration": "vitest run --project integration --passWithNoTests",
+    "test:contract": "echo 'no contract layer in this package'",
+    "test:e2e": "echo 'service e2e runs in deploy smoke tests' && exit 0",
+    "test:mutation": "stryker run",
+    "test:load": "echo 'n/a'",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.132.0",
+    "@aws-sdk/client-s3": "3.1147.0",
+    "@kr/config": "workspace:*",
+    "@kr/contracts": "workspace:*",
+    "@kr/db": "workspace:*",
+    "@kr/document-parsing": "workspace:*",
+    "@kr/logger": "workspace:*",
+    "@kr/telemetry": "workspace:*",
+    "@kr/workflow": "workspace:*",
+    "@openfeature/server-sdk": "1.23.0",
+    "kysely": "0.29.6",
+    "pg": "8.23.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "12.2.0",
+    "@types/pg": "8.23.1",
+    "testcontainers": "12.2.0"
+  }
+}

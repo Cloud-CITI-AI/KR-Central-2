@@ -1,0 +1,40 @@
+{
+  "name": "@kr/telemetry",
+  "version": "0.0.0",
+  "private": true,
+  "description": "OpenTelemetry bootstrap (traces, metrics) for Node services.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@kr/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "format": "prettier --write .",
+    "test:unit": "vitest run --project unit --coverage --passWithNoTests",
+    "test:integration": "echo 'no integration layer in this package'",
+    "test:contract": "echo 'no contract layer in this package'",
+    "test:e2e": "echo 'no e2e layer in this package'",
+    "test:mutation": "stryker run",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "0.81.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "0.223.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.223.0",
+    "@opentelemetry/resources": "2.12.0",
+    "@opentelemetry/sdk-metrics": "2.12.0",
+    "@opentelemetry/sdk-node": "0.223.0",
+    "@opentelemetry/semantic-conventions": "1.43.0"
+  }
+}
