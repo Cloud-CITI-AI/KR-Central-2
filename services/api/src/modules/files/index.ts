@@ -3,6 +3,7 @@
  * Audit action names and behaviour worth knowing: see README.md.
  */
 import type { ApiModule } from "../../platform/module.js";
+import { registerDeleteRoutes } from "./http/delete-routes.js";
 import { registerFileRoutes } from "./http/file-routes.js";
 import { registerUploadRoutes } from "./http/upload-routes.js";
 
@@ -12,5 +13,6 @@ export const filesModule: ApiModule = {
   register(app, deps) {
     registerUploadRoutes(app, deps);
     registerFileRoutes(app, deps);
+    registerDeleteRoutes(app, deps);
   },
 };

@@ -1,42 +1,21 @@
 /** getFile and getFileContent (PRODUCT_SPEC §11, §11.1; ADR-0011): authorise, gate on the scan, stream with Range. */
-import type { AuthContext } from "../../../platform/auth-context.js";
 import { InvalidRangeError, ObjectNotFoundError } from "@kr/storage";
-import { getCheckpoint } from "@kr/workflow";
 import type { FastifyInstance } from "fastify";
-import { resolveJobAccess, type JobAccess } from "../../../platform/authz.js";
 import { NotFoundError } from "../../../platform/errors.js";
 import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
-import { findFile } from "../data/files.js";
 import { RangeNotSatisfiableError, assertServable, contentHeadersFor, parseRange } from "../domain/content-headers.js";
 import { loadFileMeta } from "./file-view.js";
-
-/** The fee proposal's files are for fee_proposal.view holders only; everyone else gets the same 404 as for no file. */
-function canSee(access: Pick<JobAccess, "capabilities">, checkpointKey: string | null): boolean {
-  return (
-    checkpointKey === null ||
-    getCheckpoint(checkpointKey).restricted !== "fee_proposal" ||
-    access.capabilities.includes("fee_proposal.view")
-  );
-}
+import { openFile } from "./open-file.js";
 
 export function registerFileRoutes(app: FastifyInstance, deps: ModuleDeps): void {
-  /** The file when it exists, is not removed and its job is visible to the caller; 404 otherwise (never 403). */
-  async function openFile(auth: AuthContext, fileId: string) {
-    const file = await findFile(deps.db, fileId);
-    if (!file) throw new NotFoundError();
-    const access = await resolveJobAccess(deps.db, auth, file.job_id, "job.read");
-    if (!canSee(access, file.checkpoint_key)) throw new NotFoundError();
-    return { file, access };
-  }
-
   defineRoute(app, "getFile", async ({ auth, params }) => {
-    const { file, access } = await openFile(auth, params.fileId);
+    const { file, access } = await openFile(deps, auth, params.fileId);
     return loadFileMeta(deps.db, file, { id: auth.user.id, capabilities: access.capabilities });
   });
 
   defineRoute(app, "getFileContent", async ({ auth, request, reply, params, query }) => {
-    const { file } = await openFile(auth, params.fileId);
+    const { file } = await openFile(deps, auth, params.fileId);
     assertServable(file.scan_status);
     const size = Number(file.size_bytes);
     const range = parseRange(request.headers.range, size);

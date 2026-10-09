@@ -129,3 +129,20 @@ export async function findUploaderRef(
     (await db.selectFrom("users").select(["id", "display_name"]).where("id", "=", userId).executeTakeFirst()) ?? null
   );
 }
+
+/** Soft delete (PRODUCT_SPEC §11): false when the file was already removed. */
+export async function softDeleteFile(
+  trx: Transaction<Database>,
+  fileId: string,
+  userId: string,
+  at: Date,
+): Promise<boolean> {
+  const row = await trx
+    .updateTable("files")
+    .set({ deleted_at: at, deleted_by: userId })
+    .where("id", "=", fileId)
+    .where("deleted_at", "is", null)
+    .returning("id")
+    .executeTakeFirst();
+  return row !== undefined;
+}
