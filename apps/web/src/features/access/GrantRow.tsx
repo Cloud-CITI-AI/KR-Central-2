@@ -12,15 +12,17 @@ export interface GrantRowProps {
   readonly grant: Grant;
 }
 
-/** "Name <email>", or just the email when no name was given. */
+/**
+ * "Name <email>", or just the email when no name was given. The name is whatever staff typed when they added the
+ * person; it is not the account that signed in, so it is never labelled as that.
+ */
 function whoText(grant: Grant): string {
   return grant.displayName ? `${grant.displayName} <${grant.email}>` : grant.email;
 }
 
 /**
  * One person on the list: name and email, job chip, role, status chip (PENDING / ACTIVE / REVOKED), the invitation
- * chip when an Entra invitation was attempted, for an active grant the account it is bound to (§3.4, so staff can spot
- * a wrong match), and × with the inline "Remove? Yes / No" confirmation for grants that are not revoked yet.
+ * chip when an Entra invitation was attempted, and × with the inline "Remove? Yes / No" confirmation for grants that are not revoked yet.
  */
 export function GrantRow({ grant }: GrantRowProps) {
   const revoke = useRevokeGrant();
@@ -38,7 +40,7 @@ export function GrantRow({ grant }: GrantRowProps) {
 
   return (
     <li className={styles.row}>
-      <span className={styles.who}>{grant.status === "active" ? grant.email : whoText(grant)}</span>
+      <span className={styles.who}>{whoText(grant)}</span>
       <span className={styles.job}>{grant.jobNumber}</span>
       <span className={styles.role}>{ROLE_LABELS[grant.role]}</span>
       <span className={styles.status} data-status={grant.status}>
@@ -48,9 +50,6 @@ export function GrantRow({ grant }: GrantRowProps) {
         <span className={cx(styles.status, styles.invitation)} data-status={`invitation-${grant.invitationStatus}`}>
           {grant.invitationStatus === "sent" ? "Invitation sent" : "Invitation failed"}
         </span>
-      )}
-      {grant.status === "active" && (
-        <span className={styles.bound}>{grant.displayName ? `Signed in as ${grant.displayName}` : "Signed in"}</span>
       )}
       {revoke.isError && (
         <span role="alert" className={styles.failed}>

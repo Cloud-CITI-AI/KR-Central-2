@@ -19,7 +19,7 @@ describe("GrantList", () => {
     expect(await screen.findByText("No one has been added yet.")).toBeInTheDocument();
   });
 
-  it("lists by job then email with role, status, invitation chips and the bound account name", async () => {
+  it("lists by job then email with name and email, role, status and invitation chips", async () => {
     server.use(
       mockApi("listAccessGrants", {
         items: [
@@ -46,8 +46,8 @@ describe("GrantList", () => {
     await screen.findAllByRole("listitem");
     expect(rowTexts()).toEqual([
       "Al Typed <a@example.com>S-0002ClientPendingInvitation failedRemove a@example.com×",
-      "b@example.comS-0002ClientActiveInvitation sentSigned in as Bea BoundRemove b@example.com×",
-      "c@example.comS-0002ClientActiveSigned inRemove c@example.com×",
+      "Bea Bound <b@example.com>S-0002ClientActiveInvitation sentRemove b@example.com×",
+      "c@example.comS-0002ClientActiveRemove c@example.com×",
       "z@example.comS-0010ArchitectRevoked",
     ]);
     await expectNoAxeViolations(container);
