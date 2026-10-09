@@ -1,0 +1,136 @@
+/* prototype .stage-tools, #stages, section.stage, .stage-bar, .chev, .sb-* */
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.label {
+  margin-right: auto;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--on-bg);
+}
+.stages {
+  display: grid;
+  gap: 8px;
+}
+.stage {
+  scroll-margin-top: 12px;
+}
+.bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--red-line);
+  background: var(--red-bg);
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink);
+}
+.bar[data-state="completed"] {
+  background: var(--green-bg);
+  border-color: var(--green-line);
+}
+.bar[data-state="not_required"] {
+  background: var(--grey-bg);
+  border-color: var(--grey-line);
+}
+.bar:hover {
+  filter: brightness(0.98);
+}
+.chev {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-right: 2px solid var(--ink-2);
+  border-bottom: 2px solid var(--ink-2);
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+.bar[aria-expanded="true"] .chev {
+  transform: rotate(45deg);
+}
+.name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.count {
+  font-size: 12px;
+  color: var(--red-ink);
+}
+.bar[data-state="completed"] .count {
+  color: var(--green-ink);
+}
+.bar[data-state="not_required"] .count {
+  color: var(--grey-ink);
+}
+.track {
+  width: 90px;
+  height: 7px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.track i {
+  display: block;
+  height: 100%;
+  background: var(--red-ink);
+}
+.bar[data-state="completed"] .track i {
+  background: var(--green-ink);
+}
+.bar[data-state="not_required"] .track i {
+  background: var(--grey-ink);
+}
+.pct {
+  min-width: 3.2em;
+  text-align: right;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.body {
+  padding: 10px 0 14px;
+}
+/* an excluded agency stage: disabled grey bar, cannot be opened */
+.off {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.off:hover {
+  filter: none;
+}
+.off .chev {
+  opacity: 0.35;
+}
+.off .name {
+  color: var(--grey-ink);
+}
+@media (max-width: 520px) {
+  .track,
+  .count {
+    display: none;
+  }
+  .off .count {
+    display: inline;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chev {
+    transition: none;
+  }
+}

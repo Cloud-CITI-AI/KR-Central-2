@@ -7,11 +7,14 @@ import {
   effectiveState,
   summariseProgress,
   summariseStage,
+  type Agency,
   type CheckpointStatus,
 } from "@kr/workflow";
 
 export interface SyntheticJobOptions {
   readonly statuses?: Readonly<Record<string, CheckpointStatus>>;
+  /** One extracted condition per agency (stages of the other agencies are then excluded, R1). */
+  readonly conditionAgencies?: readonly Agency[];
   readonly role?: GlobalRole;
   readonly grantRole?: GrantRole | null;
   readonly fields?: Partial<JobDetail>;
@@ -21,10 +24,25 @@ const UPDATED = "2026-09-28T03:50:56.543Z";
 
 export function syntheticJob({
   statuses = {},
+  conditionAgencies = [],
   role = "staff",
   grantRole = null,
   fields = {},
 }: SyntheticJobOptions = {}): JobDetail {
+  const conditions = conditionAgencies.map((agency, index) => ({
+    id: faker.string.uuid(),
+    number: index + 1,
+    text: faker.lorem.sentence(),
+    agency,
+    agencyGuessed: false,
+    isCleared: false,
+    responsibility: null,
+    krComment: "",
+    clientComment: "",
+    evidence: [],
+    version: 1,
+    updatedAt: UPDATED,
+  }));
   const input = {
     states: Object.fromEntries(
       CHECKPOINTS.map((c) => [
@@ -32,7 +50,7 @@ export function syntheticJob({
         { status: statuses[c.key] ?? "not_completed", responsibility: c.defaultResponsibility },
       ]),
     ),
-    conditions: [],
+    conditions,
   };
   const checkpoints = CHECKPOINTS.map((c) => {
     const state = effectiveState(c.key, input);
@@ -64,7 +82,7 @@ export function syntheticJob({
     outcomeDate: null,
     conditionsSource: null,
     checkpoints,
-    conditions: [],
+    conditions,
     summary: {
       progress: summariseProgress(input),
       stages: STAGES.map((stage) => summariseStage(stage, input)),
