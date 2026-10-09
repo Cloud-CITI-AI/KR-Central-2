@@ -5,6 +5,7 @@ import { ApiProblem, queryKeys } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
 import { MESSAGES, saveFailedText } from "@/lib/messages";
 import { mapCheckpoint } from "./cache";
+import { refreshJob } from "./refreshJob";
 
 export interface CheckpointWriteOptions<TVars> {
   readonly jobId: string;
@@ -77,10 +78,7 @@ export function useCheckpointWrite<TVars>({
           ),
       );
       if (pendingWrites() > 1) return;
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.jobs.all,
-        predicate: (q) => q.queryKey[1] !== "notes",
-      });
+      void refreshJob(queryClient);
     },
   });
 }
