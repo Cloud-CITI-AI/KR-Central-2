@@ -9,6 +9,7 @@ import { sql } from "kysely";
 import { systemClock, type Clock } from "../clock.js";
 import { describeError } from "../errors.js";
 import { cutoffs, type Cutoffs } from "../domain/retention.js";
+import { sleep } from "../timing.js";
 
 export const SWEEP_LOCK_KEY = 7_154_001;
 export const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -36,8 +37,8 @@ export interface Sweeper {
   /** One sweep now; "skipped" when another worker holds the lock. */
   runOnce(): Promise<SweepReport | "skipped">;
   start(): void;
-  /** Cancels the schedule and waits for a sweep in progress. */
-  stop(): Promise<void>;
+  /** Cancels the schedule and waits up to `timeoutMs` for a sweep in progress; false when it was still running. */
+  stop(timeoutMs?: number): Promise<boolean>;
 }
 
 export function createSweeper(o: SweeperOptions): Sweeper {
@@ -94,10 +95,16 @@ export function createSweeper(o: SweeperOptions): Sweeper {
     start: () => {
       schedule(o.firstDelayMs ?? FIRST_SWEEP_DELAY_MS);
     },
-    stop: async () => {
+    stop: async (timeoutMs = Infinity) => {
       stopped = true;
       clearTimeout(timer);
-      await running;
+      const cancel = new AbortController();
+      const finished = await Promise.race([
+        running.then(() => true),
+        sleep(timeoutMs, cancel.signal).then(() => false),
+      ]);
+      cancel.abort();
+      return finished;
     },
   };
 }

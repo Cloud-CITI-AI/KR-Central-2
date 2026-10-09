@@ -1,8 +1,9 @@
 /** Statements of the hourly sweeps (BE-7: Kysely or parameterised SQL only). The app role's statement timeout is 15 s, so work is batched. */
-import { recordAudit, type Db } from "@kr/db";
+import { enqueueOperation, recordAudit, type Db } from "@kr/db";
 import type { Logger } from "@kr/logger";
 import type { ObjectStorage } from "@kr/storage";
 import { sql, type RawBuilder } from "kysely";
+import { mayRescan } from "../domain/scan.js";
 import { describeError } from "../errors.js";
 import type { Cutoffs } from "../domain/retention.js";
 
@@ -97,4 +98,70 @@ export async function purgeDeletedFiles(
     if (files.length < PURGE_BATCH) break;
   }
   return { purged, failed: failed.length };
+}
+
+/** The file has no scan queued or running (the payload carries its id). */
+const noActiveScan = sql<boolean>`not exists (
+  select 1 from operations o
+   where o.type = 'file.scan' and o.status in ('queued', 'running') and o.payload ->> 'fileId' = files.id::text)`;
+
+const SCAN_BATCH = 500;
+
+/**
+ * Files whose scan ended in `error` are scanned again while `mayRescan` allows (SCAN_ERROR_MAX_RETRIES): the file goes back to `pending`
+ * ("being checked") and a new file.scan is queued in the same transaction. `exhausted` counts the files left in `error` for good.
+ */
+export async function rescanErroredFiles(db: Db, maxRetries: number): Promise<{ requeued: number; exhausted: number }> {
+  const files = await db
+    .selectFrom("files")
+    .select(["id", "job_id", "scan_attempts"])
+    .where("scan_status", "=", "error")
+    .where("deleted_at", "is", null)
+    .where("purged_at", "is", null)
+    .where(noActiveScan)
+    .orderBy("scanned_at")
+    .limit(SCAN_BATCH)
+    .execute();
+  const due = files.filter((f) => mayRescan(f.scan_attempts, maxRetries));
+  for (const file of due) {
+    await db.transaction().execute(async (trx) => {
+      await trx
+        .updateTable("files")
+        .set({ scan_status: "pending" })
+        .where("id", "=", file.id)
+        .where("scan_status", "=", "error")
+        .execute();
+      await enqueueOperation(trx, {
+        jobId: file.job_id,
+        type: "file.scan",
+        payload: { fileId: file.id },
+        createdBy: null,
+      });
+    });
+  }
+  return { requeued: due.length, exhausted: files.length - due.length };
+}
+
+/** A file still `pending` after the stuck-scan time, with no scan queued or running (it failed for good, or was lost), gets a new scan. */
+export async function requeueStuckScans(db: Db, c: Cutoffs): Promise<{ requeued: number }> {
+  const files = await db
+    .selectFrom("files")
+    .select(["id", "job_id"])
+    .where("scan_status", "=", "pending")
+    .where("deleted_at", "is", null)
+    .where("purged_at", "is", null)
+    .where("uploaded_at", "<", c.pendingUploadedBefore)
+    .where(noActiveScan)
+    .orderBy("uploaded_at")
+    .limit(SCAN_BATCH)
+    .execute();
+  for (const file of files) {
+    await enqueueOperation(db, {
+      jobId: file.job_id,
+      type: "file.scan",
+      payload: { fileId: file.id },
+      createdBy: null,
+    });
+  }
+  return { requeued: files.length };
 }

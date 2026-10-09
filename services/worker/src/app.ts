@@ -1,5 +1,5 @@
 /**
- * Assembles the running worker from its dependencies: the health server, the poller and the queue gauges. main.ts
+ * Assembles the running worker from its dependencies: the health server, the poller, the hourly sweeps and the queue gauges. main.ts
  * creates the real dependencies; tests pass a test database, an in-memory store and their own handlers.
  */
 import type { Db } from "@kr/db";
@@ -13,12 +13,19 @@ import type { WorkerConfig } from "./config.js";
 import { readQueue } from "./data/operations.js";
 import type { Handlers } from "./handlers/types.js";
 import { Poller } from "./poller.js";
+import { createSweeper } from "./sweeps/runner.js";
+import { buildSweepTasks } from "./sweeps/index.js";
 import { startHealthServer, type HealthServer } from "./runtime/health.js";
 
 export interface WorkerDeps {
   readonly config: Pick<
     WorkerConfig,
-    "HOST" | "PORT" | "WORKER_CONCURRENCY" | "WORKER_POLL_INTERVAL_MS" | "WORKER_LEASE_SECONDS"
+    | "HOST"
+    | "PORT"
+    | "WORKER_CONCURRENCY"
+    | "WORKER_POLL_INTERVAL_MS"
+    | "WORKER_LEASE_SECONDS"
+    | "SCAN_ERROR_MAX_RETRIES"
   >;
   readonly db: Db;
   readonly storage: ObjectStorage;
@@ -27,6 +34,8 @@ export interface WorkerDeps {
   readonly clock: Clock;
   readonly workerId: string;
   readonly handlers: Handlers;
+  /** Test seam: when the first sweep runs and how often (default: after 60 s, then hourly). */
+  readonly sweepTiming?: { readonly firstDelayMs: number; readonly intervalMs: number };
 }
 
 export interface RunningWorker {
@@ -50,6 +59,13 @@ export async function startWorker(deps: WorkerDeps): Promise<RunningWorker> {
     pollIntervalMs: config.WORKER_POLL_INTERVAL_MS,
     leaseSeconds: config.WORKER_LEASE_SECONDS,
   });
+  const sweeper = createSweeper({
+    db,
+    log,
+    clock: deps.clock,
+    tasks: buildSweepTasks({ db, storage, log, maxScanRetries: config.SCAN_ERROR_MAX_RETRIES }),
+    ...deps.sweepTiming,
+  });
   const health: HealthServer = await startHealthServer({
     host: config.HOST,
     port: config.PORT,
@@ -61,13 +77,19 @@ export async function startWorker(deps: WorkerDeps): Promise<RunningWorker> {
     metrics.observeQueueAge(async () => (await readQueue(db)).age),
   ];
   poller.start();
+  sweeper.start();
   log.info(
     { event: "worker_started", workerId: deps.workerId, port: health.port, types: Object.keys(deps.handlers) },
     "Worker started",
   );
   return {
     healthPort: health.port,
-    drain: (timeoutMs) => poller.stop(timeoutMs),
+    drain: async (timeoutMs) => {
+      const startedAt = deps.clock.now().getTime();
+      const polled = await poller.stop(timeoutMs);
+      const sweeping = await sweeper.stop(Math.max(0, timeoutMs - (deps.clock.now().getTime() - startedAt)));
+      return polled && sweeping;
+    },
     close: async () => {
       for (const stop of unobserve) stop();
       await health.close();
