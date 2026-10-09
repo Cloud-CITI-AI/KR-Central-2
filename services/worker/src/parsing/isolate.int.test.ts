@@ -16,12 +16,25 @@ async function failure(promise: Promise<unknown>): Promise<TaskError> {
 }
 
 describe("the parse thread", () => {
-  it("reads the text of every page and the first page alone", async () => {
-    const data = await makePdf([["Page one line"], ["Page two line"]]);
-    const all = await parser.run("pdf-text", { data, maxPages: 10 });
-    expect(all.filter(Boolean)).toEqual(["Page one line", "Page two line"]);
+  it("reads the conditions and the approval dates of a Decision Letter, and the first page alone", async () => {
+    const data = await makePdf([
+      [
+        "16 March 2026",
+        "Approval is valid for two years.",
+        "Conditions",
+        "1. Power supply to each lot. (Western Power)",
+      ],
+      ["2. Drainage works. (City of Stirling)", "Advice", "1. Ignored advice."],
+    ]);
+    const { conditions, dates } = await parser.run("decision-letter", { data, maxPages: 10 });
+    expect(conditions.map((c) => [c.number, c.agency])).toEqual([
+      [1, "Western Power"],
+      [2, "Local Government"],
+    ]);
+    expect(dates).toEqual({ approvalDate: "2026-03-16", approvalExpiry: "2028-03-16" });
     const first = await parser.run("pdf-first-page", { data, maxPages: 10 });
-    expect(first.lines).toEqual(["Page one line"]);
+    expect(first.lines).toContain("16 March 2026");
+    expect(first.lines).not.toContain("Advice");
   });
 
   it("renders page 1 to a PNG", async () => {
@@ -40,11 +53,13 @@ describe("the parse thread", () => {
   });
 
   it("reports an unreadable document with the parser's code", async () => {
-    const notPdf = await failure(parser.run("pdf-text", { data: new TextEncoder().encode("hello"), maxPages: 10 }));
+    const notPdf = await failure(
+      parser.run("decision-letter", { data: new TextEncoder().encode("hello"), maxPages: 10 }),
+    );
     expect(notPdf).toMatchObject({ code: "not_a_pdf", retryable: false });
     expect(isUnreadable(notPdf)).toBe(true);
     const long = await makePdf([["a"], ["b"], ["c"]]);
-    expect((await failure(parser.run("pdf-text", { data: long, maxPages: 2 }))).code).toBe("too_many_pages");
+    expect((await failure(parser.run("decision-letter", { data: long, maxPages: 2 }))).code).toBe("too_many_pages");
   });
 });
 

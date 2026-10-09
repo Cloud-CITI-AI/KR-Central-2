@@ -1,9 +1,9 @@
 /** The document tasks that run inside the parse thread, and what each returns. Shared by both sides; no parser import. */
-import type { ParsedEmail, PdfFirstPage } from "@kr/document-parsing";
+import type { ApprovalDates, ParsedCondition, ParsedEmail, PdfFirstPage } from "@kr/document-parsing";
 
 export interface TaskInputs {
-  /** Text lines of every page (blank line after each page). */
-  "pdf-text": { readonly data: Uint8Array; readonly maxPages: number };
+  /** The numbered conditions and the approval dates of a Decision Letter (all pages). */
+  "decision-letter": { readonly data: Uint8Array; readonly maxPages: number };
   /** Page 1 text lines and annotation texts. */
   "pdf-first-page": { readonly data: Uint8Array; readonly maxPages: number };
   /** Page 1 as a PNG for the stamp reader. */
@@ -13,7 +13,7 @@ export interface TaskInputs {
 }
 
 export interface TaskOutputs {
-  "pdf-text": string[];
+  "decision-letter": { conditions: ParsedCondition[]; dates: ApprovalDates };
   "pdf-first-page": PdfFirstPage;
   "pdf-render": Uint8Array;
   email: ParsedEmail;

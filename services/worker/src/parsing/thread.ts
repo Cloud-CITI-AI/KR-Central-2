@@ -5,6 +5,8 @@
 import { parentPort, workerData } from "node:worker_threads";
 import {
   DocumentParseError,
+  findApprovalDates,
+  parseConditions,
   parseEml,
   parseMsg,
   pdfFirstPage,
@@ -17,8 +19,10 @@ const CFB_MAGIC = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 
 async function run(request: TaskRequest): Promise<unknown> {
   switch (request.task) {
-    case "pdf-text":
-      return pdfTextLines(request.data, { maxPages: request.maxPages });
+    case "decision-letter": {
+      const lines = await pdfTextLines(request.data, { maxPages: request.maxPages });
+      return { conditions: parseConditions(lines), dates: findApprovalDates(lines) };
+    }
     case "pdf-first-page":
       return pdfFirstPage(request.data, { maxPages: request.maxPages });
     case "pdf-render":
