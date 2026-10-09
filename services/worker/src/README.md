@@ -13,6 +13,7 @@ isolated threads, and runs the hourly sweeps. Nothing here is on a request path;
 | `domain/`           | Pure rules (scan failure judgement, email columns, extraction summary, the §10.1 order, retention cut-offs). No I/O.         |
 | `data/`             | Kysely statements. `clients/`: clamd, the stamp reader (interface + Anthropic). `parsing/`: the `worker_thread` isolation.   |
 | `sweeps/`           | The hourly sweeper (advisory lock) and the task list.                                                                        |
+| `flags.ts`          | Feature flags through OpenFeature (CF-4): `ai-stamp-reading`, resolved once at startup; handlers get a `FeatureFlags`.       |
 
 ## Operations
 
@@ -37,6 +38,13 @@ Failure codes the API shows (it owns the wording of the known ones, `operation-v
   ignored under `NODE_OPTIONS=--max-old-space-size` and does not count Buffers.
 - Handler time limits: file.scan max(120 s, 2 x CLAMAV_TIMEOUT_MS); email.parse and conditions.extract 120 s; conformance.read 240 s. The AI call is bounded by ANTHROPIC_TIMEOUT_MS in total.
 - clamd: socket idle timeout CLAMAV_TIMEOUT_MS; a stream over CLAMAV_STREAM_MAX_BYTES is refused before clamd cuts it off. A scan with no verdict is never `clean`.
+- Circuit breakers (BE-10, `clients/circuit-breaker.ts`, in process): clamd opens after 5 connection/timeout failures in a row, Anthropic after 3 failures of the service (connection, timeout,
+  429, 5xx); half-open after 30 s / 60 s with one trial call. Open clamd: a scan fails at once as a retryable `connection` error (the file stays `pending`, the operation is re-queued, the
+  last attempt records `error` as for any unreachable scanner). Open Anthropic: the stamp reader fails at once with `StampReaderError("error")` (counted in `kr.ai.stamp_reading{result="error"}`)
+  and `conformance.read` falls through to the text rule. Verdicts, clamd's own errors, refusals, unparseable answers, aborts and failing source streams do not count as the dependency being down.
+- `ai-stamp-reading` is read through OpenFeature, never from `FEATURE_AI_STAMP_READING` directly: the Anthropic client is created only when the flag is on and `ANTHROPIC_API_KEY` is set, and
+  `conformance.read` calls it only when `allowAi` and the flag and the key and the reader are all there.
+- Stored objects read for parsing are capped by `UPLOAD_MAX_BYTES` twice: on the declared size, and on the bytes actually streamed.
 
 ## Scan errors
 
@@ -47,13 +55,15 @@ scanner's limit or a missing object) the file becomes `error`, `scan_attempts` g
 ## Sweeps (hourly, first one 60 s after start, one worker at a time through `pg_try_advisory_lock`)
 
 `purge_files` (objects of files soft-deleted over 30 days ago; sets `purged_at`; audit `file.purged`), `expired_rows` (sessions 7 days after expiry or revocation, expired sign-in flows,
-idempotency keys over 24 h, expired rate-limit rows), `rescan_errors`, `requeue_stuck_scans` (pending over 15 minutes with no scan queued or running).
+idempotency keys over 24 h, expired rate-limit rows), `rescan_errors`, `requeue_stuck_scans` (pending over 15 minutes with no scan queued or running; a file still pending after 24 hours
+is the `scan_pending_too_long` alert, error level, ids only, counted as `stalled` in the sweep report).
 
 ## Signals
 
 Metrics (`@kr/telemetry`): `kr.operations.processed` / `duration` (final states only), `queue_depth` / `queue_age` (due queued operations per type), `kr.files.scanned{result}`,
 `kr.ai.stamp_reading{result}`. Log events (ids and codes only, no personal data): `malware_detected`, `scan_failed`, `scan_retries_exhausted`, `operation_succeeded`, `operation_requeued`,
-`operation_failed`, `lease_lost`, `leases_requeued`, `stamp_reading_failed`, `purge_failed`, `sweep_completed`, `sweep_task_failed`, `clamd_unreachable`.
+`operation_failed`, `lease_lost`, `leases_requeued`, `stamp_reading_failed`, `purge_failed`, `sweep_completed`, `sweep_task_failed`, `clamd_unreachable`, `scan_pending_too_long` (error),
+`circuit_state_changed` (warn when it opens). Unhandled errors are logged by name, code and frames only (`describeError`), never the raw error.
 
 ## Running and testing
 
