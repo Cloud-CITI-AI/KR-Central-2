@@ -1,5 +1,10 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { VisuallyHidden } from "@/components/ui/VisuallyHidden";
 import { cx } from "@/lib/cx";
-import { ROLE_LABELS, STATUS_LABELS } from "./messages";
+import { REMOVE_FAILED, ROLE_LABELS, STATUS_LABELS } from "./messages";
+import { useRevokeGrant } from "./queries";
 import type { Grant } from "./types";
 import styles from "./GrantList.module.css";
 
@@ -14,10 +19,23 @@ function whoText(grant: Grant): string {
 
 /**
  * One person on the list: name and email, job chip, role, status chip (PENDING / ACTIVE / REVOKED), the invitation
- * chip when an Entra invitation was attempted, and for an active grant the account it is bound to (§3.4), so staff
- * can spot a wrong match.
+ * chip when an Entra invitation was attempted, for an active grant the account it is bound to (§3.4, so staff can spot
+ * a wrong match), and × with the inline "Remove? Yes / No" confirmation for grants that are not revoked yet.
  */
 export function GrantRow({ grant }: GrantRowProps) {
+  const revoke = useRevokeGrant();
+  const [confirming, setConfirming] = useState(false);
+  const removeButton = useRef<HTMLButtonElement>(null);
+  const question = useRef<HTMLSpanElement>(null);
+  const wasConfirming = useRef(false);
+
+  useEffect(() => {
+    // Asking moves focus to the safe answer (No); answering puts it back on the × that asked.
+    if (confirming) question.current?.querySelector<HTMLElement>("[data-no]")?.focus();
+    else if (wasConfirming.current) removeButton.current?.focus();
+    wasConfirming.current = confirming;
+  }, [confirming]);
+
   return (
     <li className={styles.row}>
       <span className={styles.who}>{grant.status === "active" ? grant.email : whoText(grant)}</span>
@@ -34,6 +52,48 @@ export function GrantRow({ grant }: GrantRowProps) {
       {grant.status === "active" && (
         <span className={styles.bound}>{grant.displayName ? `Signed in as ${grant.displayName}` : "Signed in"}</span>
       )}
+      {revoke.isError && (
+        <span role="alert" className={styles.failed}>
+          {REMOVE_FAILED}
+        </span>
+      )}
+      {grant.status !== "revoked" &&
+        (confirming ? (
+          <span ref={question} className={styles.confirm}>
+            Remove?
+            <Button
+              small
+              onClick={() => {
+                setConfirming(false);
+                revoke.mutate(grant);
+              }}
+            >
+              Yes
+            </Button>
+            <Button
+              small
+              data-no
+              onClick={() => {
+                setConfirming(false);
+              }}
+            >
+              No
+            </Button>
+          </span>
+        ) : (
+          <button
+            ref={removeButton}
+            type="button"
+            className={styles.remove}
+            disabled={revoke.isPending}
+            onClick={() => {
+              setConfirming(true);
+            }}
+          >
+            <VisuallyHidden>Remove {grant.email}</VisuallyHidden>
+            <span aria-hidden="true">×</span>
+          </button>
+        ))}
     </li>
   );
 }

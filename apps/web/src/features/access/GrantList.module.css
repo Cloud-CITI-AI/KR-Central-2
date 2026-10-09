@@ -68,3 +68,34 @@
   color: var(--red-ink);
   font-size: 12px;
 }
+.failed {
+  color: var(--red-ink);
+  font-size: 12px;
+}
+.remove {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-3);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.remove:hover {
+  background: var(--red-bg);
+  color: var(--red-ink);
+}
+.confirm {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--red-ink);
+  font-size: 12px;
+}
+@media print {
+  .remove,
+  .confirm {
+    display: none;
+  }
+}

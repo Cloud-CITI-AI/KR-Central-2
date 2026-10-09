@@ -34,3 +34,5 @@ export function saveFailedText(requestId: string | undefined): string {
 
 export const ROLE_LABELS = { client: "Client", architect: "Architect" } as const;
 export const STATUS_LABELS = { pending: "Pending", active: "Active", revoked: "Revoked" } as const;
+
+export const REMOVE_FAILED = "That couldn't be removed. Try again.";

@@ -1,5 +1,5 @@
 import { PROBLEM_TYPES } from "@kr/contracts";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
@@ -45,9 +45,9 @@ describe("GrantList", () => {
     const { container } = renderWithProviders(<GrantList />);
     await screen.findAllByRole("listitem");
     expect(rowTexts()).toEqual([
-      "Al Typed <a@example.com>S-0002ClientPendingInvitation failed",
-      "b@example.comS-0002ClientActiveInvitation sentSigned in as Bea Bound",
-      "c@example.comS-0002ClientActiveSigned in",
+      "Al Typed <a@example.com>S-0002ClientPendingInvitation failedRemove a@example.com×",
+      "b@example.comS-0002ClientActiveInvitation sentSigned in as Bea BoundRemove b@example.com×",
+      "c@example.comS-0002ClientActiveSigned inRemove c@example.com×",
       "z@example.comS-0010ArchitectRevoked",
     ]);
     await expectNoAxeViolations(container);
@@ -77,5 +77,66 @@ describe("GrantList", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "The access list couldn't be loaded. Reload the page and try again. (Request ID: req-list-1)",
     );
+  });
+});
+
+describe("GrantList revoke", () => {
+  const listOf = (...grants: ReturnType<typeof syntheticGrant>[]) =>
+    mockApi("listAccessGrants", { items: grants, nextCursor: null });
+
+  it("asks Remove? Yes/No with focus on No, and No keeps the person", async () => {
+    server.use(listOf(syntheticGrant({ email: "a@example.com" })));
+    renderWithProviders(<GrantList />);
+    await userEvent.click(await screen.findByRole("button", { name: "Remove a@example.com" }));
+    expect(screen.getByText("Remove?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "No" })).toHaveFocus();
+    await userEvent.click(screen.getByRole("button", { name: "No" }));
+    expect(screen.queryByText("Remove?")).toBeNull();
+    expect(screen.getByRole("button", { name: "Remove a@example.com" })).toHaveFocus();
+  });
+
+  it("revokes on Yes: the row turns Revoked at once and the list is reloaded", async () => {
+    const grant = syntheticGrant({ email: "a@example.com", status: "active" });
+    let revoked: string | undefined;
+    let lists = 0;
+    server.use(
+      handlerFor("listAccessGrants", () => {
+        lists += 1;
+        return HttpResponse.json({ items: [revoked ? { ...grant, status: "revoked" } : grant], nextCursor: null });
+      }),
+      handlerFor("revokeAccessGrant", ({ params }) => {
+        revoked = String(params.grantId);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderWithProviders(<GrantList />);
+    await userEvent.click(await screen.findByRole("button", { name: "Remove a@example.com" }));
+    await userEvent.click(screen.getByRole("button", { name: "Yes" }));
+    expect(await screen.findByText("Revoked")).toBeInTheDocument();
+    expect(revoked).toBe(grant.id);
+    await waitFor(() => {
+      expect(lists).toBe(2);
+    });
+    expect(screen.queryByRole("button", { name: "Remove a@example.com" })).toBeNull();
+  });
+
+  it("puts the row back and says so when the API refuses", async () => {
+    server.use(
+      listOf(syntheticGrant({ email: "a@example.com" })),
+      mockProblem("revokeAccessGrant", 500, PROBLEM_TYPES.internal),
+    );
+    renderWithProviders(<GrantList />);
+    await userEvent.click(await screen.findByRole("button", { name: "Remove a@example.com" }));
+    await userEvent.click(screen.getByRole("button", { name: "Yes" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("That couldn't be removed. Try again.");
+    expect(screen.getByText("Pending")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove a@example.com" })).toBeInTheDocument();
+  });
+
+  it("offers no remove button on a revoked grant", async () => {
+    server.use(listOf(syntheticGrant({ email: "a@example.com", status: "revoked" })));
+    renderWithProviders(<GrantList />);
+    await screen.findByText("Revoked");
+    expect(screen.queryByRole("button", { name: /Remove/ })).toBeNull();
   });
 });
