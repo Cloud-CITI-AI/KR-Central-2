@@ -27,6 +27,10 @@ identity.
   with owner and removal/review date; flag lint in CI lists flags past their date.
 - `.env.example` contains every variable with fake values; a unit test compares config schema keys with it.
 
+- **Playbook sync**: the playbook's `playbook-sync` workflow is not installed yet because there is no organisation
+  playbook repository to sync from; managed files are vendored at playbook v1.0.0 (`managed-by` headers) and
+  `playbook-guard` checks their markers. Install `playbook-sync` when KR/cloudcitiwa publishes the playbook repo.
+
 ## Consequences
 
 No secrets in images, repo, logs or agent context; agents never read `.env*` (X2, `.claude/settings.json` deny rules).

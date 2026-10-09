@@ -16,12 +16,18 @@ CSP with nonces, performance budgets.
 
 - **Next.js 16 (App Router, React 19)**, `output: "standalone"`, deployed as its own Railway service.
 - **Same-origin BFF proxy**: `app/api/v1/[...path]/route.ts` streams requests to the API over Railway private networking
-  (`API_INTERNAL_URL`), forwarding only allowlisted headers (cookie, content-type, if-match, idempotency-key, x-csrf-token,
-  range, x-request-id, origin) and adding `X-Forwarded-*`; responses stream back (uploads/downloads not buffered). The API
-  is not publicly exposed. No business logic in the web tier.
-- **Proxy (`src/proxy.ts`, Next 16's renamed middleware)**: per-request CSP nonce (`script-src 'nonce-…' 'strict-dynamic'`,
-  `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'none'`), optimistic redirect to `/sign-in` when no session
-  cookie (real check is the API).
+  (`API_INTERNAL_URL`), forwarding only allowlisted headers (cookie, content-type, content-length, if-match,
+  idempotency-key, x-csrf-token, range, x-request-id, origin, user-agent) plus `X-Forwarded-For` (as received from the
+  Railway edge, so the API's per-IP sign-in limit sees the real client; API `TRUST_PROXY_HOPS=1`), `X-Forwarded-Proto`
+  and `X-Forwarded-Host`; responses stream back (uploads/downloads not buffered), multiple `Set-Cookie` headers are
+  preserved (`getSetCookie()`), redirects are passed through. The API is not publicly exposed. No business logic in the
+  web tier. `/api/healthz` (web liveness) and `/api/readyz` (bare api readiness) are the only extra routes.
+- **Proxy (`src/proxy.ts`, Next 16's renamed middleware)**: per-request CSP nonce (`default-src 'self'; script-src
+'self' 'nonce-…' 'strict-dynamic'; style-src 'self' 'nonce-…'; style-src-attr 'unsafe-inline'; img-src 'self' data:
+blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; object-src 'none';
+base-uri 'none'; form-action 'self'`) — `data:` images for the noise texture, `style-src-attr` for progress widths
+  set as inline style attributes (no script execution). Optimistic redirect to `/sign-in` when no session cookie (real
+  check is the API). The matcher excludes `/api/*`, `/_next/*` and static files, so uploads never pass through it.
 - **Styling: CSS Modules** porting the prototype CSS rule-for-rule on top of `@kr/design-tokens/tokens.css` (Tailwind
   would make pixel-faithful porting harder and add a dependency category).
 - **Server state: TanStack Query** (interactive tracker, optimistic updates, 15 s refetch while visible); no global store.

@@ -18,9 +18,14 @@ integration tests (BE-9). Railway's Postgres gives a single superuser URL by def
   `packages/db/src/schema.ts` mirroring the SQL.
 - Migrations are plain SQL files run by a small checksummed runner with an advisory lock, `lock_timeout 5s`, one
   transaction per file (`-- migrate:no-transaction` for `CREATE INDEX CONCURRENTLY`). Squawk in CI.
-- Roles: `tracker_migrator` owns schema `tracker` and runs migrations (Railway pre-deploy command with
-  `MIGRATION_DATABASE_URL`); `tracker_app` has DML only, cannot UPDATE/DELETE `audit_events`. Created by an operator
-  with `bootstrap-cli` once per environment; passwords rotated by re-running it.
+- Roles: `tracker_migrator` owns schema `tracker` and runs migrations; `tracker_app` has DML only, cannot
+  UPDATE/DELETE `audit_events`. Created by an operator with `bootstrap-cli` once per environment; passwords rotated by
+  re-running it.
+- **Where migrations run** (revised after review): a dedicated private Railway service **`migrate`** (image built from
+  `services/ops`) is the only service that holds `MIGRATION_DATABASE_URL`. It is deployed before the api; on start it
+  takes a `pg_dump` to the backup bucket when migrations are pending, applies them, and only then reports healthy, so
+  the deploy script gates the api on it. A Railway _pre-deploy command_ on the api was rejected: it runs inside the api
+  service with the api's variables, which would hand the running API the DDL role and defeat DB-6.
 - Enumerations as text + CHECK; UUID keys; `version` columns for optimistic concurrency; soft delete where users expect
   "remove" to be recoverable.
 - Tests: Testcontainers `postgres:17-alpine`; when Docker is unavailable `TEST_DATABASE_ADMIN_URL` points at a local

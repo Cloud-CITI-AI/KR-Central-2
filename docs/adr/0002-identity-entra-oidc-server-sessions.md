@@ -21,6 +21,14 @@ SC-B4: no custom crypto or token parsing; ASVS L3 for authentication.
 - Flow: authorization code + **PKCE (S256)** as a **confidential client** (client secret, rotated ≤ 90 days; certificate
   credential is a later hardening). Library: `openid-client` v6 (discovery, JWKS, ID token validation); the API also
   checks `tid` equals the configured tenant and `nonce`. State/nonce/verifier stored server-side (`auth_flows`, 10 min).
+- **Login-CSRF binding** (added after review): `startLogin` sets `__Host-kr_auth` (random 256-bit, HttpOnly, Secure,
+  SameSite=Lax, 10 min) and stores its SHA-256 in the flow; `completeLogin` requires the cookie to match, so a callback
+  URL minted for an attacker's account cannot sign a victim in as the attacker.
+- **Authority pinning**: `ENTRA_AUTHORITY_HOST` may point at the mock IdP only in local/preview; staging and production
+  refuse to start unless it is `https://login.microsoftonline.com` (a wrong value would be a sign-in bypass). The mock
+  IdP is a dev dependency and never in a production image.
+- **Email claims**: email is never an identity key. Guests' grants are matched on the `email` claim only (never
+  `preferred_username`/UPN), and not when `xms_edov=false`; members' staff-domain rule may use the UPN.
 - Identity key: (`tid`, `oid`) — not email, not `sub`.
 - Sessions: opaque 256-bit random id in `__Host-kr_session` (HttpOnly, Secure, SameSite=Lax, Path=/); only its SHA-256
   is stored in Postgres (`sessions`). Idle 120 min sliding, absolute 12 h. New id on every sign-in; sessions revoked on
@@ -28,8 +36,10 @@ SC-B4: no custom crypto or token parsing; ASVS L3 for authentication.
 - CSRF: per-session token (`GET /v1/me` → `X-CSRF-Token` header) + `Origin` check + SameSite=Lax.
 - The browser only talks to the web origin; the API is reached through the web app's same-origin proxy (ADR-0005), so
   the cookie is first-party and the API needs no CORS.
-- MFA for admins via Entra Conditional Access; the API enforces `amr` contains `mfa` on admin-only endpoints when
-  `REQUIRE_MFA_FOR_ADMIN=true`.
+- MFA for admins via Entra Conditional Access; the API additionally requires MFA evidence on admin-only endpoints
+  when `REQUIRE_MFA_FOR_ADMIN=true`: `amr` contains `mfa` (`ADMIN_MFA_EVIDENCE=amr`) or the `acrs` claim contains a
+  Conditional Access authentication context (`ADMIN_MFA_EVIDENCE=acrs`). Whether Entra v2 ID tokens for this app carry
+  `amr` is **unverified**; proving one of the two in staging is a go-live gate (deploy guide).
 
 ## Options considered
 
@@ -47,5 +57,6 @@ Clients/architects need Entra B2B guest accounts (ADR-0014). Local development a
 
 ## Compliance check
 
-Integration tests against the mock IdP for: state mismatch, nonce mismatch, wrong tenant, expired flow, disabled user;
+Integration tests against the mock IdP for: state mismatch, nonce mismatch, missing/mismatched browser-binding
+cookie, wrong tenant, expired flow, disabled user, guest email fallback refused;
 route-table test (every non-public route requires a session); ZAP baseline on staging; cookie flags asserted in tests.
