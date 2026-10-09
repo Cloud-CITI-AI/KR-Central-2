@@ -202,3 +202,29 @@ export function buildMsg(email: SyntheticEmail, options: MsgOptions = {}): Uint8
   CFB.utils.cfb_add(container, "/__properties_version1.0", properties);
   return Uint8Array.from(CFB.write(container, { type: "buffer" }) as Buffer);
 }
+
+/** A multipart/alternative .eml: RFC 2047 (base64) subject and sender, a base64 plain part and an HTML part. */
+export function buildEml(email: SyntheticEmail): string {
+  const word = (text: string): string => `=?UTF-8?B?${Buffer.from(text, "utf8").toString("base64")}?=`;
+  return [
+    `From: ${word(email.fromName)} <${email.fromEmail}>`,
+    `To: ${email.to}`,
+    `Cc: ${email.cc}`,
+    `Subject: ${word(email.subject)}`,
+    "Date: Mon, 16 Mar 2026 09:30:00 +0800",
+    "MIME-Version: 1.0",
+    'Content-Type: multipart/alternative; boundary="b1"',
+    "",
+    "--b1",
+    "Content-Type: text/plain; charset=utf-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    Buffer.from(email.body, "utf8").toString("base64"),
+    "--b1",
+    "Content-Type: text/html; charset=utf-8",
+    "",
+    "<p>The HTML alternative is not used when a plain part exists.</p>",
+    "--b1--",
+    "",
+  ].join("\r\n");
+}

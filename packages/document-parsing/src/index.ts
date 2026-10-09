@@ -9,3 +9,4 @@ export { pdfTextLines } from "./pdf/text.js";
 export { pdfStampAnnotations, pdfFirstPage } from "./pdf/annotations.js";
 export { renderFirstPagePng, type RenderOptions } from "./pdf/render.js";
 export { parseMsg } from "./email/msg.js";
+export { parseEml } from "./email/eml.js";
