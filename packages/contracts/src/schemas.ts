@@ -80,7 +80,13 @@ export const UserListQuery = PaginationQuery.extend({
   q: z.string().trim().max(100).optional(),
   role: GlobalRole.optional(),
 });
-export const UserPage = page(User, "UserPage");
+/**
+ * A user as the admin user list and updateUser return it: User plus the row version, so a client can send
+ * If-Match on updateUser. A superset of User (Me.user stays User).
+ */
+export const ManagedUser = User.extend({ version: Version }).meta({ id: "ManagedUser" });
+export type ManagedUser = z.infer<typeof ManagedUser>;
+export const UserPage = page(ManagedUser, "UserPage");
 
 export const UpdateUserRequest = z
   .strictObject({ role: GlobalRole.optional(), status: UserStatus.optional() })
@@ -534,6 +540,11 @@ export const AuditEventListQuery = PaginationQuery.extend({
   jobId: Uuid.optional(),
   actorId: Uuid.optional(),
   action: z.string().max(80).optional(),
+  from: IsoDate.optional().meta({ description: "First Perth business date, inclusive" }),
+  to: IsoDate.optional().meta({ description: "Last Perth business date, inclusive" }),
+}).refine((q) => q.from === undefined || q.to === undefined || q.from <= q.to, {
+  message: "from must not be after to",
+  path: ["to"],
 });
 export const AuditEventPage = page(AuditEvent, "AuditEventPage");
 

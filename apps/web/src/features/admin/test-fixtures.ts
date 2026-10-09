@@ -1,9 +1,9 @@
 /** Synthetic data only (TD-1). */
 import { faker } from "@faker-js/faker";
-import { AuditEvent, JobCard, User } from "@kr/contracts";
+import { AuditEvent, JobCard, ManagedUser } from "@kr/contracts";
 
-export function syntheticUser(overrides: Partial<User> = {}): User {
-  return User.parse({
+export function syntheticUser(overrides: Partial<ManagedUser> = {}): ManagedUser {
+  return ManagedUser.parse({
     id: faker.string.uuid(),
     displayName: faker.person.fullName(),
     email: faker.internet.email().toLowerCase(),
@@ -12,6 +12,7 @@ export function syntheticUser(overrides: Partial<User> = {}): User {
     status: "active",
     lastSignInAt: "2026-09-28T03:50:56.543Z",
     createdAt: "2026-06-01T00:00:00.000Z",
+    version: 1,
     ...overrides,
   });
 }

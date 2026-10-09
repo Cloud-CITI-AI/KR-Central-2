@@ -99,3 +99,7 @@ One line per orchestrator answer to a coding agent, newest last.
 - WP-07: members with `xms_edov=false` use the UPN, not the `email` claim, for email, staff-domain rule and first-admin eligibility (spec §3.1 step 4).
 - WP-07: missing or unreadable `acct`, `oid` or `tid` fails closed with `reason=failed`; an unknown account type is never treated as a member (relies on the deploy guide's `acct` optional claim).
 - WP-07: `promote-admin` also claims `system_bootstrap` (ON CONFLICT DO NOTHING) so a later eligible first sign-in cannot become a second admin after an operator names one.
+- WP-11: `AuditEventListQuery` gains optional `from`/`to` (IsoDate, inclusive Perth business dates, `from > to` → 400); the API converts them to UTC with @kr/workflow. Additive; WP-18's AuditPage may now send them and drop its page-back workaround.
+- WP-11: `updateUser` takes an OPTIONAL `If-Match` (stale → 412, no 428): a required header would be a breaking new input (BE-3) for the shipped web UsersPage; the last-admin guarantee rests on row locks, not on If-Match. Spec §14 keeps required If-Match to job, checkpoint and condition edits.
+- WP-11: new `ManagedUser` = `User` + `version`, returned by `listUsers` (UserPage) and `updateUser`; `Me.user` stays `User`, so the auth module is unchanged. The web may adopt If-Match on updateUser later from `version`.
+- WP-11: delivering the 5-PR stack as 10 finer commits (each ≤ 400 changed lines, A1) is accepted; the squash-merge stack follows the commits, each PR naming its 11-a..11-e slice.

@@ -82,6 +82,12 @@ const VERSIONED_ERRORS = {
 const csrf = CsrfHeader;
 const csrfIfMatch = CsrfHeader.extend(IfMatchHeader.shape);
 const csrfIdem = CsrfHeader.extend(IdempotencyKeyHeader.shape);
+/** CSRF plus an optional If-Match: honoured when sent (stale → 412), never required (no 428). */
+const csrfOptionalIfMatch = CsrfHeader.extend({
+  "if-match": IfMatchHeader.shape["if-match"]
+    .optional()
+    .meta({ description: 'Optional current version, quoted (e.g. "3"). Stale → 412; omitted → last write wins.' }),
+});
 
 export const ROUTES = [
   // ------------------------------------------------------------ health (not proxied by the web app)
@@ -183,12 +189,13 @@ export const ROUTES = [
     tag: "users",
     auth: "session",
     authz: "global capability users.manage; cannot change own role/status; cannot remove the last active admin",
-    request: { params: S.UserIdParams, body: S.UpdateUserRequest, headers: csrf },
+    request: { params: S.UserIdParams, body: S.UpdateUserRequest, headers: csrfOptionalIfMatch },
     responses: {
-      200: { description: "Updated user", schema: S.User },
+      200: { description: "Updated user (ETag carries the new version)", schema: S.ManagedUser },
       ...WRITE_ERRORS,
       404: problem("User not found"),
       409: problem("Would remove the last admin"),
+      412: problem("If-Match was sent and is stale — reload and retry"),
     },
   },
   // ------------------------------------------------------------ jobs

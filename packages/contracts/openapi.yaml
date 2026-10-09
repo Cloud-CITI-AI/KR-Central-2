@@ -315,6 +315,15 @@ paths:
               request)
           required: true
           description: CSRF token from GET /v1/me (required on every state-changing request)
+        - in: header
+          name: if-match
+          schema:
+            description: Optional current version, quoted (e.g. "3"). Stale → 412; omitted →
+              last write wins.
+            type: string
+            pattern: ^"\d+"$
+          description: Optional current version, quoted (e.g. "3"). Stale → 412; omitted →
+            last write wins.
       requestBody:
         required: true
         content:
@@ -323,11 +332,11 @@ paths:
               $ref: "#/components/schemas/UpdateUserRequest"
       responses:
         "200":
-          description: Updated user
+          description: Updated user (ETag carries the new version)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/ManagedUser"
         "400":
           description: Validation failed
           content:
@@ -354,6 +363,12 @@ paths:
                 $ref: "#/components/schemas/Problem"
         "409":
           description: Would remove the last admin
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "412":
+          description: If-Match was sent and is stale — reload and retry
           content:
             application/problem+json:
               schema:
@@ -2498,6 +2513,24 @@ paths:
           schema:
             type: string
             maxLength: 80
+        - in: query
+          name: from
+          schema:
+            description: First Perth business date, inclusive
+            type: string
+            format: date
+            pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+            example: 2026-06-14
+          description: First Perth business date, inclusive
+        - in: query
+          name: to
+          schema:
+            description: Last Perth business date, inclusive
+            type: string
+            format: date
+            pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+            example: 2026-06-14
+          description: Last Perth business date, inclusive
       responses:
         "200":
           description: Events
@@ -3059,7 +3092,7 @@ components:
         items:
           type: array
           items:
-            $ref: "#/components/schemas/User"
+            $ref: "#/components/schemas/ManagedUser"
         nextCursor:
           description: Cursor for the next page, or null on the last page
           type:
@@ -3068,6 +3101,59 @@ components:
       required:
         - items
         - nextCursor
+      additionalProperties: false
+    ManagedUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+          description: UUID identifier
+          example: 0f8fad5b-d9cb-469f-a165-70867728950e
+        displayName:
+          type: string
+        email:
+          description: Email from the IdP (shown to admins and in the access manager only)
+          type:
+            - string
+            - "null"
+        role:
+          $ref: "#/components/schemas/GlobalRole"
+        isGuest:
+          type: boolean
+          description: Entra B2B guest (external) account
+        status:
+          $ref: "#/components/schemas/UserStatus"
+        lastSignInAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+              description: Instant (RFC 3339)
+              example: 2026-09-28T03:50:56.543Z
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+          description: Instant (RFC 3339)
+          example: 2026-09-28T03:50:56.543Z
+        version:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+          description: Row version for optimistic concurrency (send as If-Match)
+      required:
+        - id
+        - displayName
+        - email
+        - role
+        - isGuest
+        - status
+        - lastSignInAt
+        - createdAt
+        - version
       additionalProperties: false
     JobPage:
       type: object
