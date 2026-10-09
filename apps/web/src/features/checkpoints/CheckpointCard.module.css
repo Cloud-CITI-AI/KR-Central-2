@@ -1,0 +1,90 @@
+/* prototype .card, .ttl, .num, .det, .meta, .stat-label (status colours come from the effective status) */
+.card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--red-line);
+  border-radius: var(--radius);
+  background: var(--red-bg);
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+.card[data-s="completed"] {
+  border-color: var(--green-line);
+  background: var(--green-bg);
+}
+.card[data-s="not_required"] {
+  border-color: var(--grey-line);
+  background: var(--grey-bg);
+}
+.card[data-s="not_required"] .ttl,
+.card[data-s="not_required"] .det {
+  color: var(--grey-ink);
+}
+.ttl {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 16px;
+  font-weight: 500;
+}
+.heading {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0;
+  font: inherit;
+}
+.num {
+  min-width: 2.6em;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.statLabel {
+  align-self: center;
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.card[data-s="completed"] .statLabel {
+  color: var(--green-ink);
+}
+.card[data-s="not_completed"] .statLabel {
+  color: var(--red-ink);
+}
+.det {
+  margin: 3px 0 0;
+  padding-left: calc(2.6em + 8px);
+  color: var(--ink-2);
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+  padding-left: calc(2.6em + 8px);
+}
+.restricted {
+  margin: 0;
+  color: var(--ink-2);
+}
+@media (max-width: 760px) {
+  .card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .det,
+  .meta {
+    padding-left: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+}

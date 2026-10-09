@@ -1,5 +1,13 @@
+"use client";
 import type { CheckpointState, JobDetail } from "@kr/contracts";
-import type { CheckpointDefinition } from "@kr/workflow";
+import { STATUS_LABELS, type CheckpointDefinition, type Panel } from "@kr/workflow";
+import { useId } from "react";
+import { ConditionsPanel } from "@/features/conditions";
+import { assertNever } from "./assertNever";
+import { CheckpointTags } from "./CheckpointTags";
+import { CHECKPOINT_MESSAGES } from "./messages";
+import { PanelBox } from "./PanelBox";
+import styles from "./CheckpointCard.module.css";
 
 export interface CheckpointCardProps {
   readonly job: JobDetail;
@@ -7,15 +15,70 @@ export interface CheckpointCardProps {
   readonly definition: CheckpointDefinition;
 }
 
+interface PanelViewProps extends CheckpointCardProps {
+  readonly panel: Panel;
+}
+
+/** One panel of a checkpoint. Exhaustive over the `Panel` union: a new panel type fails to compile until it is rendered here. */
+function PanelView({ panel, job, checkpoint }: PanelViewProps) {
+  switch (panel.type) {
+    case "conditions":
+      return <ConditionsPanel job={job} checkpoint={checkpoint} />;
+    case "approval":
+    case "paid":
+    case "kr_note":
+    case "documents":
+    case "slots":
+    case "clearance":
+    case "survey":
+    case "conformance":
+    case "emails":
+      return null;
+    default:
+      return assertNever(panel);
+  }
+}
+
 /**
- * One checkpoint card (PRODUCT_SPEC §5.4–5.5) — STUB owned by WP-15. Rendered by the tracker (WP-14) for every
- * checkpoint of an open, non-excluded stage. Must render the panel of type "conditions" with
- * `<ConditionsPanel>` from "@/features/conditions".
+ * One checkpoint card (PRODUCT_SPEC §5.4–5.5): number, title and status label, description, tags, then the panels of the
+ * workflow definition in order. Colours follow the effective status. For a viewer without `fee_proposal.view` the fee
+ * proposal's panels are replaced by one line of text.
  */
-export function CheckpointCard({ checkpoint, definition }: CheckpointCardProps) {
+export function CheckpointCard({ job, checkpoint, definition }: CheckpointCardProps) {
+  const titleId = useId();
   return (
-    <div data-checkpoint={checkpoint.key} data-s={checkpoint.status}>
-      {definition.number} {definition.title}
+    <div
+      className={styles.card}
+      data-checkpoint={checkpoint.key}
+      data-s={checkpoint.status}
+      role="group"
+      aria-labelledby={titleId}
+    >
+      <div>
+        <div className={styles.ttl}>
+          <h3 id={titleId} className={styles.heading}>
+            <span className={styles.num}>{definition.number}</span> <span>{definition.title}</span>
+          </h3>
+          <span className={styles.statLabel}>{STATUS_LABELS[checkpoint.status]}</span>
+        </div>
+        {definition.description && <p className={styles.det}>{definition.description}</p>}
+        <CheckpointTags definition={definition} />
+        {checkpoint.isRestricted ? (
+          <PanelBox>
+            <p className={styles.restricted}>{CHECKPOINT_MESSAGES.restricted}</p>
+          </PanelBox>
+        ) : (
+          definition.panels.map((panel, index) => (
+            <PanelView
+              key={`${panel.type}-${index}`}
+              panel={panel}
+              job={job}
+              checkpoint={checkpoint}
+              definition={definition}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }

@@ -1,0 +1,21 @@
+/* prototype `.approval`: the white box a panel sits in, indented under the card title */
+.box {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  margin-left: calc(2.6em + 8px);
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.note {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+@media (max-width: 760px) {
+  .box {
+    margin-left: 0;
+  }
+}
