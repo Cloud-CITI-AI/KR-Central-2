@@ -1,0 +1,83 @@
+.top {
+  color: #fff;
+  background:
+    var(--hero-overlay),
+    url("@kr/design-tokens/assets/hero-header-bg.jpg") center 38% / cover no-repeat,
+    #141618;
+  border-bottom: 4px solid var(--accent);
+}
+.inner {
+  display: grid;
+  gap: 44px;
+  padding-block: 22px 34px;
+}
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.brand {
+  line-height: 0;
+}
+.logo {
+  display: block;
+  height: 40px;
+  width: auto;
+  max-width: 100%;
+}
+.tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+.tag {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.user {
+  font-size: 13px;
+}
+.text {
+  display: grid;
+  gap: 12px;
+  max-width: 760px;
+}
+.title {
+  margin: 0;
+  font-size: clamp(26px, 4.2vw, 40px);
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+.sep {
+  display: block;
+  width: 90px;
+  height: 2px;
+  background: var(--accent);
+}
+.sub {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 300;
+  opacity: 0.92;
+}
+@media print {
+  .controls {
+    display: none;
+  }
+}

@@ -1,0 +1,12 @@
+.footer {
+  color: var(--on-bg-2);
+  font-size: 12px;
+  padding-block: 24px 36px;
+}
+.footer p {
+  margin: 0 0 6px;
+}
+.footer a {
+  color: inherit;
+  text-decoration: underline;
+}
