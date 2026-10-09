@@ -1,0 +1,44 @@
+{
+  "name": "@kr/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "API contract: zod schemas, route registry, permissions and the generated OpenAPI 3.1 document.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@kr/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./openapi.yaml": "./openapi.yaml"
+  },
+  "files": [
+    "dist",
+    "openapi.yaml"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && pnpm openapi:check",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "format": "prettier --write .",
+    "test:unit": "vitest run --project unit --coverage --passWithNoTests",
+    "test:integration": "echo 'no integration layer in this package'",
+    "test:contract": "echo 'no contract layer in this package'",
+    "test:e2e": "echo 'no e2e layer in this package'",
+    "test:mutation": "stryker run",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build",
+    "openapi:generate": "tsx --conditions=@kr/source scripts/generate-openapi.ts",
+    "openapi:check": "tsx --conditions=@kr/source scripts/generate-openapi.ts --check"
+  },
+  "dependencies": {
+    "@kr/workflow": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "yaml": "2.9.1",
+    "zod-openapi": "6.0.2"
+  }
+}
