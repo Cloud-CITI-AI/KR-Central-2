@@ -1,6 +1,8 @@
 /** Kysely access to `files`, `email_messages` and the rows an upload depends on (BE-7: no string-built SQL). */
 import type { Database, Db, EmailMessageRow, FileRow } from "@kr/db";
-import type { Transaction } from "kysely";
+import type { Kysely, Transaction } from "kysely";
+
+type Executor = Kysely<Database> | Transaction<Database>;
 
 export interface NewFile {
   readonly id: string;
@@ -107,4 +109,23 @@ export async function conditionIsCurrent(db: Db, jobId: string, conditionId: str
     .where("superseded_at", "is", null)
     .executeTakeFirst();
   return row !== undefined;
+}
+
+/** A file that has not been removed (soft delete hides it from everyone, PRODUCT_SPEC §11). */
+export function findFile(db: Executor, fileId: string): Promise<FileRow | undefined> {
+  return db.selectFrom("files").selectAll().where("id", "=", fileId).where("deleted_at", "is", null).executeTakeFirst();
+}
+
+export function findEmail(db: Executor, fileId: string): Promise<EmailMessageRow | undefined> {
+  return db.selectFrom("email_messages").selectAll().where("file_id", "=", fileId).executeTakeFirst();
+}
+
+/** The uploader as the file view shows them: id and display name only. */
+export async function findUploaderRef(
+  db: Executor,
+  userId: string,
+): Promise<{ readonly id: string; readonly display_name: string } | null> {
+  return (
+    (await db.selectFrom("users").select(["id", "display_name"]).where("id", "=", userId).executeTakeFirst()) ?? null
+  );
 }

@@ -3,6 +3,7 @@
  * Audit action names and behaviour worth knowing: see README.md.
  */
 import type { ApiModule } from "../../platform/module.js";
+import { registerFileRoutes } from "./http/file-routes.js";
 import { registerUploadRoutes } from "./http/upload-routes.js";
 
 export const filesModule: ApiModule = {
@@ -10,5 +11,6 @@ export const filesModule: ApiModule = {
   operations: ["uploadFile", "getFile", "getFileContent", "deleteFile", "downloadJobPackage", "pasteEmail"],
   register(app, deps) {
     registerUploadRoutes(app, deps);
+    registerFileRoutes(app, deps);
   },
 };

@@ -1,5 +1,8 @@
 /** Test support: synthetic file bytes the sniffer accepts and a multipart body builder (TD-1: no real documents). */
+import { createHash } from "node:crypto";
+import type { FileRow } from "@kr/db";
 import type { LightMyRequestResponse } from "fastify";
+import type { Factories } from "../../../test/factories.js";
 import { apiRequest, type SignedIn, type TestApp } from "../../../test/helpers/index.js";
 
 const zeros = (n: number): number[] => Array.from({ length: n }, () => 0);
@@ -73,4 +76,43 @@ export function uploadFile(t: Pick<TestApp, "app">, c: UploadCall): Promise<Ligh
     body: payload,
     headers: { ...headers, ...c.headers },
   });
+}
+
+export interface SeedFile {
+  readonly jobId: string;
+  readonly data: Buffer;
+  readonly name?: string;
+  readonly kind?: FileRow["kind"];
+  readonly contentType?: string;
+  readonly scanStatus?: FileRow["scan_status"];
+  readonly checkpointKey?: string;
+  readonly slot?: string;
+  readonly conditionId?: string;
+  readonly uploadedBy?: string;
+}
+
+/** A files row with its object in the test storage, as the worker leaves it after a scan (clean unless told). */
+export async function seedFile(t: Pick<TestApp, "db" | "storage">, f: Factories, o: SeedFile): Promise<FileRow> {
+  const contentType = o.contentType ?? "application/pdf";
+  const row = await f.makeFile({
+    jobId: o.jobId,
+    kind: o.kind ?? "pdf",
+    name: o.name ?? "Plan.pdf",
+    ...(o.checkpointKey ? { checkpointKey: o.checkpointKey } : {}),
+    ...(o.slot ? { slot: o.slot } : {}),
+    ...(o.conditionId ? { conditionId: o.conditionId } : {}),
+    ...(o.uploadedBy ? { uploadedBy: o.uploadedBy } : {}),
+    ...(o.scanStatus ? { scanStatus: o.scanStatus } : {}),
+  });
+  await t.storage.put({ key: row.storage_key, body: o.data, contentType });
+  return t.db
+    .updateTable("files")
+    .set({
+      content_type: contentType,
+      size_bytes: o.data.length,
+      sha256: createHash("sha256").update(o.data).digest(),
+    })
+    .where("id", "=", row.id)
+    .returningAll()
+    .executeTakeFirstOrThrow();
 }
