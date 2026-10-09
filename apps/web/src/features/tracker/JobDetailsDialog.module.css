@@ -1,0 +1,15 @@
+.form {
+  display: grid;
+  gap: 12px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.error {
+  margin: 0;
+  color: var(--red-ink);
+  font-size: 13px;
+}

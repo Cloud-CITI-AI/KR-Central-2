@@ -12,3 +12,10 @@ export const TRACKER_MESSAGES = {
   offline: OFFLINE,
   saveAsPdfTitle: "Saves exactly what is showing – use Expand all first to include everything",
 } as const;
+
+/** Job details form (§5.1): the duplicate text is the spec's; the required-field texts are additions. */
+export const JOB_DETAILS_MESSAGES = { jobNumber: "Enter the job number.", address: "Enter the address." } as const;
+
+export function duplicateJobText(jobNumber: string): string {
+  return `${jobNumber} is already in use.`;
+}

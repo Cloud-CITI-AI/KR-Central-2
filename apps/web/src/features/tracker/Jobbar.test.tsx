@@ -62,4 +62,15 @@ describe("Jobbar", () => {
     await userEvent.click(pdf);
     expect(onSaveAsPdf).toHaveBeenCalledTimes(1);
   });
+
+  it("offers EDIT JOB only with job.edit, and it opens the Job details dialog", async () => {
+    server.use(mockApi("listJobs", jobPage([])));
+    const readOnly = syntheticJob({ role: "external", grantRole: "architect" });
+    const view = renderTracker(<Jobbar job={readOnly} onSaveAsPdf={() => undefined} />);
+    expect(screen.queryByRole("button", { name: "EDIT JOB" })).toBeNull();
+    view.unmount();
+    renderTracker(<Jobbar job={syntheticJob()} onSaveAsPdf={() => undefined} />);
+    await userEvent.click(screen.getByRole("button", { name: "EDIT JOB" }));
+    expect(screen.getByRole("dialog", { name: "Job details" })).toBeInTheDocument();
+  });
 });
