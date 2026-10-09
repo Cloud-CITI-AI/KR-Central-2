@@ -15,7 +15,7 @@ vi.mock("next/navigation", async () => (await import("@/features/dashboard/test-
 describe("DashboardPage", () => {
   it("renders the dashboard header with counts from the facets and leaves <main> and the h1 to the layout", async () => {
     setTestUrl("/");
-    server.use(mockApi("getJobFacets", syntheticFacets()));
+    server.use(mockApi("getJobFacets", syntheticFacets()), mockApi("listJobs", { items: [], nextCursor: null }));
     const { container } = renderWithProviders(<DashboardPage />);
     expect(await screen.findByRole("button", { name: "In progress (5)" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Subdivision dashboard" })).toBeInTheDocument();
@@ -32,6 +32,7 @@ describe("DashboardPage", () => {
         statuses.push(new URL(request.url).searchParams.get("status"));
         return HttpResponse.json(syntheticFacets());
       }),
+      mockApi("listJobs", { items: [], nextCursor: null }),
     );
     renderWithProviders(<DashboardPage />);
     await userEvent.click(await screen.findByRole("button", { name: "Complete (2)" }));
@@ -46,7 +47,7 @@ describe("DashboardPage", () => {
 
   it("shows the archived banner for ?archived= and lets the user dismiss it", async () => {
     setTestUrl("/?archived=S-0001");
-    server.use(mockApi("getJobFacets", syntheticFacets()));
+    server.use(mockApi("getJobFacets", syntheticFacets()), mockApi("listJobs", { items: [], nextCursor: null }));
     renderWithProviders(<DashboardPage />);
     expect(await screen.findByText("S-0001 was archived.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
@@ -55,7 +56,7 @@ describe("DashboardPage", () => {
 
   it("starts from the filters in the URL", async () => {
     setTestUrl("/?status=all&type=Amalgamation");
-    server.use(mockApi("getJobFacets", syntheticFacets()));
+    server.use(mockApi("getJobFacets", syntheticFacets()), mockApi("listJobs", { items: [], nextCursor: null }));
     renderWithProviders(<DashboardPage />);
     expect(await screen.findByRole("button", { name: "All (7)" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /^Amalgamation/ })).toHaveAttribute("aria-pressed", "true");
@@ -63,7 +64,10 @@ describe("DashboardPage", () => {
 
   it("shows a problem banner with the request id when the counts cannot be loaded", async () => {
     setTestUrl("/");
-    server.use(mockProblem("getJobFacets", 500, PROBLEM_TYPES.internal, { requestId: "req-dash-1" }));
+    server.use(
+      mockProblem("getJobFacets", 500, PROBLEM_TYPES.internal, { requestId: "req-dash-1" }),
+      mockApi("listJobs", { items: [], nextCursor: null }),
+    );
     renderWithProviders(<DashboardPage />);
     expect(
       await screen.findByText(

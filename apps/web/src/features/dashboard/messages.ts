@@ -10,3 +10,11 @@ export function loadFailedText(requestId: string | undefined): string {
 export function archivedText(jobNumber: string): string {
   return `${jobNumber} was archived.`;
 }
+
+export const GRID_MESSAGES = {
+  noMatch: "No jobs match.",
+  /** An external user with no active grants (§3.4). */
+  noAccess: "You don't have access to any jobs yet — ask your KR Surveys contact.",
+  loadMore: "Load more",
+  loading: "Loading jobs…",
+} as const;

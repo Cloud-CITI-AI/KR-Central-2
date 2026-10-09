@@ -3,13 +3,14 @@ import { Banner } from "@/components/ui/Banner";
 import { ApiProblem } from "@/lib/api";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardJobbar } from "./DashboardJobbar";
+import { JobGrid } from "./JobGrid";
 import { archivedText, loadFailedText } from "./messages";
 import { SummaryChips } from "./SummaryChips";
 import { useJobFacets } from "./queries";
 import { useDashboardParams } from "./useDashboardParams";
 import styles from "./Dashboard.module.css";
 
-/** The dashboard (§6): filters in the URL, counts from `getJobFacets`. Cards and forms follow below. */
+/** The dashboard (§6): filters in the URL, counts from `getJobFacets`. The cards follow the counts. */
 export function Dashboard() {
   const { params, update } = useDashboardParams();
   const facets = useJobFacets(params.status);
@@ -33,6 +34,7 @@ export function Dashboard() {
         )}
         <DashboardHeader params={params} facets={facets.data} onChange={update} />
         {facets.data && <SummaryChips facets={facets.data} />}
+        <JobGrid params={params} visibleJobs={facets.data?.statusCounts.all} />
       </div>
     </>
   );
