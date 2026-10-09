@@ -1,0 +1,132 @@
+/* prototype .dash-head, .dash-tools, .dash-filter, .dash-types, .dt, .dt-n */
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+}
+.title {
+  margin: 0 auto 0 0;
+  font-size: 18px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+/*
+ * Pressed states use the primary-button colours (white on #c04a10 in light, dark ink on the lighter accent in dark)
+ * because the prototype's white on #d65614 is 4.03:1, below WCAG AA (§12, not overridable).
+ */
+.filter,
+.types {
+  --on-ink: #fff;
+  --pressed-bg: var(--accent-hover);
+  --count-bg: rgba(255, 255, 255, 0.25);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) :is(.filter, .types) {
+    --on-ink: var(--on-status);
+    --pressed-bg: var(--accent);
+    --count-bg: rgba(0, 0, 0, 0.2);
+  }
+}
+:root[data-theme="dark"] :is(.filter, .types) {
+  --on-ink: var(--on-status);
+  --pressed-bg: var(--accent);
+  --count-bg: rgba(0, 0, 0, 0.2);
+}
+.filter {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.filter button {
+  padding: 6px 12px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+}
+.filter button:last-child {
+  border-right: 0;
+}
+.filter button[aria-pressed="true"] {
+  background: var(--brand);
+  color: var(--brand-ink);
+}
+.search {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field);
+  font-size: 14px;
+}
+.types {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.typeLabel {
+  margin-right: 2px;
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.chip:hover {
+  border-color: var(--ink-3);
+}
+.chip[aria-pressed="true"] {
+  background: var(--pressed-bg);
+  border-color: var(--pressed-bg);
+  color: var(--on-ink);
+}
+.chipCount {
+  min-width: 1.4em;
+  padding: 0 5px;
+  border-radius: var(--radius);
+  background: var(--field);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.chip[aria-pressed="true"] .chipCount {
+  background: var(--count-bg);
+  color: var(--on-ink);
+}
+@media print {
+  .head {
+    break-inside: avoid;
+  }
+}
