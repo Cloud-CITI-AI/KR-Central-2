@@ -38,3 +38,15 @@ export const SCAN_STATE_TEXT = {
   infected: "Blocked – failed the virus scan",
   error: "Couldn't be checked for viruses – remove it and upload it again",
 } as const;
+
+/** The conformance read finished without a result: the PDF could not be read (§10.1). */
+export function conformanceUnreadableText(name: string): string {
+  return `${name} couldn't be read. Enter the conformed date below.`;
+}
+
+/** The read could not be started (the file is not ready, or the request failed). */
+export function conformanceNotStartedText(name: string, notReady: boolean, requestId: string | undefined): string {
+  return notReady
+    ? `${name} isn't ready to be read yet – try again once it has been checked for viruses`
+    : `${name} couldn't be sent to be read${requestId ? ` (Request ID: ${requestId})` : ""}`;
+}
