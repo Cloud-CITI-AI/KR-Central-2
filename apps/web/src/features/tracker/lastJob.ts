@@ -9,3 +9,12 @@ export function rememberLastJob(jobId: string): void {
     // storage blocked: the back link simply stays hidden
   }
 }
+
+/** Forget it (the job was archived). */
+export function forgetLastJob(jobId: string): void {
+  try {
+    if (localStorage.getItem(LAST_JOB_KEY) === jobId) localStorage.removeItem(LAST_JOB_KEY);
+  } catch {
+    // storage blocked
+  }
+}

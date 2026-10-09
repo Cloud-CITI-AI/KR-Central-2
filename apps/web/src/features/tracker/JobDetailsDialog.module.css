@@ -13,3 +13,14 @@
   color: var(--red-ink);
   font-size: 13px;
 }
+/* "Archive job…" (§5.1): a danger link at the end of the row */
+.danger {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--red-ink);
+  cursor: pointer;
+  font-size: 12.5px;
+  text-decoration: underline;
+}

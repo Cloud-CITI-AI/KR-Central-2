@@ -13,6 +13,11 @@ export const TRACKER_MESSAGES = {
   saveAsPdfTitle: "Saves exactly what is showing – use Expand all first to include everything",
 } as const;
 
+/** The archive confirmation (§5.1). */
+export function archiveConfirmText(jobNumber: string): string {
+  return `Archive ${jobNumber}? It disappears from the dashboard and job picker for everyone, and client/architect access stops. Files and history are kept.`;
+}
+
 /** Job details form (§5.1): the duplicate text is the spec's; the required-field texts are additions. */
 export const JOB_DETAILS_MESSAGES = { jobNumber: "Enter the job number.", address: "Enter the address." } as const;
 

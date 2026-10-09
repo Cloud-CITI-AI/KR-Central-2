@@ -16,10 +16,25 @@ export interface JobDetailsDialogProps {
   readonly job: JobDetail;
   readonly open: boolean;
   readonly onClose: () => void;
+  /** Present with `job.delete`: opens the archive confirmation from the danger link. */
+  readonly onArchive?: () => void;
 }
 
 /** The "Job details" dialog (§5.1): job number, address, client and subdivision type, saved with `If-Match`. */
-export function JobDetailsDialog({ job, open, onClose }: JobDetailsDialogProps) {
+export function JobDetailsDialog({ job, open, onClose, onArchive }: JobDetailsDialogProps) {
+  return (
+    <Dialog open={open} onClose={onClose} title="Job details" size="small">
+      <JobDetailsForm job={job} onClose={onClose} onArchive={onArchive} />
+    </Dialog>
+  );
+}
+
+/** Mounted only while the dialog is open, so the message of an earlier attempt (e.g. a 409) never shows again on the next open. */
+function JobDetailsForm({
+  job,
+  onClose,
+  onArchive,
+}: Omit<JobDetailsDialogProps, "open" | "onArchive"> & { readonly onArchive: (() => void) | undefined }) {
   const update = useUpdateJob(job.id);
   const [error, setError] = useState("");
 
@@ -64,52 +79,55 @@ export function JobDetailsDialog({ job, open, onClose }: JobDetailsDialogProps) 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="Job details" size="small">
-      <form className={styles.form} onSubmit={(event) => void submit(event)} noValidate>
-        <Field label="Job number">
-          {(c) => (
-            <Input
-              {...c}
-              name="jobNumber"
-              defaultValue={job.jobNumber}
-              maxLength={32}
-              autoComplete="off"
-              data-autofocus
-            />
-          )}
-        </Field>
-        <Field label="Address">
-          {(c) => <Input {...c} name="address" defaultValue={job.address} maxLength={200} autoComplete="off" />}
-        </Field>
-        <Field label="Client (optional)">
-          {(c) => (
-            <Input {...c} name="clientName" defaultValue={job.clientName ?? ""} maxLength={200} autoComplete="off" />
-          )}
-        </Field>
-        <Field label="Subdivision type">
-          {(c) => (
-            <Select {...c} name="subdivisionType" defaultValue={job.subdivisionType ?? ""}>
-              {!job.subdivisionType && <option value="">Subdivision type…</option>}
-              {SUBDIVISION_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </Select>
-          )}
-        </Field>
-        {error && (
-          <p role="alert" className={styles.error}>
-            {error}
-          </p>
+    <form className={styles.form} onSubmit={(event) => void submit(event)} noValidate>
+      <Field label="Job number">
+        {(c) => (
+          <Input
+            {...c}
+            name="jobNumber"
+            defaultValue={job.jobNumber}
+            maxLength={32}
+            autoComplete="off"
+            data-autofocus
+          />
         )}
-        <div className={styles.actions}>
-          <Button type="submit" variant="primary" disabled={update.isPending}>
-            Save
-          </Button>
-          <Button onClick={onClose}>Cancel</Button>
-        </div>
-      </form>
-    </Dialog>
+      </Field>
+      <Field label="Address">
+        {(c) => <Input {...c} name="address" defaultValue={job.address} maxLength={200} autoComplete="off" />}
+      </Field>
+      <Field label="Client (optional)">
+        {(c) => (
+          <Input {...c} name="clientName" defaultValue={job.clientName ?? ""} maxLength={200} autoComplete="off" />
+        )}
+      </Field>
+      <Field label="Subdivision type">
+        {(c) => (
+          <Select {...c} name="subdivisionType" defaultValue={job.subdivisionType ?? ""}>
+            {!job.subdivisionType && <option value="">Subdivision type…</option>}
+            {SUBDIVISION_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </Select>
+        )}
+      </Field>
+      {error && (
+        <p role="alert" className={styles.error}>
+          {error}
+        </p>
+      )}
+      <div className={styles.actions}>
+        <Button type="submit" variant="primary" disabled={update.isPending}>
+          Save
+        </Button>
+        <Button onClick={onClose}>Cancel</Button>
+        {onArchive && (
+          <button type="button" className={styles.danger} onClick={onArchive}>
+            Archive job…
+          </button>
+        )}
+      </div>
+    </form>
   );
 }

@@ -2,6 +2,7 @@ import { PROBLEM_TYPES } from "@kr/contracts";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { queryKeys } from "@/lib/api";
 import { expectNoAxeViolations } from "@/test/axe";
@@ -82,6 +83,36 @@ describe("JobDetailsDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("S-0002 is already in use.");
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("forgets the message when the dialog is cancelled and opened again", async () => {
+    const job = syntheticJob({ fields: { jobNumber: "S-0001", address: "1 Example Rd" } });
+    server.use(mockProblem("updateJob", 409, PROBLEM_TYPES.conflict));
+    const Host = () => {
+      const [open, setOpen] = useState(true);
+      const set = (next: boolean) => () => {
+        setOpen(next);
+      };
+      return (
+        <>
+          <button type="button" onClick={set(true)}>
+            EDIT JOB
+          </button>
+          <JobDetailsDialog job={job} open={open} onClose={set(false)} />
+        </>
+      );
+    };
+    const { queryClient } = renderTracker(<Host />);
+    queryClient.setQueryData(queryKeys.jobs.detail(job.id), job);
+    await userEvent.clear(screen.getByLabelText("Job number"));
+    await userEvent.type(screen.getByLabelText("Job number"), "S-0002");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("S-0002 is already in use.");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "EDIT JOB" }));
+    expect(screen.getByLabelText("Job number")).toHaveValue("S-0001");
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("on 412 closes and shows the stale banner with the latest job loaded (§5.1)", async () => {
