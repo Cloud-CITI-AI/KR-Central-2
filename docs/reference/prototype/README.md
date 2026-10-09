@@ -13,7 +13,7 @@ do not import, run or copy this code into the app — port behaviour as specifie
 
 What is deliberately **not** here (TD-1: real client data must never enter the repository):
 
-- the prototype's example job, its data file and files manifest, and every `s0561-*` screenshot;
+- the prototype's example job, its data file and files manifest, and every screenshot of that job;
 - the export data block at the top of `extracted.js` (replaced by an empty stub; it held the demo job and the
   customer's developer notes, which are captured as requirements in PRODUCT_SPEC §13);
 - the real stamp text used as an example in the AI prompt (replaced with a synthetic `DATE 16-Mar-2026 FILE 123-26`).
