@@ -1,0 +1,84 @@
+/* prototype .mails, .mail, .mail .nm, .mail-m, .mail > .rm, .mail > .confirm */
+.mails {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 8px;
+  align-items: center;
+  padding: 5px 6px 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--field);
+}
+.nm,
+.blocked {
+  grid-column: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nm {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.nm:hover {
+  text-decoration-color: var(--accent);
+}
+.blocked {
+  color: var(--ink-3);
+}
+.meta {
+  grid-column: 1;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.bad {
+  color: var(--red-ink);
+}
+.remove,
+.confirm {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.remove {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-3);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.remove:hover {
+  background: var(--red-bg);
+  color: var(--red-ink);
+}
+.confirm {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--red-ink);
+  font-size: 12px;
+}
+@media print {
+  .remove,
+  .confirm {
+    display: none;
+  }
+}
