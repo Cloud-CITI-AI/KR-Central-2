@@ -24,6 +24,19 @@ describe("parseDashboardParams", () => {
   });
 });
 
+describe("parseDashboardParams archived", () => {
+  it.each(["Your account was hacked, call 555-0100", "<b>x</b>", "-S-1", "S-".concat("1".repeat(40)), "   "])(
+    "drops %j because it is not a job number",
+    (value) => {
+      expect(parseDashboardParams(search(`archived=${encodeURIComponent(value)}`)).archived).toBe("");
+    },
+  );
+
+  it("keeps a job number, trimmed", () => {
+    expect(parseDashboardParams(search("archived=%20S-0001%20")).archived).toBe("S-0001");
+  });
+});
+
 describe("dashboardHref", () => {
   it("leaves defaults out of the URL", () => {
     expect(dashboardHref("/", search("status=complete"), { status: "in_progress" })).toBe("/");

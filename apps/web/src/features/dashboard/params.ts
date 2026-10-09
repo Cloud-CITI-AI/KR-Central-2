@@ -1,4 +1,4 @@
-import { JobStatusFilter, SubdivisionType as SubdivisionTypeSchema } from "@kr/contracts";
+import { CreateJobRequest, JobStatusFilter, SubdivisionType as SubdivisionTypeSchema } from "@kr/contracts";
 import type { SubdivisionType } from "@kr/workflow";
 import type { DashboardStatus } from "./types";
 
@@ -18,11 +18,13 @@ type Search = Pick<URLSearchParams, "get" | "toString">;
 export function parseDashboardParams(search: Search): DashboardParams {
   const status = JobStatusFilter.safeParse(search.get("status"));
   const type = SubdivisionTypeSchema.safeParse(search.get("type"));
+  // The banner quotes this text, so only a real job number (the contract's schema) gets through; anything else fails closed.
+  const archived = CreateJobRequest.shape.jobNumber.safeParse(search.get("archived"));
   return {
     status: status.success ? status.data : "in_progress",
     type: type.success ? type.data : "",
     q: (search.get("q") ?? "").slice(0, 100),
-    archived: (search.get("archived") ?? "").slice(0, 32),
+    archived: archived.success ? archived.data : "",
   };
 }
 
