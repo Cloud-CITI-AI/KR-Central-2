@@ -1,0 +1,105 @@
+import { PROBLEM_TYPES } from "@kr/contracts";
+import { screen, waitFor } from "@testing-library/react";
+import { Component, type ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { expectNoAxeViolations } from "@/test/axe";
+import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
+import { server } from "@/test/msw/server";
+import { HttpResponse } from "msw";
+import { TrackerPage } from "./TrackerPage";
+import { LAST_JOB_KEY } from "./lastJob";
+import { syntheticJob } from "./test-fixtures";
+import { NOT_FOUND, renderTracker } from "./test-utils";
+
+vi.mock("next/navigation", async () => (await import("./test-utils")).navigationMock);
+
+class Boundary extends Component<{ readonly children: ReactNode }, { readonly error: string | null }> {
+  override state = { error: null as string | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error: error.message };
+  }
+  override render() {
+    return this.state.error ? <p>caught {this.state.error}</p> : this.props.children;
+  }
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+});
+
+describe("TrackerPage", () => {
+  it("shows a status while loading, then the jobbar, and remembers the job for the dashboard's back link", async () => {
+    const job = syntheticJob();
+    server.use(mockApi("getJob", job));
+    const { container } = renderTracker(<TrackerPage jobId={job.id} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Loading job…");
+    expect(await screen.findByRole("heading", { name: job.jobNumber })).toBeInTheDocument();
+    expect(localStorage.getItem(LAST_JOB_KEY)).toBe(job.id);
+    await expectNoAxeViolations(container);
+  });
+
+  it("still works when storage is blocked", async () => {
+    const job = syntheticJob();
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    server.use(mockApi("getJob", job));
+    renderTracker(<TrackerPage jobId={job.id} />);
+    expect(await screen.findByRole("heading", { name: job.jobNumber })).toBeInTheDocument();
+  });
+
+  it("renders the not-found page when the API answers 404 (also a job the person may not see)", async () => {
+    server.use(mockProblem("getJob", 404, PROBLEM_TYPES.notFound));
+    renderTracker(
+      <Boundary>
+        <TrackerPage jobId={syntheticJob().id} />
+      </Boundary>,
+    );
+    expect(await screen.findByText(`caught ${NOT_FOUND}`)).toBeInTheDocument();
+  });
+
+  it("shows the view-only banner to architects only, not to staff or a client who can decide and mark paid (§5.1)", async () => {
+    const architect = syntheticJob({ role: "external", grantRole: "architect" });
+    server.use(mockApi("getJob", architect));
+    const view = renderTracker(<TrackerPage jobId={architect.id} />);
+    expect(
+      await screen.findByText("You have view-only access to this tracker, so changes can't be saved."),
+    ).toBeInTheDocument();
+    view.unmount();
+    for (const job of [syntheticJob(), syntheticJob({ role: "external", grantRole: "client" })]) {
+      server.use(mockApi("getJob", job));
+      const { unmount } = renderTracker(<TrackerPage jobId={job.id} />);
+      await screen.findByRole("heading", { name: job.jobNumber });
+      expect(screen.queryByText(/view-only/)).toBeNull();
+      unmount();
+    }
+  });
+
+  it("shows a banner with the request id when the job cannot be loaded", async () => {
+    server.use(mockProblem("getJob", 500, PROBLEM_TYPES.internal, { requestId: "req-abc" }));
+    renderTracker(<TrackerPage jobId={syntheticJob().id} />);
+    expect(
+      await screen.findByText("This job couldn't be loaded. Reload the page and try again. (Request ID: req-abc)"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows the connectivity banner when the server cannot be reached", async () => {
+    server.use(handlerFor("getJob", () => HttpResponse.error()));
+    renderTracker(<TrackerPage jobId={syntheticJob().id} />);
+    expect(await screen.findByText(/Can't reach the server/)).toBeInTheDocument();
+  });
+
+  it("clears the load banner once a refresh succeeds", async () => {
+    const job = syntheticJob();
+    server.use(mockProblem("getJob", 500, PROBLEM_TYPES.internal));
+    const { queryClient } = renderTracker(<TrackerPage jobId={job.id} />);
+    await screen.findByText(/couldn't be loaded/);
+    server.use(mockApi("getJob", job));
+    await queryClient.refetchQueries();
+    await waitFor(() => {
+      expect(screen.queryByText(/couldn't be loaded/)).toBeNull();
+    });
+  });
+});
