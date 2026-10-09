@@ -1,7 +1,7 @@
 import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import Provider, { type OidcContext } from "oidc-provider";
+import { loadProvider, type OidcContext } from "./oidc-types.js";
 import type { MockIdp, MockIdpOptions, MockUser } from "./index.js";
 import { logoutPage, signedOutPage, userPickerPage } from "./pages.js";
 
@@ -91,6 +91,7 @@ export async function startMockIdp(opts: MockIdpOptions): Promise<MockIdp> {
   const issuer = opts.issuer ?? `${authorityHost}/${opts.tenantId}/v2.0`;
   const mount = new URL(issuer).pathname.replace(/\/$/, "");
 
+  const Provider = await loadProvider();
   const provider = new Provider(issuer, {
     clients: [
       {
