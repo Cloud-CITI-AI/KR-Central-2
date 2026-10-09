@@ -1,6 +1,6 @@
 "use client";
-import type { JobDetail } from "@kr/contracts";
-import type { SlotDefinition } from "@kr/workflow";
+import type { FileMeta, JobDetail } from "@kr/contracts";
+import type { FileKind, SlotDefinition } from "@kr/workflow";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { queryKeys, uploadFile, type UploadedFile } from "@/lib/api";
@@ -18,6 +18,14 @@ export interface UploadProgress {
   readonly fraction: number;
 }
 
+/** `job` with `file` added to the slot's files of the checkpoint (and unchanged when it is there already). */
+function addToSlot(checkpointKey: string) {
+  return (job: JobDetail, file: FileMeta): JobDetail =>
+    mapCheckpoint(job, checkpointKey, (c) =>
+      c.files.some((f) => f.id === file.id) ? c : { ...c, files: [...c.files, file] },
+    );
+}
+
 export interface UseUploadFiles {
   /** Send the files one after the other. Resolves with the ones that were stored; refused ones go to `errors`. */
   readonly upload: (files: readonly File[]) => Promise<readonly UploadedFile[]>;
@@ -27,28 +35,48 @@ export interface UseUploadFiles {
   readonly errors: readonly string[];
 }
 
-export interface UseUploadFilesOptions {
+interface UploadFilesBase {
   readonly jobId: string;
+}
+
+/** Files of a checkpoint's slot. */
+export interface CheckpointUploadTarget extends UploadFilesBase {
   readonly checkpointKey: string;
   readonly slot: Pick<SlotDefinition, "key" | "accept">;
 }
 
+/** Files of one condition's evidence: the caller says which kinds it takes and how a stored file joins the cached job. */
+export interface ConditionUploadTarget extends UploadFilesBase {
+  readonly conditionId: string;
+  readonly accept: readonly FileKind[];
+  /** `job` with `file` added to the condition's evidence (and unchanged when it is there already). */
+  readonly addFile: (job: JobDetail, file: FileMeta) => JobDetail;
+}
+
+export type UseUploadFilesOptions = CheckpointUploadTarget | ConditionUploadTarget;
+
 /**
- * Upload files into a checkpoint slot (§5.5): one request per file with progress and its own Idempotency-Key. A stored file
- * shows in the card at once (scanning), the job is refreshed afterwards, and a refused file is listed with its reason
- * (too large, wrong type, …) while the others still go through.
+ * Upload files into a checkpoint slot or a condition's evidence (§5.5, §5.6): one request per file with progress and its own
+ * Idempotency-Key. A stored file shows in the card at once (scanning), the job is refreshed afterwards, and a refused file is
+ * listed with its reason (too large, wrong type, …) while the others still go through.
  */
-export function useUploadFiles({ jobId, checkpointKey, slot }: UseUploadFilesOptions): UseUploadFiles {
+export function useUploadFiles(options: UseUploadFilesOptions): UseUploadFiles {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { uploadMaxBytes } = useSession();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [errors, setErrors] = useState<readonly string[]>([]);
-  const { key: slotKey, accept } = slot;
 
   const upload = useCallback(
     async (files: readonly File[]) => {
+      const { jobId } = options;
+      const accept = "slot" in options ? options.slot.accept : options.accept;
+      const fields =
+        "slot" in options
+          ? { checkpointKey: options.checkpointKey, slot: options.slot.key }
+          : { conditionId: options.conditionId };
+      const place = "slot" in options ? addToSlot(options.checkpointKey) : options.addFile;
       const stored: UploadedFile[] = [];
       const refused: string[] = [];
       setBusy(true);
@@ -59,22 +87,14 @@ export function useUploadFiles({ jobId, checkpointKey, slot }: UseUploadFilesOpt
           const result = await uploadFile({
             jobId,
             file,
-            checkpointKey,
-            slot: slotKey,
+            ...fields,
             idempotencyKey: crypto.randomUUID(),
             onProgress: (fraction) => {
               setProgress({ name: file.name, fraction });
             },
           });
           stored.push(result);
-          queryClient.setQueryData<JobDetail>(
-            queryKeys.jobs.detail(jobId),
-            (job) =>
-              job &&
-              mapCheckpoint(job, checkpointKey, (c) =>
-                c.files.some((f) => f.id === result.file.id) ? c : { ...c, files: [...c.files, result.file] },
-              ),
-          );
+          queryClient.setQueryData<JobDetail>(queryKeys.jobs.detail(jobId), (job) => job && place(job, result.file));
         } catch (error) {
           refused.push(
             uploadErrorText(file.name, error, { acceptDescription: describeAccept(accept), maxBytes: uploadMaxBytes }),
@@ -90,7 +110,7 @@ export function useUploadFiles({ jobId, checkpointKey, slot }: UseUploadFilesOpt
       }
       return stored;
     },
-    [jobId, checkpointKey, slotKey, accept, queryClient, toast, uploadMaxBytes],
+    [options, queryClient, toast, uploadMaxBytes],
   );
 
   return { upload, busy, progress, errors };

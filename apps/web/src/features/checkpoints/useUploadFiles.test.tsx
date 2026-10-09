@@ -7,7 +7,7 @@ import { queryKeys } from "@/lib/api";
 import { syntheticFile, uploadResult } from "./test-fixtures";
 import { stubUploads } from "./test-upload";
 import { renderWithJob } from "./test-utils";
-import { useUploadFiles } from "./useUploadFiles";
+import { useUploadFiles, type UseUploadFilesOptions } from "./useUploadFiles";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -16,12 +16,16 @@ afterEach(() => {
 const SLOT = findSlot("i7_1", "documents");
 const pdf = (name: string) => new File(["%PDF"], name, { type: "application/pdf" });
 
-function Probe({ jobId, files }: { readonly jobId: string; readonly files: readonly File[] }) {
-  const { upload, busy, progress, errors } = useUploadFiles({
-    jobId,
-    checkpointKey: "i7_1",
-    slot: SLOT ?? { key: "", accept: [] },
-  });
+function Probe({
+  jobId,
+  files,
+  options = { jobId, checkpointKey: "i7_1", slot: SLOT ?? { key: "", accept: [] } },
+}: {
+  readonly jobId: string;
+  readonly files: readonly File[];
+  readonly options?: UseUploadFilesOptions;
+}) {
+  const { upload, busy, progress, errors } = useUploadFiles(options);
   return (
     <>
       <button
@@ -115,5 +119,42 @@ describe("useUploadFiles", () => {
       await screen.findByText("Lost.pdf couldn't be uploaded – check your connection and try again"),
     ).toBeInTheDocument();
     expect(screen.queryByText(/uploaded$/)).not.toBeInTheDocument();
+  });
+
+  it("uploads into a condition's evidence with its id, says its kinds when refused and lets the caller place the file", async () => {
+    const job = syntheticJob();
+    const requests = stubUploads();
+    const addFile = vi.fn((j: typeof job) => ({ ...j, address: "placed" }));
+    const options: UseUploadFilesOptions = {
+      jobId: job.id,
+      conditionId: "5c1f6a0e-3b1d-4c8e-9a52-1d2f3a4b5c6d",
+      accept: ["pdf", "image"],
+      addFile,
+    };
+    const { queryClient } = renderWithJob(
+      <Probe jobId={job.id} files={[pdf("Stat dec.pdf"), pdf("Huge.pdf")]} options={options} />,
+      job,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => {
+      expect(requests).toHaveLength(1);
+    });
+    expect(requests[0]?.body?.get("conditionId")).toBe("5c1f6a0e-3b1d-4c8e-9a52-1d2f3a4b5c6d");
+    expect(requests[0]?.body?.get("checkpointKey")).toBeNull();
+    expect(requests[0]?.fields.file).toBe("Stat dec.pdf");
+    const stored = syntheticFile(job.id, { name: "Stat dec.pdf", conditionId: "5c1f6a0e-3b1d-4c8e-9a52-1d2f3a4b5c6d" });
+    requests[0]?.finish(201, uploadResult(stored));
+    await waitFor(() => {
+      expect(requests).toHaveLength(2);
+    });
+    expect(addFile).toHaveBeenCalledWith(expect.objectContaining({ id: job.id }), stored);
+    expect(queryClient.getQueryData<typeof job>(queryKeys.jobs.detail(job.id))?.address).toBe("placed");
+    requests[1]?.finish(415, {
+      type: "urn:kr:problem:unsupported-media-type",
+      title: "Unsupported",
+      status: 415,
+      requestId: "r2",
+    });
+    expect(await screen.findByRole("listitem")).toHaveTextContent(/Huge.pdf.*PDF or photo/);
   });
 });
