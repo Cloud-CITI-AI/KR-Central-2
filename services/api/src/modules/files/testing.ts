@@ -15,6 +15,7 @@ export const pdfBytes = (padding = 64, tag = ""): Buffer =>
 export const pngBytes = (): Buffer =>
   bytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13], "IHDR", zeros(21), "IEND", zeros(4));
 
+export const mp4Bytes = (): Buffer => bytes([0, 0, 0, 0x18], "ftypisom", [0, 0, 2, 0], "isomiso2", zeros(40));
 export const dwgBytes = (): Buffer => bytes("AC1032", [0, 0, 0, 0, 0, 1], zeros(60));
 export const textBytes = (text = "Synthetic note\n"): Buffer => Buffer.from(text);
 /** Outlook message magic (the worker confirms it by parsing). */
