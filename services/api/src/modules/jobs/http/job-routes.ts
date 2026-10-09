@@ -2,12 +2,15 @@
 import { jobCapabilitiesFor } from "@kr/contracts";
 import type { FastifyInstance } from "fastify";
 import { requireCapability, resolveJobAccess } from "../../../platform/authz.js";
-import { audit, auditContext } from "../../../platform/audit.js";
-import { setEtag } from "../../../platform/concurrency.js";
+import { audit, auditContext, withTransaction } from "../../../platform/audit.js";
+import { assertVersion, setEtag } from "../../../platform/concurrency.js";
+import { NotFoundError } from "../../../platform/errors.js";
 import { sendIdempotent, withIdempotency } from "../../../platform/idempotency.js";
 import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
-import { insertJobWithCheckpoints } from "../data/job-writes.js";
+import { lockActiveJob, updateJobRow } from "../data/job-updates.js";
+import { duplicateJobNumberError, insertJobWithCheckpoints } from "../data/job-writes.js";
+import { planJobUpdate } from "../domain/job-update.js";
 import { loadJobDetail } from "./job-view.js";
 
 export function registerJobRoutes(app: FastifyInstance, deps: ModuleDeps): void {
@@ -52,6 +55,40 @@ export function registerJobRoutes(app: FastifyInstance, deps: ModuleDeps): void 
       { id: auth.user.id, capabilities: access.capabilities, grantRole: access.grantRole },
       deps.clock.now(),
     );
+    setEtag(reply, detail.version);
+    return detail;
+  });
+
+  defineRoute(app, "updateJob", async ({ auth, request, reply, params, body, expectedVersion }) => {
+    const access = await resolveJobAccess(deps.db, auth, params.jobId, "job.edit");
+    const viewer = { id: auth.user.id, capabilities: access.capabilities, grantRole: access.grantRole };
+    const detail = await withTransaction(deps.db, async (trx) => {
+      const current = await lockActiveJob(trx, params.jobId);
+      if (!current) throw new NotFoundError();
+      assertVersion(current.version, expectedVersion);
+      const plan = planJobUpdate(current, body);
+      if (!plan.isNoOp) {
+        if (plan.set.job_number !== undefined) {
+          const taken = await trx
+            .selectFrom("jobs")
+            .select("id")
+            .where("job_number", "=", plan.set.job_number)
+            .where("id", "<>", current.id)
+            .where("deleted_at", "is", null)
+            .executeTakeFirst();
+          if (taken) throw duplicateJobNumberError(plan.set.job_number);
+        }
+        await updateJobRow(trx, current, plan.set);
+        await audit(trx, auditContext(request), {
+          action: "job.updated",
+          entityType: "job",
+          entityId: current.id,
+          jobId: current.id,
+          changes: plan.changes,
+        });
+      }
+      return loadJobDetail(trx, current.id, viewer, deps.clock.now());
+    });
     setEtag(reply, detail.version);
     return detail;
   });
