@@ -31,7 +31,7 @@ describe("condition evidence files", () => {
     const { container } = renderCard(job, "i5_0");
     expect(within(group(1)).getByRole("button", { name: "Stat dec.pdf" })).toBeInTheDocument();
     expect(within(group(1)).getByRole("button", { name: "Site.pdf" })).toBeInTheDocument();
-    expect(within(group(2)).queryByRole("list")).not.toBeInTheDocument();
+    expect(within(group(2)).queryAllByRole("listitem")).toHaveLength(0);
     await expectNoAxeViolations(container);
   });
 

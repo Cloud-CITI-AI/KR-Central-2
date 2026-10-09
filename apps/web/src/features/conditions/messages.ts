@@ -52,3 +52,7 @@ export function clearedText(cleared: number, total: number): string {
 export function extractedFromText(fileName: string): string {
   return `Extracted from ${fileName} · changes here and in each agency section update each other`;
 }
+
+/** The small drop zone of a condition (§5.6). */
+export const EVIDENCE_LABEL = "Drop clearance evidence here";
+export const EVIDENCE_HINT = "photos, stat dec, approvals – or click to choose";
