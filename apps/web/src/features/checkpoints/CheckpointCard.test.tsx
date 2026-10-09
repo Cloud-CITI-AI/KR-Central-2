@@ -6,6 +6,8 @@ import { expectNoAxeViolations } from "@/test/axe";
 import { CHECKPOINT_MESSAGES } from "./messages";
 import { renderCard } from "./test-utils";
 
+const CARD = /^\d+\.\d /;
+
 describe("CheckpointCard", () => {
   it.each(CHECKPOINTS.map((c) => [c.number, c.key, c.title] as const))(
     "renders %s with its number, title, status and description",
@@ -14,7 +16,8 @@ describe("CheckpointCard", () => {
       const { container } = renderCard(syntheticJob(), key);
       const group = screen.getByRole("group", { name: `${number} ${title}` });
       expect(group).toHaveAttribute("data-checkpoint", key);
-      expect(within(group).getByText(STATUS_LABELS.not_completed)).toBeInTheDocument();
+      // the status label comes first in the card, the pressed button of the control column after it
+      expect(within(group).getAllByText(STATUS_LABELS.not_completed)).toHaveLength(2);
       if (definition?.description) expect(screen.getByText(definition.description)).toBeInTheDocument();
       expect(container.querySelectorAll("[data-checkpoint]")).toHaveLength(1);
     },
@@ -23,17 +26,17 @@ describe("CheckpointCard", () => {
   it("colours by the effective status and labels it", () => {
     const job = syntheticJob({ statuses: { i4_0: "completed", i4_1: "not_required" } });
     const done = renderCard(job, "i4_0");
-    expect(screen.getByRole("group")).toHaveAttribute("data-s", "completed");
-    expect(screen.getByText("Completed")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: CARD })).toHaveAttribute("data-s", "completed");
+    expect(screen.getAllByText("Completed")[0]).toHaveClass(/statLabel/);
     done.unmount();
     renderCard(job, "i4_1");
-    expect(screen.getByRole("group")).toHaveAttribute("data-s", "not_required");
-    expect(screen.getByText("Not required")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: CARD })).toHaveAttribute("data-s", "not_required");
+    expect(screen.getAllByText("Not required")[0]).toHaveClass(/statLabel/);
   });
 
   it("shows the effective status of a checkpoint in an excluded agency stage as Not required", () => {
     renderCard(syntheticJob({ conditionAgencies: ["Water Corporation"] }), "i6_0");
-    expect(screen.getByRole("group")).toHaveAttribute("data-s", "not_required");
+    expect(screen.getByRole("group", { name: CARD })).toHaveAttribute("data-s", "not_required");
   });
 
   it("shows the claim tag in capitals and the fee tags by who pays", () => {

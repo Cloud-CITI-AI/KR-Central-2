@@ -1,4 +1,4 @@
-import type { JobDetail } from "@kr/contracts";
+import type { CheckpointState, JobDetail } from "@kr/contracts";
 import { getCheckpoint } from "@kr/workflow";
 import { HttpResponse } from "msw";
 import { BannerRegion } from "@/components/ui/BannerRegion";
@@ -50,4 +50,16 @@ export function renderCard(
     { me, queryClient, ...options },
   );
   return { ...view, served };
+}
+
+/** The checkpoint `key` of `job`. */
+export function checkpointOf(job: JobDetail, key: string): CheckpointState {
+  const found = job.checkpoints.find((c) => c.key === key);
+  if (!found) throw new Error(`No checkpoint ${key}`);
+  return found;
+}
+
+/** `job` with the checkpoint `key` changed by `patch`: what the "server" holds after a write, or a seeded state. */
+export function withCheckpoint(job: JobDetail, key: string, patch: Partial<CheckpointState>): JobDetail {
+  return { ...job, checkpoints: job.checkpoints.map((c) => (c.key === key ? { ...c, ...patch } : c)) };
 }

@@ -1,0 +1,51 @@
+/* prototype .ctrl, .seg, .row select */
+.ctrl {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.seg button {
+  padding: 6px 4px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+.seg button:last-child {
+  border-right: 0;
+}
+.seg button:disabled {
+  cursor: not-allowed;
+}
+.seg button[aria-pressed="true"] {
+  color: var(--on-status);
+}
+.seg button[aria-pressed="true"][data-v="completed"] {
+  background: var(--green-ink);
+}
+.seg button[aria-pressed="true"][data-v="not_completed"] {
+  background: var(--red-ink);
+}
+.seg button[aria-pressed="true"][data-v="not_required"] {
+  background: var(--grey-ink);
+}
+.row select {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 12.5px;
+}
+@media print {
+  .seg {
+    display: none;
+  }
+}

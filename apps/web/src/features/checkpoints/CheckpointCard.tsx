@@ -4,6 +4,7 @@ import { STATUS_LABELS, type CheckpointDefinition, type Panel } from "@kr/workfl
 import { useId } from "react";
 import { ConditionsPanel } from "@/features/conditions";
 import { assertNever } from "./assertNever";
+import { CheckpointControls } from "./CheckpointControls";
 import { CheckpointTags } from "./CheckpointTags";
 import { CHECKPOINT_MESSAGES } from "./messages";
 import { PanelBox } from "./PanelBox";
@@ -79,6 +80,12 @@ export function CheckpointCard({ job, checkpoint, definition }: CheckpointCardPr
           ))
         )}
       </div>
+      <CheckpointControls
+        jobId={job.id}
+        capabilities={job.capabilities}
+        checkpoint={checkpoint}
+        definition={definition}
+      />
     </div>
   );
 }
