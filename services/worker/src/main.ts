@@ -31,6 +31,7 @@ const [{ createLogger }, { createDb }, { createS3Storage }, { createMetrics }, {
 const { systemClock } = await import("./clock.js");
 const { buildHandlers } = await import("./handlers/index.js");
 const { createClamdClient } = await import("./clients/clamd.js");
+const { createParser } = await import("./parsing/isolate.js");
 
 const log = createLogger({ service: "kr-worker", env: config.APP_ENV, level: config.LOG_LEVEL });
 const exit = (code: number): never => process.exit(code);
@@ -73,7 +74,7 @@ try {
     metrics,
     clock: systemClock,
     workerId: `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`,
-    handlers: buildHandlers({ db, storage, clamd, config, metrics }),
+    handlers: buildHandlers({ db, storage, clamd, parser: createParser(), config, metrics }),
   });
   if (config.MALWARE_SCAN_MODE === "required" && !(await clamd.ping())) {
     log.warn(
