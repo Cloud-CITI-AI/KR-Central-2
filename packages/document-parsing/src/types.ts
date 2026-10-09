@@ -56,6 +56,6 @@ export interface PdfFirstPage {
 }
 
 export interface PdfLimits {
-  /** Stop after this many pages (decision letters are short; protects the worker). */
+  /** A PDF with more pages than this is rejected with a `too_many_pages` error, not truncated (decision letters are short; protects the worker; PRODUCT_SPEC §15). */
   readonly maxPages: number;
 }

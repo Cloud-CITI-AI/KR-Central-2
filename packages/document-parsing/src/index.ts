@@ -3,3 +3,6 @@ export { datesIn, dateFromFileName } from "./rules/dates.js";
 export { findApprovalDates } from "./rules/approval.js";
 export { parseConditions, agencyFrom, guessAgency } from "./rules/conditions.js";
 export { fromFileName, fromStampAnnotation, fromText } from "./rules/conformed.js";
+export { DocumentParseError, type DocumentParseErrorCode } from "./errors.js";
+export { DEFAULT_PDF_LIMITS } from "./pdf/open.js";
+export { pdfTextLines } from "./pdf/text.js";
