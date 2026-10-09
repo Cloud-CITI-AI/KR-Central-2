@@ -23,6 +23,10 @@ class Boundary extends Component<{ readonly children: ReactNode }, { readonly er
   }
 }
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 beforeEach(() => {
   localStorage.clear();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -119,5 +123,18 @@ describe("TrackerPage", () => {
     await waitFor(() => {
       expect(screen.queryByText(/couldn't be loaded/)).toBeNull();
     });
+  });
+
+  it("opens the stage named by ?stage= once the job has loaded", async () => {
+    const job = syntheticJob();
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    server.use(mockApi("getJob", job), mockApi("listJobs", jobPage([])));
+    renderTracker(<TrackerPage jobId={job.id} initialStage="landgate" />);
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+    expect(document.getElementById("landgate")?.querySelector("button")).toHaveAttribute("aria-expanded", "true");
   });
 });

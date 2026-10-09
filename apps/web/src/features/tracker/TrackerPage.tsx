@@ -34,7 +34,7 @@ export const isViewOnly = (job: JobDetail): boolean => !WRITE_CAPABILITIES.some(
  * The tracker page frame (§5): loads the job, turns problems into banners (§5.1), remembers the job for the dashboard's
  * back link and lays out the jobbar. A 404 (also what a job the person may not see answers) is the branded not-found page.
  */
-export function TrackerPage({ jobId }: TrackerPageProps) {
+export function TrackerPage({ jobId, initialStage }: TrackerPageProps) {
   const query = useJob(jobId);
   const { show, dismiss } = useBanners();
   const job = query.data;
@@ -66,5 +66,5 @@ export function TrackerPage({ jobId }: TrackerPageProps) {
   }, [openedId]);
 
   if (!job) return error ? null : <Spinner label="Loading job…" />;
-  return <TrackerBody job={job} />;
+  return <TrackerBody job={job} initialStage={initialStage} />;
 }
