@@ -6,6 +6,10 @@ export const probeModule: ApiModule = {
   operations: [],
   register(app) {
     app.get("/test/whoami", (req) => ({ userId: req.auth?.user.id ?? null, role: req.auth?.user.role ?? null }));
-    app.post("/test/echo", (req) => ({ ok: true, userId: req.auth?.user.id ?? null }));
+    app.route({
+      method: ["POST", "PUT", "PATCH", "DELETE"],
+      url: "/test/echo",
+      handler: (req) => ({ ok: true, userId: req.auth?.user.id ?? null }),
+    });
   },
 };

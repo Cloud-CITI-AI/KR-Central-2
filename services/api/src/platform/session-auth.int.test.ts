@@ -100,4 +100,17 @@ describe("session authentication hook (real Postgres)", () => {
     await whoami(s.cookie);
     expect((await lastSeen(s)).getTime()).toBe(slid.getTime());
   });
+
+  it("sliding extends the idle expiry but never past the absolute limit", async () => {
+    const s = await signIn(t, await f.makeUser());
+    t.clock.advance(61_000);
+    await whoami(s.cookie);
+    const row = await t.db
+      .selectFrom("sessions")
+      .selectAll()
+      .where("id_hash", "=", hashSessionId(s.cookieValue))
+      .executeTakeFirstOrThrow();
+    expect(row.idle_expires_at.getTime()).toBe(t.deps.clock.now().getTime() + IDLE_MIN * 60_000);
+    expect(row.idle_expires_at.getTime()).toBeLessThanOrEqual(row.absolute_expires_at.getTime());
+  });
 });

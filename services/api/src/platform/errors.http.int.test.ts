@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFactories } from "../../test/factories.js";
-import { createTestApp, signIn, type SignedIn, type TestApp } from "../../test/helpers/index.js";
+import { apiRequest, createTestApp, signIn, type SignedIn, type TestApp } from "../../test/helpers/index.js";
 import { markAuthzChecked } from "./auth-context.js";
 import { ForbiddenError } from "./errors.js";
 import type { ApiModule } from "./module.js";
@@ -14,6 +14,10 @@ const mod: ApiModule = {
       markAuthzChecked(auth);
       if (query.q === "boom") throw new Error("connection to 10.0.0.5 refused (password=hunter2)");
       throw new ForbiddenError({ detail: "Not for you." });
+    });
+    defineRoute(app, "createNote", ({ auth }) => {
+      markAuthzChecked(auth);
+      return Promise.reject(new Error("unreachable"));
     });
   },
 };
@@ -50,5 +54,23 @@ describe("error responses over HTTP (signed in)", () => {
     const res = await get("/v1/users");
     expect(res.statusCode).toBe(403);
     expect(res.json()).toMatchObject({ type: "urn:kr:problem:forbidden", detail: "Not for you." });
+  });
+
+  it("unknown paths are a problem+json 404 for a signed-in caller", async () => {
+    const res = await get("/v1/nope?x=1");
+    expect(res.statusCode).toBe(404);
+    expect(res.headers["content-type"]).toContain("application/problem+json");
+    expect(res.json()).toMatchObject({ type: "urn:kr:problem:not-found", instance: "/v1/nope" });
+  });
+
+  it("accepts JSON bodies only: text/plain is 415 rather than a validation error", async () => {
+    const res = await apiRequest(t, {
+      method: "POST",
+      url: "/v1/jobs/0f8fad5b-d9cb-469f-a165-70867728950e/notes",
+      as: me,
+      headers: { "content-type": "text/plain" },
+      body: "x",
+    });
+    expect(res.statusCode).toBe(415);
   });
 });

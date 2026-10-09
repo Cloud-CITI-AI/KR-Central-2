@@ -7,6 +7,7 @@ import type { IncomingMessage } from "node:http";
 import Fastify, { LogController, type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { MODULES } from "./modules/index.js";
+import { registerCsrf } from "./platform/csrf.js";
 import { registerErrorHandling } from "./platform/errors.js";
 import { registerHealthRoutes } from "./platform/health.js";
 import type { ApiModule, ModuleDeps } from "./platform/module.js";
@@ -64,6 +65,7 @@ export async function buildApp(deps: ModuleDeps, opts: BuildAppOptions = {}): Pr
   });
 
   await registerSessionAuth(app, deps);
+  registerCsrf(app, deps);
   registerHealthRoutes(app, deps);
   for (const mod of opts.modules ?? MODULES) {
     await app.register(async (scope) => {
