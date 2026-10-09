@@ -1,0 +1,9 @@
+/* prototype .paid-box: the response box keeps its button at its own width */
+.paid {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.result {
+  justify-self: stretch;
+}
