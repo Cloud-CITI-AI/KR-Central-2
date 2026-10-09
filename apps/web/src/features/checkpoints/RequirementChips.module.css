@@ -1,0 +1,25 @@
+/* prototype .req.ok / .req.miss on a `.row.wrap` (which the prototype's page-wrapper rule also centres) */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-self: center;
+  align-items: center;
+}
+.chip {
+  padding: 3px 9px;
+  border: 1px solid;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+}
+.chip[data-received="true"] {
+  border-color: var(--green-line);
+  background: var(--green-bg);
+  color: var(--green-ink);
+}
+.chip[data-received="false"] {
+  border-color: var(--red-line);
+  background: var(--red-bg);
+  color: var(--red-ink);
+}

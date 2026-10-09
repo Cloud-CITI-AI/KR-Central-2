@@ -8,6 +8,8 @@ import { CheckpointControls } from "./CheckpointControls";
 import { CheckpointTags } from "./CheckpointTags";
 import { CHECKPOINT_MESSAGES } from "./messages";
 import { PanelBox } from "./PanelBox";
+import { SlotFolderPanel } from "./SlotFolderPanel";
+import { SlotsPanel } from "./SlotsPanel";
 import styles from "./CheckpointCard.module.css";
 
 export interface CheckpointCardProps {
@@ -25,12 +27,14 @@ function PanelView({ panel, job, checkpoint }: PanelViewProps) {
   switch (panel.type) {
     case "conditions":
       return <ConditionsPanel job={job} checkpoint={checkpoint} />;
+    case "documents":
+    case "clearance":
+      return <SlotFolderPanel job={job} checkpoint={checkpoint} slot={panel.slot} />;
+    case "slots":
+      return <SlotsPanel job={job} checkpoint={checkpoint} panel={panel} />;
     case "approval":
     case "paid":
     case "kr_note":
-    case "documents":
-    case "slots":
-    case "clearance":
     case "survey":
     case "conformance":
     case "emails":
