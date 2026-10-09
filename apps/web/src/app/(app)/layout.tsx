@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/ui/AppHeader";
 import { HeaderAccount } from "@/components/ui/HeaderAccount";
 import { BannerRegion } from "@/components/ui/BannerRegion";
 import { Footer } from "@/components/ui/Footer";
+import { ToastRegion } from "@/components/ui/ToastRegion";
 import { Wrap } from "@/components/ui/Wrap";
 import { getFeedbackUrl } from "@/env";
 import { getMe } from "@/lib/session/get-me";
@@ -23,6 +24,7 @@ export default async function AppLayout({ children }: AppLayoutProps) {
         <BannerRegion />
         {children}
       </Wrap>
+      <ToastRegion />
       <Footer maxUploadBytes={me.uploadMaxBytes} {...(feedbackUrl ? { feedbackUrl } : {})} />
     </AppProviders>
   );

@@ -4,6 +4,7 @@ import { render, type RenderOptions, type RenderResult } from "@testing-library/
 import type { ReactElement, ReactNode } from "react";
 import { BannerProvider } from "@/lib/banner/BannerProvider";
 import { SessionProvider } from "@/lib/session";
+import { ToastProvider } from "@/lib/toast/ToastProvider";
 import { syntheticMe } from "./fixtures";
 
 /** No retries and no background refetching: tests drive time themselves. */
@@ -27,7 +28,9 @@ export function renderWithProviders(
     return (
       <QueryClientProvider client={queryClient}>
         <SessionProvider me={me}>
-          <BannerProvider>{children}</BannerProvider>
+          <BannerProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </BannerProvider>
         </SessionProvider>
       </QueryClientProvider>
     );
