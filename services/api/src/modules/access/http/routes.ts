@@ -1,16 +1,44 @@
 /** listAccessGrants, createAccessGrant and revokeAccessGrant (PRODUCT_SPEC §3.4, §6): the staff-only access manager. */
 import type { FastifyInstance } from "fastify";
 import { toAccessGrant } from "../../_shared/index.js";
-import { audit, auditContext } from "../../../platform/audit.js";
+import { audit, auditContext, withTransaction } from "../../../platform/audit.js";
 import { requireCapability, resolveJobAccess } from "../../../platform/authz.js";
-import { ConflictError } from "../../../platform/errors.js";
+import { BadRequestError, ConflictError, NotFoundError } from "../../../platform/errors.js";
 import { sendIdempotent, withIdempotency } from "../../../platform/idempotency.js";
 import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
-import { findExternalAccountIds, findOpenGrant, insertGrant, isDuplicateGrant, userName } from "../data/grants.js";
+import {
+  findExternalAccountIds,
+  findOpenGrant,
+  insertGrant,
+  isDuplicateGrant,
+  listGrantRows,
+  lockGrant,
+  revokeGrantRow,
+  userName,
+} from "../data/grants.js";
+import { decodeGrantCursor, encodeGrantCursor } from "../domain/cursor.js";
 import { duplicateGrantMessage, planGrant } from "../domain/grant-plan.js";
 
 export function registerAccessRoutes(app: FastifyInstance, deps: ModuleDeps): void {
+  defineRoute(app, "listAccessGrants", async ({ auth, query }) => {
+    requireCapability(auth, "access.manage");
+    const after = query.cursor === undefined ? null : decodeGrantCursor(query.cursor);
+    if (query.cursor !== undefined && after === null) throw new BadRequestError({ detail: "The cursor is not valid." });
+    const rows = await listGrantRows(deps.db, {
+      jobId: query.jobId,
+      status: query.status,
+      afterId: after,
+      limit: query.limit,
+    });
+    const page = rows.slice(0, query.limit);
+    const last = page.at(-1);
+    return {
+      items: page.map((r) => accessGrantView(r.row, r.jobNumber, r.accountName, r.invitedByName)),
+      nextCursor: rows.length > query.limit && last ? encodeGrantCursor(last.row.id) : null,
+    };
+  });
+
   defineRoute(app, "createAccessGrant", async ({ auth, request, reply, body }) => {
     requireCapability(auth, "access.manage");
     const { job } = await resolveJobAccess(deps.db, auth, body.jobId, "access.manage");
@@ -54,6 +82,25 @@ export function registerAccessRoutes(app: FastifyInstance, deps: ModuleDeps): vo
       if (isDuplicateGrant(error)) throw duplicate();
       throw error;
     }
+  });
+
+  // Revoking is idempotent. Job visibility is evaluated on every request, so the user loses access on their next call.
+  defineRoute(app, "revokeAccessGrant", async ({ auth, request, reply, params }) => {
+    requireCapability(auth, "access.manage");
+    await withTransaction(deps.db, async (trx) => {
+      const grant = await lockGrant(trx, params.grantId);
+      if (!grant) throw new NotFoundError();
+      if (grant.status === "revoked") return;
+      await revokeGrantRow(trx, grant.id, auth.user.id, deps.clock.now());
+      await audit(trx, auditContext(request), {
+        action: "access_grant.revoked",
+        entityType: "access_grant",
+        entityId: grant.id,
+        jobId: grant.job_id,
+        changes: { status: { from: grant.status, to: "revoked" } },
+      });
+    });
+    return reply.code(204).send();
   });
 }
 
