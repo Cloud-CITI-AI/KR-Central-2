@@ -18,3 +18,23 @@ export function fileCountText(count: number, empty: string, noun = "file"): stri
 export function declineNeedsCommentText(noun: string): string {
   return `Add a comment explaining why the ${noun} is declined.`;
 }
+
+/** A file dropped on the emails zone that is not .msg or .eml (§5.5). */
+export function notAnEmailText(name: string): string {
+  return `${name} isn't an email – drop an Outlook message (.msg) or .eml file, or use Upload for other documents`;
+}
+
+/** What the emails zone says when a drop carried neither files nor text. */
+export const NOTHING_TO_ADD = "Nothing to add – drop an email file or email text";
+
+/** The pasted email could not be stored. */
+export function pasteFailedText(requestId: string | undefined): string {
+  return `The pasted email couldn't be added${requestId ? ` (Request ID: ${requestId})` : ""}`;
+}
+
+/** The scan states of a file row, exactly as §5.5 words them (infected and error files cannot be opened). */
+export const SCAN_STATE_TEXT = {
+  pending: "Scanning…",
+  infected: "Blocked – failed the virus scan",
+  error: "Couldn't be checked for viruses – remove it and upload it again",
+} as const;
