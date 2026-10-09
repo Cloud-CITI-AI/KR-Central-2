@@ -25,3 +25,18 @@ export function toFailure(error: unknown): { code: string; message: string; retr
   if (error instanceof TaskError) return { code: error.code, message: error.message, retryable: error.retryable };
   return { code: "internal_error", message: UNEXPECTED_FAILURE, retryable: true };
 }
+
+/** What to log for a thrown value (A6): name, code (SQLSTATE or errno) and frames, never the message of a database or network error (it can carry row values or addresses). */
+export function describeError(error: unknown): Record<string, unknown> {
+  if (!(error instanceof Error)) return { errorName: typeof error };
+  const code = (error as { code?: unknown }).code;
+  return {
+    errorName: error.name,
+    ...(typeof code === "string" ? { errorCode: code } : {}),
+    ...(error instanceof TaskError ? { errorMessage: error.message } : {}),
+    frames: (error.stack ?? "")
+      .split("\n")
+      .slice(1, 6)
+      .map((f) => f.trim()),
+  };
+}
