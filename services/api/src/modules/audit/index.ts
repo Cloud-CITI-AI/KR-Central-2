@@ -1,13 +1,14 @@
 /**
- * Audit trail (read). Public entry of the `audit` module — STUB, implemented by WP-11.
- * Replace `register` with the real routes (http/ → domain/ → data/), keep `operations` accurate.
+ * Audit trail, read only (PRODUCT_SPEC §9.2). Public entry of the `audit` module (WP-11). Other modules write events
+ * with `platform/audit.ts` in the same transaction as their change; nothing here writes.
  */
 import type { ApiModule } from "../../platform/module.js";
+import { registerAuditRoutes } from "./http/routes.js";
 
 export const auditModule: ApiModule = {
   name: "audit",
   operations: ["listAuditEvents"],
-  register() {
-    // Implemented by WP-11.
+  register(app, deps) {
+    registerAuditRoutes(app, deps);
   },
 };
