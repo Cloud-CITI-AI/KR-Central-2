@@ -1,7 +1,7 @@
 /** createJob (PRODUCT_SPEC §6) and getJob. */
 import { jobCapabilitiesFor } from "@kr/contracts";
 import type { FastifyInstance } from "fastify";
-import { requireCapability } from "../../../platform/authz.js";
+import { requireCapability, resolveJobAccess } from "../../../platform/authz.js";
 import { audit, auditContext } from "../../../platform/audit.js";
 import { setEtag } from "../../../platform/concurrency.js";
 import { sendIdempotent, withIdempotency } from "../../../platform/idempotency.js";
@@ -42,5 +42,17 @@ export function registerJobRoutes(app: FastifyInstance, deps: ModuleDeps): void 
     void reply.header("location", `/v1/jobs/${result.body.id}`);
     setEtag(reply, result.body.version);
     return sendIdempotent(reply, result);
+  });
+
+  defineRoute(app, "getJob", async ({ auth, reply, params }) => {
+    const access = await resolveJobAccess(deps.db, auth, params.jobId, "job.read");
+    const detail = await loadJobDetail(
+      deps.db,
+      params.jobId,
+      { id: auth.user.id, capabilities: access.capabilities, grantRole: access.grantRole },
+      deps.clock.now(),
+    );
+    setEtag(reply, detail.version);
+    return detail;
   });
 }
