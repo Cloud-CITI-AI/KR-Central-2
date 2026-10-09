@@ -22,28 +22,41 @@ export const emlBytes = (): Buffer =>
 export interface UploadPart {
   readonly name: string;
   readonly data: Buffer;
+  /** Form field name; "file" unless a test sends a wrong one. */
+  readonly field?: string;
+}
+
+/** Parts a well-behaved client never sends: fields after the file, a second file. */
+export interface MalformedParts {
+  readonly trailingFields?: Readonly<Record<string, string>>;
+  readonly extraFile?: UploadPart;
 }
 
 const BOUNDARY = "----krtestboundary7f3a9c";
 
+const fieldPart = (name: string, value: string) =>
+  Buffer.from(`--${BOUNDARY}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`, "utf8");
+const filePart = (p: UploadPart): Buffer[] => [
+  Buffer.from(
+    `--${BOUNDARY}\r\nContent-Disposition: form-data; name="${p.field ?? "file"}"; filename="${p.name}"\r\n` +
+      "Content-Type: application/octet-stream\r\n\r\n",
+    "utf8",
+  ),
+  p.data,
+  Buffer.from("\r\n"),
+];
+
 /** The raw body and content type of a multipart/form-data request: fields first, then the file. */
-export function multipartBody(fields: Readonly<Record<string, string>>, file?: UploadPart) {
-  const chunks: Buffer[] = Object.entries(fields).map(([k, v]) =>
-    Buffer.from(`--${BOUNDARY}\r\nContent-Disposition: form-data; name="${k}"\r\n\r\n${v}\r\n`, "utf8"),
-  );
-  if (file) {
-    const head = `--${BOUNDARY}\r\nContent-Disposition: form-data; name="file"; filename="${file.name}"\r\n`;
-    chunks.push(
-      Buffer.from(`${head}Content-Type: application/octet-stream\r\n\r\n`, "utf8"),
-      file.data,
-      Buffer.from("\r\n"),
-    );
-  }
+export function multipartBody(fields: Readonly<Record<string, string>>, file?: UploadPart, more: MalformedParts = {}) {
+  const chunks: Buffer[] = Object.entries(fields).map(([k, v]) => fieldPart(k, v));
+  if (file) chunks.push(...filePart(file));
+  for (const [k, v] of Object.entries(more.trailingFields ?? {})) chunks.push(fieldPart(k, v));
+  if (more.extraFile) chunks.push(...filePart(more.extraFile));
   chunks.push(Buffer.from(`--${BOUNDARY}--\r\n`));
   return { payload: Buffer.concat(chunks), headers: { "content-type": `multipart/form-data; boundary=${BOUNDARY}` } };
 }
 
-export interface UploadCall {
+export interface UploadCall extends MalformedParts {
   readonly jobId: string;
   readonly as?: SignedIn;
   readonly fields?: Readonly<Record<string, string>>;
@@ -52,7 +65,7 @@ export interface UploadCall {
 }
 
 export function uploadFile(t: Pick<TestApp, "app">, c: UploadCall): Promise<LightMyRequestResponse> {
-  const { payload, headers } = multipartBody(c.fields ?? {}, c.file);
+  const { payload, headers } = multipartBody(c.fields ?? {}, c.file, c);
   return apiRequest(t, {
     method: "POST",
     url: `/v1/jobs/${c.jobId}/files`,

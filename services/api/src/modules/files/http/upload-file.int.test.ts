@@ -1,8 +1,17 @@
 import { createHash } from "node:crypto";
+import { createMemoryStorage } from "@kr/storage/testing";
+import type { LightMyRequestResponse } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFactories, type Factories } from "../../../../test/factories.js";
-import { createTestApp, signIn, testConfig, type SignedIn, type TestApp } from "../../../../test/helpers/index.js";
-import { emlBytes, msgBytes, pdfBytes, pngBytes, uploadFile } from "../testing.js";
+import {
+  apiRequest,
+  createTestApp,
+  signIn,
+  testConfig,
+  type SignedIn,
+  type TestApp,
+} from "../../../../test/helpers/index.js";
+import { dwgBytes, emlBytes, msgBytes, pdfBytes, pngBytes, textBytes, uploadFile } from "../testing.js";
 
 interface UploadBody {
   file: Record<string, unknown> & { id: string };
@@ -26,6 +35,7 @@ describe("uploadFile (real Postgres, in-memory storage)", () => {
     await f.makeGrant({ jobId: job.id, userId: architect.user.id, role: "architect" });
     return job;
   };
+  const problem = (res: LightMyRequestResponse) => res.json<{ type: string; status: number; detail?: string }>();
   const filesOf = (jobId: string) => t.db.selectFrom("files").selectAll().where("job_id", "=", jobId).execute();
   const slotUpload = (
     jobId: string,
@@ -188,5 +198,232 @@ describe("uploadFile (real Postgres, in-memory storage)", () => {
       .executeTakeFirstOrThrow();
     expect(op.payload).toEqual({ fileId: body.file.id });
     await local.close();
+  });
+
+  it("refuses executables, empty files and files of a kind the slot does not take", async () => {
+    const job = await fresh();
+    const exe = Buffer.concat([Buffer.from("MZ"), Buffer.alloc(100)]);
+    expect((await slotUpload(job.id, staff, "i2_0", "survey", "x.pdf", exe)).statusCode).toBe(415);
+    const empty = await slotUpload(job.id, staff, "i2_0", "survey", "x.pdf", Buffer.alloc(0));
+    expect(empty.statusCode).toBe(415);
+    expect(problem(empty).detail).toBe("The file is empty");
+    const png = await slotUpload(job.id, staff, "i2_0", "survey", "x.png", pngBytes());
+    expect(png.statusCode).toBe(415);
+    expect(problem(png).detail).toBe("This box accepts PDF or DWG files only.");
+    const pdfToEmail = await slotUpload(job.id, staff, "i4_3", "email", "x.eml", pdfBytes());
+    expect(pdfToEmail.statusCode).toBe(415);
+    expect(await filesOf(job.id)).toEqual([]);
+  });
+
+  it("accepts what each slot declares: DWG in the survey box, photos, text and video where listed", async () => {
+    const job = await fresh();
+    expect((await slotUpload(job.id, staff, "i2_0", "survey", "p.dwg", dwgBytes())).json<UploadBody>().file.kind).toBe(
+      "dwg",
+    );
+    expect((await slotUpload(job.id, staff, "i11_0", "photos", "p.png", pngBytes())).json<UploadBody>().file.kind).toBe(
+      "image",
+    );
+    expect(
+      (await slotUpload(job.id, staff, "i13_notif", "documents", "n.txt", textBytes())).json<UploadBody>().file.kind,
+    ).toBe("text");
+  });
+
+  it("answers 413 above UPLOAD_MAX_BYTES, accepts exactly the limit and stores nothing for the refused one", async () => {
+    const local = await createTestApp({ config: testConfig({ UPLOAD_MAX_BYTES: "1024" }) });
+    const lf = createFactories(local.db, 103);
+    const user = await signIn(local, await lf.makeUser({ role: "staff" }));
+    const job = await lf.makeJob();
+    const send = (data: Buffer) =>
+      uploadFile(local, {
+        jobId: job.id,
+        as: user,
+        fields: { checkpointKey: "i2_0", slot: "survey" },
+        file: { name: "Big plan.pdf", data },
+      });
+    const exact = pdfBytes(1024 - pdfBytes(0).length);
+    expect(exact).toHaveLength(1024);
+    expect((await send(exact)).statusCode).toBe(201);
+    const over = await send(pdfBytes(1025 - pdfBytes(0).length));
+    expect(over.statusCode).toBe(413);
+    expect(over.json<{ type: string; detail: string }>()).toMatchObject({
+      type: "urn:kr:problem:payload-too-large",
+      detail: "Big plan.pdf is larger than 0.0 MB.",
+    });
+    const rows = await local.db.selectFrom("files").select("id").where("job_id", "=", job.id).execute();
+    expect(rows).toHaveLength(1);
+    const keys: string[] = [];
+    for await (const o of local.storage.list("jobs/")) keys.push(o.key);
+    expect(keys).toHaveLength(1);
+    await local.close();
+  });
+
+  it("streams files far above the 100 KB JSON body limit", async () => {
+    const job = await fresh();
+    const big = pdfBytes(3 * 1024 * 1024);
+    const res = await slotUpload(job.id, staff, "i2_0", "survey", "big.pdf", big);
+    expect(res.statusCode).toBe(201);
+    expect(res.json<UploadBody>().file.sizeBytes).toBe(big.length);
+  });
+
+  it("sanitises the stored name (no path parts) and never uses it in the storage key", async () => {
+    const job = await fresh();
+    const res = await slotUpload(
+      job.id,
+      staff,
+      "i2_0",
+      "survey",
+      `..\\..\\etc/passwd${String.fromCodePoint(0x202e)}.pdf`,
+      pdfBytes(),
+    );
+    const body = res.json<UploadBody>();
+    expect(body.file.name).toBe("passwd.pdf");
+    const [row] = await filesOf(job.id);
+    expect(row?.storage_key).not.toContain("passwd");
+  });
+
+  describe("malformed requests", () => {
+    it("400 for missing, conflicting or unknown fields and for an unknown slot", async () => {
+      const job = await fresh();
+      const file = { name: "a.pdf", data: pdfBytes() };
+      const call = (fields: Record<string, string>) => uploadFile(t, { jobId: job.id, as: staff, fields, file });
+      expect((await call({})).statusCode).toBe(400);
+      expect((await call({ checkpointKey: "i2_0" })).statusCode).toBe(400);
+      expect(
+        (await call({ checkpointKey: "i2_0", slot: "survey", conditionId: "5c1f6a0e-3b1d-4c8e-9a52-1d2f3a4b5c6d" }))
+          .statusCode,
+      ).toBe(400);
+      expect((await call({ checkpointKey: "i2_0", slot: "survey", other: "x" })).statusCode).toBe(400);
+      expect((await call({ checkpointKey: "nope", slot: "survey" })).statusCode).toBe(400);
+      const unknownSlot = await call({ checkpointKey: "i2_0", slot: "nope" });
+      expect(unknownSlot.statusCode).toBe(400);
+      expect(unknownSlot.json<{ errors: { path: string }[] }>().errors[0]?.path).toBe("slot");
+      expect(await filesOf(job.id)).toEqual([]);
+    });
+
+    it("400 when no file is sent, when the file part has the wrong name, and when more than one file is sent", async () => {
+      const job = await fresh();
+      const fields = { checkpointKey: "i2_0", slot: "survey" };
+      const data = pdfBytes();
+      expect((await uploadFile(t, { jobId: job.id, as: staff, fields })).statusCode).toBe(400);
+      expect(
+        (await uploadFile(t, { jobId: job.id, as: staff, fields, file: { name: "a.pdf", data, field: "upload" } }))
+          .statusCode,
+      ).toBe(400);
+      const two = await uploadFile(t, {
+        jobId: job.id,
+        as: staff,
+        fields,
+        file: { name: "a.pdf", data },
+        extraFile: { name: "b.pdf", data },
+      });
+      expect(two.statusCode).toBe(400);
+      expect(await filesOf(job.id)).toEqual([]);
+    });
+
+    it("400 for fields that arrive after the file and nothing stays behind", async () => {
+      const job = await fresh();
+      const before = (await storedKeys(t)).length;
+      const res = await uploadFile(t, {
+        jobId: job.id,
+        as: staff,
+        fields: { checkpointKey: "i2_0", slot: "survey" },
+        file: { name: "a.pdf", data: pdfBytes() },
+        trailingFields: { late: "x" },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(await filesOf(job.id)).toEqual([]);
+      expect(await storedKeys(t)).toHaveLength(before);
+    });
+
+    it("415 when the request is not multipart", async () => {
+      const job = await fresh();
+      const res = await apiRequest(t, {
+        method: "POST",
+        url: `/v1/jobs/${job.id}/files`,
+        as: staff,
+        body: { checkpointKey: "i2_0" },
+      });
+      expect(res.statusCode).toBe(415);
+    });
+  });
+
+  describe("Idempotency-Key", () => {
+    it("repeating a key returns the first result, with one file and one object", async () => {
+      const job = await fresh();
+      const before = (await storedKeys(t)).length;
+      const send = () =>
+        uploadFile(t, {
+          jobId: job.id,
+          as: staff,
+          fields: { checkpointKey: "i2_0", slot: "survey" },
+          file: { name: "a.pdf", data: pdfBytes(50, "same") },
+          headers: { "idempotency-key": "upload-key-0001" },
+        });
+      const first = await send();
+      const second = await send();
+      expect(first.statusCode).toBe(201);
+      expect(second.statusCode).toBe(201);
+      expect(second.headers["idempotent-replayed"]).toBe("true");
+      expect(second.json<UploadBody>().file.id).toBe(first.json<UploadBody>().file.id);
+      expect(await filesOf(job.id)).toHaveLength(1);
+      expect(await storedKeys(t)).toHaveLength(before + 1);
+    });
+
+    it("the same key with another file is a 409 and its object is removed", async () => {
+      const job = await fresh();
+      const send = (tag: string) =>
+        uploadFile(t, {
+          jobId: job.id,
+          as: staff,
+          fields: { checkpointKey: "i2_0", slot: "survey" },
+          file: { name: "a.pdf", data: pdfBytes(50, tag) },
+          headers: { "idempotency-key": "upload-key-0002" },
+        });
+      expect((await send("one")).statusCode).toBe(201);
+      const before = (await storedKeys(t)).length;
+      const clash = await send("two");
+      expect(clash.statusCode).toBe(409);
+      expect(await storedKeys(t)).toHaveLength(before);
+      expect(await filesOf(job.id)).toHaveLength(1);
+    });
+  });
+
+  it("a storage failure is a 500 problem, stores no row and leaks nothing", async () => {
+    const failing = await createTestApp({
+      storage: { ...createMemoryStorage(), put: () => Promise.reject(new Error("bucket down: secret-endpoint")) },
+    });
+    const lf = createFactories(failing.db, 104);
+    const user = await signIn(failing, await lf.makeUser({ role: "staff" }));
+    const job = await lf.makeJob();
+    const res = await uploadFile(failing, {
+      jobId: job.id,
+      as: user,
+      fields: { checkpointKey: "i2_0", slot: "survey" },
+      file: { name: "a.pdf", data: pdfBytes() },
+    });
+    expect(res.statusCode).toBe(500);
+    expect(res.body).not.toContain("secret-endpoint");
+    expect(await failing.db.selectFrom("files").select("id").where("job_id", "=", job.id).execute()).toEqual([]);
+    await failing.close();
+  });
+
+  it("charges uploads to their own rate limit bucket (429 with Retry-After)", async () => {
+    const limited = await createTestApp({ config: testConfig({ RATE_LIMIT_UPLOADS_PER_MINUTE: "2" }) });
+    const lf = createFactories(limited.db, 105);
+    const user = await signIn(limited, await lf.makeUser({ role: "staff" }));
+    const job = await lf.makeJob();
+    const send = () =>
+      uploadFile(limited, {
+        jobId: job.id,
+        as: user,
+        fields: { checkpointKey: "i2_0", slot: "survey" },
+        file: { name: "a.pdf", data: pdfBytes() },
+      });
+    expect((await send()).statusCode).toBe(201);
+    expect((await send()).statusCode).toBe(201);
+    const third = await send();
+    expect(third.statusCode).toBe(429);
+    expect(third.headers["retry-after"]).toBeDefined();
+    await limited.close();
   });
 });
