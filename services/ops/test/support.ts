@@ -1,0 +1,114 @@
+/** Helpers shared by the integration tests: throwaway databases, an s3mock bucket, and a pg_dump 17 on any host. */
+import { randomBytes } from "node:crypto";
+import { chmod, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { parseConfig } from "@kr/config";
+import { createPool } from "@kr/db";
+import { TEST_MIGRATOR_PASSWORD } from "@kr/db/testing";
+import { createS3Storage, type S3Storage } from "@kr/storage";
+import { GenericContainer, Wait, type StartedTestContainer } from "testcontainers";
+import { OpsConfigSchema, type OpsConfig } from "../src/config.js";
+import { BARE_TEMPLATE } from "./constants.js";
+
+export interface ThrowawayDatabase {
+  /** tracker_migrator on a bootstrapped database with NO migrations applied. */
+  readonly migratorUrl: string;
+  drop(): Promise<void>;
+}
+
+/** Clones the bootstrapped, unmigrated template (see global-setup.ts) under a random name. */
+export async function createBareDatabase(superuserUrl: string): Promise<ThrowawayDatabase> {
+  const name = `ops_t_${randomBytes(6).toString("hex")}`;
+  const admin = createPool({ connectionString: superuserUrl, maxConnections: 1 });
+  try {
+    await admin.query(`CREATE DATABASE ${name} TEMPLATE ${BARE_TEMPLATE}`);
+  } finally {
+    await admin.end();
+  }
+  const migrator = new URL(superuserUrl);
+  migrator.username = "tracker_migrator";
+  migrator.password = TEST_MIGRATOR_PASSWORD;
+  migrator.pathname = `/${name}`;
+  return {
+    migratorUrl: migrator.toString(),
+    async drop() {
+      const pool = createPool({ connectionString: superuserUrl, maxConnections: 1 });
+      try {
+        await pool.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+      } finally {
+        await pool.end();
+      }
+    },
+  };
+}
+
+export interface S3Mock {
+  readonly endpoint: string;
+  /** A client for the bucket, to read back what the jobs wrote. */
+  readonly storage: S3Storage;
+  stop(): Promise<void>;
+}
+
+export const S3_TEST_CREDENTIALS = {
+  accessKeyId: "test-key",
+  secretAccessKey: "test-secret-0123456789",
+  region: "us-east-1",
+};
+
+/** adobe/s3mock with the given buckets created at start. */
+export async function startS3Mock(buckets: readonly string[], readBucket: string): Promise<S3Mock> {
+  const container: StartedTestContainer = await new GenericContainer("adobe/s3mock:latest")
+    .withExposedPorts(9090)
+    .withEnvironment({ COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: buckets.join(",") })
+    .withWaitStrategy(Wait.forLogMessage(/Started S3MockApplication/))
+    .start();
+  const endpoint = `http://${container.getHost()}:${container.getMappedPort(9090)}`;
+  const storage = createS3Storage({ ...S3_TEST_CREDENTIALS, endpoint, bucket: readBucket, forcePathStyle: true });
+  return {
+    endpoint,
+    storage,
+    async stop() {
+      storage.close();
+      await container.stop();
+    },
+  };
+}
+
+/**
+ * A `pg_dump` executable for the tests. The host's client is usually older than Postgres 17 and refuses to dump it, so
+ * this wrapper runs the real pg_dump 17 from the postgres:17-alpine image on the host network (the same major as
+ * production and as the ops image). TEST_PG_DUMP_PATH points at a local pg_dump 17 instead, e.g. without Docker.
+ */
+export async function pgDump17(): Promise<string> {
+  // Test infrastructure may read the environment directly (exempted from BE-2 in eslint.config.mjs).
+  const local = process.env.TEST_PG_DUMP_PATH;
+  if (local) return local;
+  const dir = await mkdtemp(join(tmpdir(), "kr-ops-pgdump17-"));
+  const path = join(dir, "pg_dump");
+  await writeFile(
+    path,
+    '#!/bin/sh\nexec docker run --rm -i --network host -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE -e PGCONNECT_TIMEOUT -e PGAPPNAME postgres:17-alpine pg_dump "$@"\n',
+  );
+  await chmod(path, 0o755);
+  return path;
+}
+
+/** A parsed OpsConfig for tests: health endpoint on an ephemeral loopback port. */
+export function opsConfig(
+  overrides: Partial<OpsConfig> & { MIGRATION_DATABASE_URL: string; PG_DUMP_PATH: string },
+  s3: S3Mock,
+  bucket: string,
+): OpsConfig {
+  const base = parseConfig(OpsConfigSchema, {
+    APP_ENV: "local",
+    LOG_LEVEL: "error",
+    MIGRATION_DATABASE_URL: overrides.MIGRATION_DATABASE_URL,
+    BACKUP_S3_ENDPOINT: s3.endpoint,
+    BACKUP_S3_BUCKET: bucket,
+    BACKUP_S3_ACCESS_KEY_ID: S3_TEST_CREDENTIALS.accessKeyId,
+    BACKUP_S3_SECRET_ACCESS_KEY: S3_TEST_CREDENTIALS.secretAccessKey,
+    RELEASE_VERSION: "v1.2.3-test",
+  });
+  return { ...base, HOST: "127.0.0.1", PORT: 0, ...overrides };
+}
