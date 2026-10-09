@@ -33,6 +33,9 @@ describe("summarise", () => {
   });
 
   it("says so when no condition was found, but still reports the dates that were", () => {
+    expect(NO_CONDITIONS_MESSAGE).toBe(
+      "No numbered conditions were found in this PDF. Check it is the WAPC conditional approval letter (not a scanned image).",
+    );
     expect(summarise([], { approvalDate: "2026-03-16", approvalExpiry: null })).toEqual({
       conditionsCount: 0,
       guessedNumbers: [],

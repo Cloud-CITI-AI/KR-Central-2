@@ -48,6 +48,15 @@ describe("toEmailFields", () => {
     expect(emoji.subject).toBe("x".repeat(LIMITS.subject - 1));
   });
 
+  it("keeps a surrogate pair that is not cut", () => {
+    expect(toEmailFields({ ...base, subject: "😀 hello" }).subject).toBe("😀 hello");
+  });
+
+  it("accepts the first and the last plausible year", () => {
+    expect(toEmailFields({ ...base, date: "1990-01-01T00:00:00Z" }).sent_at).toEqual(new Date("1990-01-01T00:00:00Z"));
+    expect(toEmailFields({ ...base, date: "2100-12-31T00:00:00Z" }).sent_at).toEqual(new Date("2100-12-31T00:00:00Z"));
+  });
+
   it("accepts a plausible sent time only", () => {
     expect(toEmailFields({ ...base, date: "" }).sent_at).toBeNull();
     expect(toEmailFields({ ...base, date: "not a date" }).sent_at).toBeNull();
