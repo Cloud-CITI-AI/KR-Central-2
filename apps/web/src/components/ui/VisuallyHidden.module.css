@@ -1,0 +1,9 @@
+/* prototype `.sr`: out of sight but still focusable and announced */
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
