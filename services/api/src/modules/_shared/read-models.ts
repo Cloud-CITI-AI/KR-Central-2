@@ -3,8 +3,26 @@
  * bigint strings and Dates to the API shape). No I/O: callers load the related rows (uploader, evidence, files) and pass
  * them in, so modules share one definition of "what a file / condition / checkpoint looks like".
  */
-import type { CheckpointState, Condition, EmailMeta, FileMeta, UserRef } from "@kr/contracts";
-import type { CheckpointStateRow, ConditionRow, EmailMessageRow, FileRow, UserRow } from "@kr/db";
+import type {
+  AccessGrant,
+  AuditEvent,
+  CheckpointState,
+  Condition,
+  EmailMeta,
+  FileMeta,
+  JobNote,
+  UserRef,
+} from "@kr/contracts";
+import type {
+  AccessGrantRow,
+  AuditEventRow,
+  CheckpointStateRow,
+  ConditionRow,
+  EmailMessageRow,
+  FileRow,
+  JobNoteRow,
+  UserRow,
+} from "@kr/db";
 import type { z } from "zod";
 
 type Named = Pick<UserRow, "id" | "display_name">;
@@ -101,5 +119,62 @@ export function toCheckpointState(row: CheckpointStateRow, ctx: CheckpointContex
     isRestricted: hidden,
     version: row.version,
     updatedAt: iso(row.updated_at),
+  };
+}
+
+export interface NoteContext {
+  readonly author: Named | null;
+  readonly viewerId: string;
+  /** Capability `notes.delete.any`. */
+  readonly canDeleteAny: boolean;
+}
+
+export function toJobNote(row: JobNoteRow, ctx: NoteContext): Out<typeof JobNote> {
+  const isOwn = row.author_id !== null && row.author_id === ctx.viewerId;
+  return {
+    id: row.id,
+    jobId: row.job_id,
+    body: row.body,
+    audience: row.audience,
+    author: toUserRef(ctx.author),
+    isOwn,
+    canDelete: ctx.canDeleteAny || isOwn,
+    createdAt: iso(row.created_at),
+  };
+}
+
+export interface GrantContext {
+  readonly jobNumber: string;
+  readonly invitedBy: Named | null;
+}
+
+export function toAccessGrant(row: AccessGrantRow, ctx: GrantContext): Out<typeof AccessGrant> {
+  return {
+    id: row.id,
+    jobId: row.job_id,
+    jobNumber: ctx.jobNumber,
+    email: row.email,
+    displayName: row.display_name,
+    role: row.role,
+    status: row.status,
+    invitationStatus: row.invitation_status,
+    invitedAt: iso(row.invited_at),
+    invitedBy: toUserRef(ctx.invitedBy),
+    activatedAt: isoOrNull(row.activated_at),
+  };
+}
+
+export function toAuditEvent(row: AuditEventRow, actor: Named | null): Out<typeof AuditEvent> {
+  return {
+    id: row.id,
+    occurredAt: iso(row.occurred_at),
+    actor: toUserRef(actor),
+    actorType: row.actor_type,
+    action: row.action,
+    jobId: row.job_id,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    requestId: row.request_id,
+    changes: row.changes as Out<typeof AuditEvent>["changes"],
   };
 }
