@@ -4,6 +4,7 @@ import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod
 import { describe, expect, it } from "vitest";
 import { markAuthzChecked, type AuthContext } from "./auth-context.js";
 import { registerErrorHandling } from "./errors.js";
+import { sendIdempotent } from "./idempotency.js";
 import { defineRoute } from "./routes.js";
 
 const JOB = "0f8fad5b-d9cb-469f-a165-70867728950e";
@@ -163,6 +164,27 @@ describe("defineRoute", () => {
     expect(res.json()).toMatchObject({ status: 500, title: "Internal server error", instance: "/v1/auth/logout" });
     expect(t.logLines().some((l) => l.event === "authz_missing" && l.operationId === "logout")).toBe(true);
     await t.close();
+  });
+
+  it("blocks a sendIdempotent response when no authorisation check ran, and lets it through once one did", async () => {
+    const result = { status: 200, body: { redirectTo: "https://leak.example.test/" }, replayed: true };
+    const t = await appWith((app) => {
+      defineRoute(app, "logout", async ({ reply }) => sendIdempotent(reply, result));
+    });
+    const res = await t.app.inject({ method: "POST", url: "/v1/auth/logout" });
+    expect(res.statusCode).toBe(500);
+    expect(res.headers["idempotent-replayed"]).toBeUndefined();
+    expect(res.body).not.toContain("leak.example.test");
+    expect(t.logLines().some((l) => l.event === "authz_missing" && l.operationId === "logout")).toBe(true);
+    await t.close();
+
+    const ok = await appWith((app) => {
+      defineRoute(app, "logout", async ({ reply, auth }) => (markAuthzChecked(auth), sendIdempotent(reply, result)));
+    });
+    const res2 = await ok.app.inject({ method: "POST", url: "/v1/auth/logout" });
+    expect([res2.statusCode, res2.headers["idempotent-replayed"]]).toEqual([200, "true"]);
+    expect(res2.json()).toEqual(result.body);
+    await ok.close();
   });
 
   it("answers 401 on a session route when no session was established", async () => {
