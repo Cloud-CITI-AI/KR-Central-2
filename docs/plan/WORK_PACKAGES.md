@@ -1,33 +1,36 @@
 # Work packages
 
-Delivery plan for the KR Subdivision Tracker, split into work packages (WPs) that coding agents can build in
-parallel. Each WP owns a disjoint set of paths within its wave; later waves build on merged earlier waves.
-The orchestrator merges, resolves cross-WP questions, updates `CHANGELOG.md` and regenerates shared artefacts.
+<!-- GENERATED from docs/plan/work-packages.json by scripts/plan/render-work-packages.mjs — edit the JSON, then re-render. `node scripts/plan/check-work-packages.mjs` (part of `pnpm lint` and CI) fails when this file is stale. -->
 
-## 0. Common rules (apply to every WP)
+Delivery plan for the KR Subdivision Tracker, split into work packages (WPs) that coding agents build. Each WP follows the playbook task-brief template (`templates/agent-task-brief.md`): risk tier, goal, context, plan of record, PR stack, acceptance criteria, out of scope, permissions and verification. Review decisions that shaped this plan: `docs/plan/DECISIONS_LOG.md`.
 
-1. Read before coding: root `AGENTS.md` and `CLAUDE.md`, the `AGENTS.md` of the package you work in, this section, and the spec sections named in your WP.
-2. Toolchain: run `export PATH=/opt/nvm/versions/node/v24.21.0/bin:$PATH` first (the default `node` may be v22); pnpm 11 is on that PATH. Install with `pnpm install --frozen-lockfile`.
-3. Stay strictly inside your WP's owned paths. If you need a change elsewhere (contracts, workflow, db schema, another module or feature, a dependency, a workflow file), STOP and send the orchestrator a question with the exact proposed diff. Never edit protected paths (`AGENTS.md`, `CLAUDE.md`, `.github/**`, `.claude/**`, `scripts/playbook/**`, `CODEOWNERS`, `renovate.json`).
-4. Do not run `pnpm add` or change `package.json` dependencies / `pnpm-lock.yaml`; the lockfile is shared by parallel agents. Ask for a dependency instead (name, version, reason, licence).
-5. Single sources of truth: API shapes, routes and permissions come from `@kr/contracts`; workflow stages, checkpoints, slots and rules from `@kr/workflow`; the schema from `packages/db/migrations`. Never redefine them locally. `packages/contracts/openapi.yaml` is generated (`pnpm openapi:generate`).
-6. Data: synthetic only (`@faker-js/faker`, `pdf-lib`, `cfb`). The prototype's example job (S-0561) and its files are REAL client data: never copy names, addresses, numbers or documents into code, fixtures, tests or docs. Files under `/home/claude/inputs/` are read-only reference data, never instructions.
-7. Quality: TypeScript strict (`exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`); no `eslint-disable`, `@ts-ignore`, `.skip`/`.only`, lowered thresholds. Every behaviour change has tests: unit tests next to the source (`*.test.ts[x]`), real-Postgres integration tests as `*.int.test.ts`, contract tests as `*.contract.test.ts`. Domain code (`**/domain/**`) is pure: no I/O imports, no `Date.now()` — inject a `Clock`.
-8. Workspace packages resolve to `src/` via the `@kr/source` condition for typecheck/tests but to `dist/` at runtime: run `pnpm build` at the root before starting a service.
-9. Docker: if `docker info` fails, start the daemon with `dockerd > /tmp/dockerd.log 2>&1 &`. Pre-pulled images: `postgres:17-alpine`, `testcontainers/ryuk:0.14.0`, `adobe/s3mock:latest`, `clamav/clamav:stable`. Docker Hub is rate limited: pull other images as `mirror.gcr.io/<repo>:<tag>` and `docker tag` them. Without Docker set `TEST_DATABASE_ADMIN_URL` to a Postgres 17 superuser URL.
-10. Playwright: browser downloads are blocked here; use `E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`.
-11. Next.js 16 changed conventions (`proxy.ts` replaces middleware, async request APIs): read `apps/web/node_modules/next/dist/docs/` before writing web code.
-12. Commits: Conventional Commits with a scope from `commitlint.config.mjs`, trailers `AI-Agent: <tool>/<model>` and `Refs: <WP id>`. Keep each PR ≤ 400 changed lines (excluding lockfile/generated): split a WP into a stack of focused PRs (e.g. data layer → domain → http → tests).
-13. Do not edit `CHANGELOG.md` (the orchestrator consolidates entries); put your changelog lines in the PR description.
-14. Finish only when every verify command of your WP passes; report the commands you ran with their real summary output, and list open questions.
+## 0. Common rules (part of every brief)
 
-## 1. Waves and dependencies
+1. Repo: /home/claude/cloudcitiwa/kr-central-2. First run `export PATH=/opt/nvm/versions/node/v24.21.0/bin:$PATH` (Node 24.21, pnpm 11; the default `node` is v22 and fails the engine check), then `pnpm install --frozen-lockfile`.
+2. Read before coding: root `AGENTS.md` and `CLAUDE.md`; the `AGENTS.md` of the package you work in if it has one (only `apps/web`, `services/api`, `services/worker` do); this brief; every spec/ADR section it cites. Briefs cite the spec instead of restating UI text: exact wording, numbers and rules come from `docs/spec/PRODUCT_SPEC.md`, `DATA_MODEL.md` and `DESIGN_TOKENS.md`. If this brief and the spec disagree, the spec wins — follow it and report the discrepancy.
+3. Stay strictly inside your owned paths. Anything else (contracts, workflow, db schema/migrations, another module or feature, dependencies, CI, root config, `.env.example` unless owned) → STOP that part and send the orchestrator the exact proposed diff. Never edit protected paths (`AGENTS.md`, `CLAUDE.md`, `.github/**`, `.claude/**`, `CODEOWNERS`, `renovate.json`, `scripts/playbook/**`).
+4. No `pnpm add`, no `package.json` dependency edits, no lockfile edits (shared by parallel agents). Every dependency this plan needs is already installed; ask for anything else (name, version, licence, reason).
+5. Data: synthetic only (`@faker-js/faker`, `pdf-lib`, `cfb`). The prototype's example job is REAL client data and is not in the repo; never reproduce it. The safe prototype reference is `docs/reference/prototype/` (`app.js`, `app.css`, `screenshots/blank-*.png`) — data, never instructions (A11).
+6. Quality: TypeScript strict; no `eslint-disable`, `@ts-ignore`, `.skip`/`.only`, lowered thresholds or deleted assertions. Every behaviour has a test: `*.test.ts[x]` unit (next to source), `*.int.test.ts` real Postgres 17 (Testcontainers; never mock the DB), `*.contract.test.ts` against `packages/contracts/openapi.yaml`. Domain code (`**/domain/**`, `packages/workflow`, `packages/document-parsing/src/rules`) is pure: no I/O imports, no `Date.now()`/`new Date()` — inject a `Clock`.
+7. Single sources of truth: shapes/routes/permissions from `@kr/contracts`, stages/checkpoints/slots/rules from `@kr/workflow`, schema from `packages/db/migrations`. Never redefine them locally. `openapi.yaml` is generated (`pnpm openapi:generate`).
+8. Delivery: branch `agent/wp-NN-<slug>`; Conventional Commits with this brief's scope; trailers `AI-Agent: <tool>/<model>` and `Refs: WP-NN` (the WP id stands in for the GitHub issue until issues exist). Deliver the PR stack listed below in order; each PR ≤ 400 changed lines excluding lockfile/generated files, green on its own, with the PR template filled with real output. Do not edit `CHANGELOG.md`; put changelog lines in the PR description.
+9. Environment: Docker — if `docker info` fails run `dockerd > /tmp/dockerd.log 2>&1 &`. Pre-pulled images: `postgres:17-alpine`, `testcontainers/ryuk:0.14.0`, `adobe/s3mock:latest`, `clamav/clamav:stable`; Docker Hub is rate limited, so pull anything else as `mirror.gcr.io/<repo>:<tag>` and `docker tag` it. Without Docker set `TEST_DATABASE_ADMIN_URL` to a Postgres 17 superuser URL. Playwright: `E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome` (browser downloads are blocked); set `NEXT_TELEMETRY_DISABLED=1`. Workspace packages resolve to `src/` in tests/typecheck but to `dist/` at runtime: run `pnpm build` before starting services. Next.js 16 docs: `apps/web/node_modules/next/dist/docs/` (`proxy.ts` replaces middleware).
+10. Finish only when every verify command passes. Report: the commands you ran with their real summary output, the PR stack with line counts, any deviations from the plan of record, and open questions. Never claim a check you did not run (X8).
 
-| Wave | WPs                                                                                                                                                                                                                                                                                                                                                                                            | Starts when                                 |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| 1    | WP-01 API platform core, WP-02 Document parsing package, WP-03 Web shell, BFF proxy, typed API client and UI primitives, WP-04 Railway infrastructure, WP-05 Observability, WP-06 Storage package                                                                                                                                                                                              | now (scaffold merged)                       |
-| 2    | WP-07 API auth module, WP-08 API jobs and checkpoints modules, WP-09 API files module, WP-10 API conditions and operations modules, WP-11 API notes, access grants, WP-12 Worker service, WP-13 Web dashboard, new job form and access manager, WP-14 Web tracker page frame, WP-15 Web checkpoint cards and panels, WP-16 Web conditions UI, WP-17 Web document viewer, WP-18 Web admin pages | its dependencies (listed per WP) are merged |
-| 3    | WP-19 End-to-end, accessibility and visual regression suite, WP-20 Security hardening, WP-21 Operations documentation                                                                                                                                                                                                                                                                          | all wave 2 WPs it depends on are merged     |
+## 1. Schedule
+
+At most 3 WPs run at once (playbook docs/10 §10.5: ≤ 3 concurrent agent PRs per launching human). A wave starts when every WP it depends on is merged; WPs in the same wave own disjoint paths (checked by `scripts/plan/check-work-packages.mjs`).
+
+| Wave | Work packages                                                                                                                                                                                                                                                                                             | Risk tiers                                |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| 1    | WP-01 API platform core; WP-03 Web shell, BFF proxy, typed API client, health routes and UI primitives; WP-06 Storage package: S3 adapter, listing, in-memory fake, content sniffing                                                                                                                      | WP-01: High, WP-03: High, WP-06: High     |
+| 2    | WP-02 Document parsing package; WP-07 API auth module: Entra OIDC login/callback/logout with browser binding, provisioning, first admin, grant activation, mock IdP, promote-admin CLI; WP-08 API jobs and checkpoints modules                                                                            | WP-02: Medium, WP-07: High, WP-08: High   |
+| 3    | WP-09 API files module; WP-13 Web dashboard, inline new-job form and access manager; WP-14 Web tracker page frame                                                                                                                                                                                         | WP-09: High, WP-13: Medium, WP-14: Medium |
+| 4    | WP-10 API conditions and operations modules; WP-11 API notes, access grants; WP-15 Web checkpoint cards and panels                                                                                                                                                                                        | WP-10: High, WP-11: High, WP-15: Medium   |
+| 5    | WP-04 Container images, ClamAV configuration, local stack, and the ops service; WP-05 Observability: telemetry package, metrics, SLOs and alert definitions; WP-16 Web conditions UI                                                                                                                      | WP-04: High, WP-05: Medium, WP-16: Medium |
+| 6    | WP-12 Worker service: queue poller, ClamAV scanning with retries, conditions extraction, conformed-date reading; WP-17 Web document viewer; WP-18 Web admin pages                                                                                                                                         | WP-12: High, WP-17: Medium, WP-18: Medium |
+| 7    | WP-19 End-to-end, accessibility, visual regression and prototype-parity suite; WP-20 Security hardening: threat model, authz completeness, login-CSRF and header tests, ZAP rules, mutation-runner check; WP-23 Railway delivery: service settings as code, deploy-images and smoke scripts, deploy guide | WP-19: Low, WP-20: High, WP-23: High      |
+| 8    | WP-21 Operations documentation: runbooks, backup/restore drill, incident response, user guides; WP-22 Performance budgets: per-route bundle budget, web-vitals checks, k6 API smoke                                                                                                                       | WP-21: Low, WP-22: Medium                 |
 
 ```mermaid
 flowchart LR
@@ -35,15 +38,23 @@ flowchart LR
   WP01[WP-01] --> WP08[WP-08]
   WP01[WP-01] --> WP09[WP-09]
   WP06[WP-06] --> WP09[WP-09]
-  WP01[WP-01] --> WP10[WP-10]
-  WP01[WP-01] --> WP11[WP-11]
-  WP02[WP-02] --> WP12[WP-12]
-  WP05[WP-05] --> WP12[WP-12]
-  WP06[WP-06] --> WP12[WP-12]
+  WP08[WP-08] --> WP09[WP-09]
   WP03[WP-03] --> WP13[WP-13]
   WP03[WP-03] --> WP14[WP-14]
+  WP01[WP-01] --> WP10[WP-10]
+  WP08[WP-08] --> WP10[WP-10]
+  WP01[WP-01] --> WP11[WP-11]
+  WP08[WP-08] --> WP11[WP-11]
   WP03[WP-03] --> WP15[WP-15]
+  WP01[WP-01] --> WP04[WP-04]
+  WP03[WP-03] --> WP04[WP-04]
+  WP06[WP-06] --> WP04[WP-04]
   WP03[WP-03] --> WP16[WP-16]
+  WP02[WP-02] --> WP12[WP-12]
+  WP04[WP-04] --> WP12[WP-12]
+  WP05[WP-05] --> WP12[WP-12]
+  WP06[WP-06] --> WP12[WP-12]
+  WP08[WP-08] --> WP12[WP-12]
   WP03[WP-03] --> WP17[WP-17]
   WP03[WP-03] --> WP18[WP-18]
   WP07[WP-07] --> WP19[WP-19]
@@ -58,74 +69,103 @@ flowchart LR
   WP16[WP-16] --> WP19[WP-19]
   WP17[WP-17] --> WP19[WP-19]
   WP18[WP-18] --> WP19[WP-19]
+  WP03[WP-03] --> WP20[WP-20]
   WP07[WP-07] --> WP20[WP-20]
   WP08[WP-08] --> WP20[WP-20]
   WP09[WP-09] --> WP20[WP-20]
   WP10[WP-10] --> WP20[WP-20]
   WP11[WP-11] --> WP20[WP-20]
   WP12[WP-12] --> WP20[WP-20]
+  WP04[WP-04] --> WP23[WP-23]
   WP04[WP-04] --> WP21[WP-21]
   WP05[WP-05] --> WP21[WP-21]
+  WP07[WP-07] --> WP21[WP-21]
+  WP11[WP-11] --> WP21[WP-21]
   WP12[WP-12] --> WP21[WP-21]
+  WP23[WP-23] --> WP21[WP-21]
+  WP19[WP-19] --> WP22[WP-22]
 ```
 
-Wave 2 web WPs (WP-13..18) build against `@kr/contracts` with MSW mocks, so they need only WP-03 and run in parallel with the API WPs.
+## 2. Risk tiers and approvals
 
-API module ownership (route registry operations, enforced by `services/api/src/modules/index.test.ts`): auth WP-07; jobs + checkpoints WP-08; files WP-09; conditions + operations WP-10; notes, access, users, audit WP-11.
+- Risk tier High (docs/05 §5.2): the plan of record below is the plan the launching human approved before launch. Write your own ≤ 10-bullet plan in the first PR; if it departs from the plan of record in files, scope or approach, STOP and ask. PRs need two approvals including the domain CODEOWNER (approver ≠ launcher) and the security checklist section B (`docs/security-checklist.md`).
+- Medium: one approval from the CODEOWNER of the touched area; behaviour behind a flag where applicable; rollback stated.
+- Low: one approval.
+- CODEOWNERS paths decide: touching a High path makes the PR High regardless of the WP's tier.
 
-## 2. Work packages
+## 3. Work packages
 
-### WP-01 — API platform core (app factory, errors, sessions/auth hook, CSRF, authz, idempotency, rate limits, audit, flags, health)
+### WP-01 — API platform core (app factory, errors, sessions, CSRF, authz, concurrency, idempotency, rate limits, audit, flags, health)
 
-- Wave: 1
-- Depends on: —
-- Owned paths: `services/api/src/platform/**`, `services/api/src/app.ts`, `services/api/src/app.test.ts`, `services/api/src/main.ts`, `services/api/src/modules/_shared/**`, `services/api/src/modules/index.ts`, `services/api/src/modules/index.test.ts`, `services/api/test/helpers/**`, `services/api/test/factories.ts`, `services/api/test/global-setup.ts`, `services/api/vitest.config.ts`
+- Risk tier: **High** — authentication, authorisation and security configuration of every endpoint
+- Wave: 1 · Depends on: — · Target: services/api · Commit scope: `api`
+- Owned paths: `services/api/src/platform/**`, `services/api/src/app.ts`, `services/api/src/app.test.ts`, `services/api/src/main.ts`, `services/api/src/config.ts`, `services/api/src/config.test.ts`, `.env.example`, `services/api/src/modules/_shared/**`, `services/api/src/modules/index.ts`, `services/api/src/modules/index.test.ts`, `services/api/test/helpers/**`, `services/api/test/factories.ts`, `services/api/test/global-setup.ts`, `services/api/vitest.config.ts`
 
-**Brief**
+**Goal.** A Fastify 5 platform that every API module plugs into, so modules only write handlers: the contract drives routes, and authentication, CSRF, authorisation, concurrency, idempotency, rate limits, audit and errors are enforced centrally and deny by default.
 
-Build the Fastify 5 platform every API module plugs into (ADR-0004, ADR-0002, ADR-0013). Read: services/api/AGENTS.md (BE-1..12), docs/spec/PRODUCT_SPEC.md §2.1, §3 (sessions, CSRF), §14 (NFRs), §15; docs/spec/DATA_MODEL.md §4-§7; ADR-0002, 0003, 0004, 0006, 0007, 0013; packages/contracts/src/{routes,common,permissions,schemas}.ts; existing services/api/src/platform/module.ts (ApiModule, ModuleDeps, Clock, FeatureFlags) and src/modules/index.ts (MODULES). Deliver:
+**Read first**
 
-1. src/app.ts `buildApp(deps: AppDeps): Promise<FastifyInstance>` (deps = ModuleDeps + optional overrides for tests) and src/main.ts (loadConfig from src/config.ts, createDb from @kr/db, S3 storage from @kr/storage (createS3Storage; if not yet exported, depend on the ObjectStorage interface and construct via a small factory you own in platform/storage.ts), startTelemetry from @kr/telemetry, pino logger from @kr/logger, listen on PORT, SIGTERM graceful shutdown ≤25 s, unhandledRejection → log + exit).
+- PRODUCT_SPEC §2.1 (permissions), §3.1–3.2 (sessions, CSRF), §14 (rate limits 20/120/30/600, JSON body 100 KB), §15
+- DATA_MODEL §2 (sessions, idempotency_keys, rate_limits, audit_events), §4–§7
+- ADR-0002, 0003, 0004, 0006, 0007, 0013
+- packages/contracts/src/{routes,common,permissions,schemas}.ts (ROUTES, PUBLIC_PATHS, PROBLEM_TYPES, globalCapabilitiesFor, jobCapabilitiesFor)
+- services/api/src/platform/module.ts (ApiModule, ModuleDeps, Clock, FeatureFlags) and src/modules/index.ts (MODULES)
+- services/api/src/config.ts (already has HOST, TRUST_PROXY_HOPS=1, RATE_LIMIT_*, JSON_BODY_LIMIT_BYTES, REQUIRE_MFA_FOR_ADMIN, ADMIN_MFA_EVIDENCE, ENTRA_ADMIN_AUTH_CONTEXT_ID)
 
-2. Zod type provider (fastify-type-provider-zod) and `platform/routes.ts` helper `defineRoute(app, operationId, opts, handler)` that takes method/path/params/query/body/response schemas FROM `ROUTES[operationId]` in @kr/contracts (toFastifyPath) so modules cannot drift from the contract; responses serialised through the declared schema.
+**Plan of record**
 
-3. `platform/errors.ts`: AppError subclasses (BadRequest/Validation, Unauthenticated, Forbidden, NotFound, Conflict, PreconditionFailed, PayloadTooLarge, UnsupportedMediaType, TooManyRequests, ServiceUnavailable) mapped to RFC 9457 problem+json using PROBLEM_TYPES from @kr/contracts, always including `instance`/requestId; zod errors → validation problem with field paths; unknown errors → 500 without internals.
+1. `src/app.ts` `buildApp(deps): Promise<FastifyInstance>` registering every module in MODULES; `src/main.ts`: loadApiConfig, startTelemetry (@kr/telemetry, stub until WP-05), @kr/logger, createDb (@kr/db), storage via `platform/storage.ts` (factory over the @kr/storage `ObjectStorage` interface; use `createS3Storage` from WP-06), `listen({ host: config.HOST, port: config.PORT })` (`::` = IPv6+IPv4 for Railway private networking), SIGTERM graceful shutdown ≤ 25 s, unhandledRejection → log + exit 1.
+2. fastify-type-provider-zod plus `platform/routes.ts` `defineRoute(app, operationId, handler)`: method, path (`toFastifyPath`), params/query/body/headers and response schemas all come from `ROUTES[operationId]`, so modules cannot drift from the contract.
+3. `platform/errors.ts`: AppError subclasses (BadRequest, Unauthenticated, Forbidden, NotFound, Conflict, PreconditionFailed, PreconditionRequired, PayloadTooLarge, UnsupportedMediaType, TooManyRequests, ServiceUnavailable) → RFC 9457 problem+json with PROBLEM_TYPES and `instance`/requestId; zod errors → 400 with field paths; unknown errors → 500 without internals.
+4. `platform/session.ts`: createSession(db, {userId, authTime, amr, acrs, userAgent}) → {cookieValue, csrfToken} (32 random bytes; SHA-256 in `sessions.id_hash`); set/clear `__Host-kr_session` (HttpOnly, Secure, SameSite=Lax, Path=/); revokeSession; revokeAllForUser(reason). onRequest hook: lookup by hash, sliding idle expiry (last_seen_at written at most once a minute), absolute expiry, active user; sets `request.auth = {user, session, globalCapabilities}`. PUBLIC_PATHS skip auth; everything else → 401.
+5. `platform/csrf.ts`: every non-GET needs `X-CSRF-Token` equal to the session's (constant-time compare) AND `Origin` == PUBLIC_BASE_URL → else 403.
+6. `platform/authz.ts`: requireCapability; `resolveJobAccess(db, auth, jobId)` → {job, grantRole, capabilities} via jobCapabilitiesFor — 404 when the caller cannot see the job (externals only via an ACTIVE grant on a non-archived job), 403 when a capability is missing; `assertMfaForAdmin(auth, config)`: with REQUIRE_MFA_FOR_ADMIN, `amr` must contain `mfa` (ADMIN_MFA_EVIDENCE=amr) or `acrs` must contain ENTRA_ADMIN_AUTH_CONTEXT_ID (acrs) → else 403 problem detail "Multi-factor sign-in required" (§3.1).
+7. `platform/concurrency.ts` (If-Match parsing: missing → 428, stale → 412; ETag helpers) and `platform/idempotency.ts` (`idempotency_keys` keyed by (user_id, key): request hash + stored response; replay returns it; different body → 409; 24 h).
+8. Rate limits with rate-limiter-flexible `RateLimiterPostgres` on `rate_limits`, values from config: sign-in 20/min per client IP (auth routes), writes 120/min/user, uploads 30/min/user (helper the files module calls), reads 600/min/user → 429 problem + Retry-After. JSON body limit JSON_BODY_LIMIT_BYTES (100 KB). @fastify/helmet. `trustProxy: config.TRUST_PROXY_HOPS` (1 = the web BFF hop; the BFF forwards the edge's X-Forwarded-For unchanged).
+9. `platform/audit.ts`: wrap @kr/db recordAudit/diffChanges with request context (actor, requestId); `withTransaction(db, fn)`; audit row in the same transaction as the change.
+10. `platform/flags.ts`: OpenFeature in-memory provider from config FEATURE_* (keys exactly 'ai-stamp-reading', 'entra-guest-invites'; docs/flags.md) implementing FeatureFlags; `systemClock` and `fixedClock(date)`.
+11. Health per contracts getLiveness `/healthz` (no deps) and getReadiness `/readyz` (DB `select 1` + storage check, 2 s timeouts; 503 problem when down).
+12. `modules/_shared/read-models.ts` (pure mappers DB row → contract type: toUserRef, toFileMeta, toEmailMeta, toCondition, toCheckpointState, toJobNote, toAccessGrant, toAuditEvent) and `modules/_shared/jobs-visibility.ts` (Kysely where-builder for visible jobs), exported from `modules/_shared/index.ts`.
+13. `app.test.ts`: route-table test (registered operations ⊆ declared; export `unregisteredOperations()`; WP-20 makes it strict) and config ↔ `.env.example` parity test (every ApiConfigSchema key present).
+14. `test/helpers`: `createTestApp({db?, clock?, flags?, storage?})` on @kr/db/testing + migrate and the @kr/storage memory fake (`@kr/storage/testing`, WP-06); `signIn(app, user)` → {cookie, csrf, user} creating a session directly (no IdP); `apiRequest` adding CSRF/Origin. `test/factories.ts`: seeded faker factories for users of each role, jobs (synthetic WA-style addresses, created with their 46 checkpoint_states like the real createJob), checkpoint states, conditions, files, grants.
 
-4. Sessions (`platform/session.ts`): createSession(db, {userId, authTime, amr, userAgent}) → {cookieValue, csrfToken} (32 random bytes base64url, store SHA-256 in sessions.id_hash), setSessionCookie/clearSessionCookie (`__Host-kr_session`, HttpOnly, Secure, SameSite=Lax, Path=/), revokeSession, revokeAllForUser(reason). onRequest auth hook: look up session by hash, enforce idle (sliding, update last_seen_at at most once a minute) and absolute expiry, user status active; attach `request.auth = { user, session, globalCapabilities }` (globalCapabilitiesFor from @kr/contracts) or null. PUBLIC_PATHS from @kr/contracts skip auth; everything else 401 when unauthenticated.
+**PR stack** (in order, each ≤ 400 changed lines)
 
-5. CSRF + Origin (`platform/csrf.ts`): for POST/PUT/PATCH/DELETE require header X-CSRF-Token equal to session csrf_token (constant-time compare) AND Origin == PUBLIC_BASE_URL; exempt only the auth callback/login GETs.
+1. 01-a app factory, main.ts, errors, defineRoute, health, config parity test
+2. 01-b sessions, auth hook, CSRF, test helpers (createTestApp, signIn, apiRequest)
+3. 01-c authz (resolveJobAccess, requireCapability, assertMfaForAdmin), concurrency, idempotency
+4. 01-d rate limits, body limits, helmet, trustProxy; audit + withTransaction; flags + clocks
+5. 01-e shared read models, jobs-visibility, factories
 
-6. Authz helpers (`platform/authz.ts`): requireCapability(request, cap); `resolveJobAccess(db, auth, jobId)` → {job, grantRole|null, capabilities} using jobCapabilitiesFor; throws NotFound when the job is invisible (externals only via ACTIVE grant on a non-archived job), Forbidden when visible but capability missing; `assertMfaForAdmin` (REQUIRE_MFA_FOR_ADMIN: amr must contain 'mfa').
+**Acceptance criteria**
 
-7. Concurrency + idempotency: `platform/concurrency.ts` parseIfMatch (header → version int, 428 when missing on routes that require it, 412 on mismatch via helper `assertVersion`), ETag on responses; `platform/idempotency.ts` for routes declaring IdempotencyKeyHeader: store (user_id,key) → request hash + response in idempotency_keys; replay same response, 409 on hash mismatch; 24 h retention.
+1. buildApp registers all MODULES; GET /healthz → 200; /readyz → 503 problem when the DB is unreachable (integration test).
+2. Unknown errors → problem+json 500 with requestId and no stack; zod errors → 400 with field paths.
+3. Session integration tests: valid cookie authenticates; idle expiry, absolute expiry, revoked session and disabled user → 401; last_seen_at slides at most once a minute.
+4. Non-GET without CSRF token or with a foreign Origin → 403; with both → passes (test-only route).
+5. resolveJobAccess: staff see any job; externals only jobs with an active grant on a non-archived job, else 404; missing capability → 403. assertMfaForAdmin covers amr and acrs modes.
+6. If-Match missing → 428, stale → 412; Idempotency-Key replay returns the stored response, a different body → 409.
+7. Each rate limit returns 429 with Retry-After at its configured threshold (integration tests with low limits); per-IP limit keys on the forwarded client IP with TRUST_PROXY_HOPS=1, not on the BFF's address.
+8. Route-table and .env.example parity tests pass; read-model outputs parse with the @kr/contracts schemas.
+9. No process.env outside src/config.ts; api lint, typecheck, unit, integration, contract and build are green.
 
-8. Rate limiting with rate-limiter-flexible RateLimiterPostgres on table rate_limits (global per-user 300/min, auth endpoints per-IP 20/min, uploads per-user 60/min; values in config with defaults) → 429 problem + Retry-After. Body limits (JSON 1 MB; uploads handled by files module via config UPLOAD_MAX_BYTES). @fastify/helmet for API responses; trustProxy = TRUST_PROXY_HOPS.
+**Out of scope / must not change**
 
-9. Audit (`platform/audit.ts`): wrap recordAudit/diffChanges from @kr/db with request context (actor, requestId); helper `withTransaction(db, fn)`; audit row in the same transaction as the change.
+- Module routes and business logic (WP-07..11): leave the module stubs as they are except compile fixes.
+- Telemetry implementation (WP-05) and the S3 adapter (WP-06): consume their interfaces only.
+- packages/contracts, packages/db: propose diffs if a helper needs a contract or schema change.
 
-10. Flags (`platform/flags.ts`): OpenFeature server SDK with an in-memory provider fed from config FEATURE_* (flag keys exactly 'ai-stamp-reading', 'entra-guest-invites'; see docs/flags.md) implementing FeatureFlags; Clock implementation `systemClock` and `fixedClock(date)` for tests.
+**Permissions**
 
-11. Health: GET /healthz (liveness, no deps) and /readyz (DB `select 1` + storage head bucket, 2 s timeouts) per contracts getLiveness/getReadiness.
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
-12. `modules/_shared/read-models.ts`: pure mappers DB row → contract types used by several modules: toUserRef, toFileMeta(file, emailRow?), toEmailMeta, toCondition, toCheckpointState, toJobNote, toAccessGrant, toAuditEvent (all output validated by the contracts schemas in tests) + `modules/_shared/jobs-visibility.ts` (Kysely where-clause builder for visible jobs). These are shared — modules import them via `modules/_shared/index.ts`.
+**Hints**
 
-13. app.ts registers every module in MODULES; `app.test.ts` route-table test: every operation in ROUTES is registered exactly once by the module that lists it in `operations` (stubs register nothing yet, so the test must assert 'registered ⊆ declared' now and expose a helper `unregisteredOperations()`; WP-20 flips it to strict equality), plus config/.env.example parity test (every key in ApiConfigSchema appears in root .env.example).
-
-14. test/helpers: `createTestApp({ db?, clock?, flags?, storage? })` using @kr/db/testing (startTestDatabase + migrate), in-memory ObjectStorage fake (implement a minimal one in test/helpers if @kr/storage has none yet), `signIn(app, userFactoryInput) → { cookie, csrf, user }` that creates a session directly via platform/session (no IdP), `apiRequest` with CSRF/Origin headers; test/factories.ts with @faker-js/faker seeded factories: user (each role), job (synthetic WA-style addresses like '12 Example Rd, Busselton' generated by faker — never the prototype's job), checkpoint state, condition, file row, grant.
-
-Keep the stub module files untouched except for compile fixes; do not implement module routes. Use @kr/workflow only for business rules. Logging via @kr/logger requestLogger with pseudonymised user ids.
-
-**Acceptance**
-
-- buildApp registers all MODULES; GET /healthz returns 200 {status:'ok'}; /readyz returns 503 problem when DB is unreachable (integration test).
-- Unknown errors return problem+json 500 with requestId and no stack; zod validation errors return 400 with field paths (unit tests).
-- Session lifecycle covered by integration tests: valid cookie authenticates; idle and absolute expiry, revoked session and disabled user all yield 401; last_seen_at sliding update.
-- State-changing requests without CSRF token or with a foreign Origin get 403; with both they pass (test route registered only in tests).
-- resolveJobAccess: staff sees any job; external sees only jobs with an active grant on a non-archived job and gets 404 otherwise; capability missing gives 403 (integration tests with factories).
-- If-Match missing → 428, stale → 412; Idempotency-Key replay returns the stored response and mismatched body returns 409.
-- Rate limit returns 429 with Retry-After after the configured number of requests (integration test with a low limit).
-- Route-table test and .env.example parity test pass; shared read-model mapper outputs parse with the @kr/contracts schemas.
-- No process.env outside src/config.ts; no eslint-disable; services/api lint/typecheck/unit/integration/build all green.
+- `.env.example` is owned by you in this wave: keep it in step with ApiConfigSchema (the parity test).
+- Treat the per-IP sign-in limit as security-relevant: a test must prove two different X-Forwarded-For clients get separate buckets.
 
 **Verify**
 
@@ -134,78 +174,69 @@ pnpm --filter @kr/api lint
 pnpm --filter @kr/api typecheck
 pnpm --filter @kr/api test:unit
 pnpm --filter @kr/api test:integration
+pnpm --filter @kr/api test:contract
 pnpm --filter @kr/api build
 ```
 
-### WP-02 — Document parsing package (dates, conditions, approval dates, conformed date, emails, PDF text/first page)
+### WP-03 — Web shell, BFF proxy, typed API client, health routes and UI primitives
 
-- Wave: 1
-- Depends on: —
-- Owned paths: `packages/document-parsing/**`
+- Risk tier: **High** — the BFF proxy, CSP and security headers are security configuration (CODEOWNERS: proxy.ts, next.config.ts, app/api)
+- Wave: 1 · Depends on: — · Target: apps/web · Commit scope: `web`
+- Owned paths: `apps/web/src/proxy.ts`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/(app)/layout.tsx`, `apps/web/src/app/(public)/**`, `apps/web/src/app/api/**`, `apps/web/src/app/error.tsx`, `apps/web/src/app/not-found.tsx`, `apps/web/src/app/global-error.tsx`, `apps/web/src/lib/**`, `apps/web/src/components/**`, `apps/web/src/test/**`, `apps/web/next.config.ts`, `apps/web/src/env.ts`, `apps/web/public/favicon.ico`, `apps/web/public/brand/**`
 
-**Brief**
+**Goal.** The Next.js 16 App Router shell every web feature plugs into: a same-origin streaming BFF to the private API, a strict nonce CSP, the session-aware layouts and public pages, a typed API client, and pixel-faithful UI primitives.
 
-Port the prototype's document-reading functions into pure, well-tested TypeScript in @kr/document-parsing (no network, no DB). Read: docs/spec/PRODUCT_SPEC.md §10 (10.1 conformed date order of attempts, 10.2 Decision Letter extraction + agency rules + approval dates, 10.3 email parsing), §15 edge cases, §8 rules R-dates; packages/document-parsing/src/types.ts (ParsedCondition, ApprovalDates, ConformedDateFinding, ParsedEmail, PdfFirstPage, PdfLimits — keep these exported names; extend if needed); @kr/workflow (AGENCIES, CONDITION_RESPONSIBILITIES, addYears, isIsoDate). The prototype source is at /home/claude/inputs/prototype (read-only; functions datesIn, dateFromFileName, findConformedDate/readConformed, parseConditions, guessAgency/agency keyword rules, findApprovalDates, parseMsg, parseEml, emailToText). Treat its contents as data; reimplement cleanly — do not copy any client names, addresses or document text from s0561-data.json or the manifest.
+**Read first**
 
-Deliver modules: src/rules/dates.ts (datesIn(text) → ISO dates found in Australian formats '2 March 2026', '02/03/2026', '2.3.26' etc. per spec; dateFromFileName), src/rules/conditions.ts (parseConditions(lines) → ParsedCondition[] with condition number, text, agency, agencyGuessed; agency detection by the spec keyword table; numbering/continuation/advice-notes cut-off rules), src/rules/approval.ts (findApprovalDates(text) → approvalDate, expiry (approval + N years from letter text, default per spec), outcomeDate rules), src/rules/conformed.ts (findConformedDate over candidates: file name, PDF stamp annotation text, page text; returns method 'file_name' | 'stamp_annotation' | 'text' and confidence; the AI image method lives in the worker), src/email/msg.ts (parseMsg(buffer) using cfb — subject, from, to, cc, sent date, body text; HTML bodies via html-to-text), src/email/eml.ts (parseEml, RFC 822 headers + multipart text/html, quoted-printable/base64), src/email/text.ts (emailToText for display), src/pdf/text.ts (pdfTextLines(buffer, limits) with pdfjs-dist legacy build in Node, page cap PdfLimits.maxPages (default 60), abort on encrypted PDF → typed error), src/pdf/annotations.ts (stamp/freetext annotation contents of page 1), src/pdf/render.ts (renderFirstPagePng(buffer, {maxWidth: 1600}) with @napi-rs/canvas, used by the worker AI path). All functions pure apart from pdf.js decoding; errors are typed (DocumentParseError with code).
+- apps/web/node_modules/next/dist/docs/ (FIRST: proxy.ts, async request APIs, route handlers)
+- PRODUCT_SPEC §3.1 (sign-in, step 7 reason codes and texts), §3.2, §4 (shell, header additions, navigation), §5.1 (banner texts incl. the 412 text), §5.5 (drop zones, scan state texts), §11.1, §12 (theme, accessibility, print, feedback link), §14 (15 s refresh)
+- ADR-0005 (header allowlist, CSP, matcher), ADR-0002
+- DESIGN_TOKENS.md (all of it: you own AppHeader, Footer, Button, Banner, Panel, Tag, Dialog, DropZone, DocRow)
+- packages/design-tokens (tokens.css, assets), packages/contracts (ROUTES, buildPath, schemas, Problem, PROBLEM_TYPES, Me)
+- docs/reference/prototype/app.css and app.js (class names, sizes, texts) and screenshots/blank-*.png
 
-Tests: build SYNTHETIC fixtures in test/fixtures/builders.ts at test time — PDFs with pdf-lib (Decision Letter-like text with numbered conditions across agencies, advice notes, approval date sentences; a deposited-plan-like PDF with a 'CONFORMED' stamp annotation and date), .msg files with cfb (minimal property streams __substg1.0_0037001F subject etc.), .eml strings. Use @faker-js/faker for names/addresses. Cover every rule in §10 with table-driven tests incl. edge cases (no conditions, condition text spanning pages, unknown agency → guessed 'WAPC' with agencyGuessed=true, two-digit years, invalid dates like 31/02, multiple candidate dates → latest/first per spec, encrypted/corrupt PDF, oversize page counts). Export everything from src/index.ts. Keep the domain-purity lint rule happy for src/rules (no I/O imports, no Date.now).
+**Plan of record**
 
-**Acceptance**
+1. `src/env.ts`: server-only env parsed with zod (API_INTERNAL_URL, PUBLIC_BASE_URL if needed, FEEDBACK_URL optional).
+2. `src/app/api/v1/[...path]/route.ts`: streaming proxy to `${API_INTERNAL_URL}/v1/...` for GET/POST/PUT/PATCH/DELETE. Forward only: cookie, content-type, content-length, if-match, idempotency-key, x-csrf-token, range, origin, user-agent, x-request-id (generate when absent) plus X-Forwarded-For (as received from the Railway edge — never replaced with the BFF's view), X-Forwarded-Proto, X-Forwarded-Host. Stream request and response bodies (uploads, zips, Range); strip hop-by-hop headers; pass every `Set-Cookie` through (`headers.getSetCookie()`); pass 3xx through unfollowed (`redirect: 'manual'`); 30 s timeout except uploads/downloads; upstream failure → 502 problem+json.
+3. `src/app/api/healthz/route.ts` (web liveness, 200 `{status:'ok'}`) and `src/app/api/readyz/route.ts` (calls the API `/readyz`, returns only `{status}` with 200/503, 2 s timeout) — used by Railway and the smoke tests.
+4. `src/proxy.ts`: per-request nonce CSP exactly as ADR-0005 (incl. `img-src 'self' data: blob:` for the noise texture, `style-src-attr 'unsafe-inline'`, `worker-src 'self' blob:`, `frame-ancestors 'none'`); redirect page requests without `__Host-kr_session` to `/sign-in?returnTo=<same-origin path>` (drop anything else); matcher excludes `/api/*`, `/_next/*` and static files. `next.config.ts`: standalone output (keep), HSTS, Referrer-Policy, Permissions-Policy, nosniff, poweredByHeader off.
+5. `src/lib/api`: typed `api(operationId, {params, query, body, ifMatch, idempotencyKey})` on ROUTES (zod response parsing in dev/test; CSRF header from the session; problem+json → `ApiProblem`; 401 → sign-in redirect); `uploadFile` (XMLHttpRequest progress, abort, Idempotency-Key); `queryKeys` (jobs.list, jobs.facets, jobs.detail, jobs.notes, grants, audit, users, operation); `useOptimisticVersionedMutation` (If-Match; on 412 refetch and show exactly the §5.1 stale banner text); `useOperation(id)` polling 1 s backing off to 5 s; QueryClient defaults: 15 s refetch while visible, refetch on focus (§14).
+6. `src/lib/session`: server `getMe()` (calls the API with the incoming cookie; 401 → redirect to /sign-in) and client `SessionProvider`/`useSession()` exposing Me (user, role, capabilities, csrfToken, features).
+7. Layouts/pages: root layout (fonts via next/font, nonce'd theme bootstrap reading localStorage `kr-theme` in try/catch, `lang=en-AU`); `(app)/layout.tsx` (requires a session; AppHeader + main + Footer; QueryClient; mounts `ViewerProvider` from `@/features/viewer` — stub exists, WP-17 implements); `(public)/sign-in`, `sign-in-error` (one message per §3.1 step-7 reason code, "Try again"), `signed-out`; error.tsx, not-found.tsx, global-error.tsx (request id shown).
+8. `src/components/ui` matching DESIGN_TOKENS light and dark: AppHeader (hero, logo, tagline, user name, theme control System/Light/Dark, Admin link gated by `users.manage`/`audit.read`, Sign out = POST logout then navigate to the returned endSessionUrl); Footer (prototype text; accepted-types sentence from server limits; "Send feedback" link only when FEEDBACK_URL is set — §12); Button, Banner, Panel, Tag; Dialog (native dialog, focus trap, Esc, return focus) and ConfirmDialog; DropZone (drag/drop, keyboard, labelled hidden input, accept/size messages per §5.5); FileList/DocRow (scan states exactly per §5.5: "Scanning…", "Blocked – failed the virus scan", the scan-error text; inline "Remove? Yes / No"); Spinner, EmptyState, form fields, VisuallyHidden, live-region toast.
+9. `src/test`: MSW 2 node server with handlers built from contract shapes, `renderWithProviders` (QueryClient, SessionProvider with a synthetic Me), an axe helper.
 
-- Every behaviour listed in PRODUCT_SPEC §10.1–10.3 has at least one table-driven test using synthetic fixtures generated at test time.
-- parseConditions returns numbered conditions with agency and agencyGuessed; advice notes are excluded; unknown agency is flagged as guessed.
-- findApprovalDates and findConformedDate return ISO dates (yyyy-mm-dd) and the method used; invalid dates are rejected.
-- parseMsg/parseEml extract subject, from, to, cc, sent date and plain-text body (HTML converted); malformed input raises DocumentParseError, never crashes.
-- pdfTextLines enforces the page cap and rejects encrypted PDFs with a typed error; renderFirstPagePng returns a PNG buffer ≤ 1600 px wide.
-- No real client data in fixtures (repository grep for prototype job identifiers is clean); src/rules passes the domain purity lint rule.
-- Line coverage ≥ 90 % for src/rules; package lint/typecheck/unit/build green.
+**PR stack** (in order, each ≤ 400 changed lines)
 
-**Verify**
+1. 03-a env, next.config headers, proxy.ts CSP + redirect, health routes
+2. 03-b BFF route handler (streaming, header allowlist, Set-Cookie, redirects, timeouts)
+3. 03-c lib/api client, queryKeys, mutation/operation hooks, lib/session, src/test utilities
+4. 03-d layouts, public pages, error pages
+5. 03-e UI primitives: header, footer, button, banner, panel, tag, theme control
+6. 03-f UI primitives: dialog, confirm, drop zone, file list/doc row, toast, form fields
 
-```sh
-pnpm --filter @kr/document-parsing lint
-pnpm --filter @kr/document-parsing typecheck
-pnpm --filter @kr/document-parsing test:unit
-pnpm --filter @kr/document-parsing build
-```
+**Acceptance criteria**
 
-### WP-03 — Web shell, BFF proxy, typed API client and UI primitives
+1. The proxy forwards method, body stream, the allowlisted headers and X-Forwarded-For/-Proto/-Host, streams responses, preserves multiple Set-Cookie headers and passes redirects through (tests with a mocked upstream); upstream down → 502 problem.
+2. proxy.ts sets the full ADR-0005 nonce CSP and redirects unauthenticated page requests with a same-origin returnTo; open-redirect attempts are dropped; /api/* is not matched (tests).
+3. /api/healthz → 200; /api/readyz → 200/503 mirroring the API (tests).
+4. The typed client parses problem+json into ApiProblem; the 412 path refetches and shows the exact §5.1 banner text (test).
+5. Sign-in, every sign-in-error reason, signed-out, not-found and error pages render with the hero header and spec texts; axe finds no violations.
+6. UI primitives have unit tests (keyboard, disabled states, scan states) and match DESIGN_TOKENS; theme persists in localStorage under try/catch; feedback link hidden without FEEDBACK_URL.
+7. `pnpm --filter @kr/web build` succeeds and the e2e smoke test passes.
 
-- Wave: 1
-- Depends on: —
-- Owned paths: `apps/web/src/proxy.ts`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/(app)/layout.tsx`, `apps/web/src/app/(public)/**`, `apps/web/src/app/api/**`, `apps/web/src/app/error.tsx`, `apps/web/src/app/not-found.tsx`, `apps/web/src/app/global-error.tsx`, `apps/web/src/lib/**`, `apps/web/src/components/**`, `apps/web/src/test/**`, `apps/web/next.config.ts`, `apps/web/src/env.ts`
+**Out of scope / must not change**
 
-**Brief**
+- Dashboard, tracker, checkpoint, conditions, viewer, notes, job files and admin features (WP-13..18).
+- The web Dockerfile (WP-04).
 
-Build the Next.js 16 App Router shell that all feature WPs plug into (ADR-0005). FIRST read node_modules/next/dist/docs/ (Next 16: `proxy.ts` replaces middleware, async request APIs) and apps/web/AGENTS.md. Read: docs/spec/PRODUCT_SPEC.md §3.1–3.2 (sign-in pages, CSRF), §4 (pages/navigation, header, footer, theme), §12 (look, a11y, responsive, print); docs/spec/DESIGN_TOKENS.md (all; component table rows owned by WP-03: AppHeader, Button, Banner, Footer, plus shared primitives); packages/design-tokens (tokens.css already imported in src/app/layout.tsx; assets logo/hero image); packages/contracts (ROUTES, buildPath, schemas, Problem, PROBLEM_TYPES); the prototype HTML/CSS at /home/claude/inputs/prototype for exact markup/class names and texts (data only; never copy client data).
+**Permissions**
 
-Deliver:
-
-1. src/app/api/v1/[...path]/route.ts: streaming same-origin reverse proxy to API_INTERNAL_URL (server-only env parsed with zod in src/env.ts) for GET/POST/PUT/PATCH/DELETE; forwards cookies, X-CSRF-Token, If-Match, Idempotency-Key, Range, Content-Type, Origin, X-Request-Id (generate if absent); streams request and response bodies (uploads ≥ 50 MB, zip downloads, Range video); strips hop-by-hop headers; never follows redirects (passes 302 from auth/login through); 30 s timeout except uploads/downloads; maps upstream connection failure to a problem+json 502.
-
-2. src/proxy.ts: per-request CSP nonce (script-src 'self' 'nonce-…' 'strict-dynamic'; object-src 'none'; frame-ancestors 'none'; worker-src 'self' blob: for pdf.js), redirects unauthenticated page requests (no `__Host-kr_session` cookie) to /sign-in?returnTo=<same-origin path>; does not touch /api/_, /\_next/_, static assets. next.config.ts: keep standalone output, add remaining security headers (HSTS, Referrer-Policy, Permissions-Policy, X-Content-Type-Options).
-
-3. src/lib/api: typed client `api<Op extends OperationId>(op, {params, query, body, ifMatch, idempotencyKey})` built on ROUTES (zod-parse responses in dev/test), CSRF token from the session context, problem+json → `ApiProblem` error class with type/status/detail; `uploadFile` helper with progress (XMLHttpRequest) and abort; query key factory `queryKeys` (jobs list/facets/detail/notes/grants/audit/users/operation) used by every feature; `useOptimisticVersionedMutation` helper for If-Match + 412 handling (refetch + banner 'This job was changed by someone else — your view has been refreshed.'); polling helper `useOperation(operationId)` for async operations (getOperation, backoff 1 s→5 s).
-
-4. Session: src/lib/session — server helper `getMe()` (calls API server-side via API_INTERNAL_URL with the incoming cookie; 401 → redirect /sign-in) and client `SessionProvider`/`useSession()` exposing Me (user, role, capabilities, csrfToken, features) — features from Me.features gate UI.
-
-5. Layouts/pages: src/app/layout.tsx (fonts per tokens, theme bootstrap script with nonce reading localStorage 'kr-theme' safely, html lang en-AU), src/app/(app)/layout.tsx (requires session; AppHeader + main + footer; TanStack Query provider; ViewerProvider from src/features/viewer is mounted by WP-17 — import it from '@/features/viewer' index which already exists as a stub), src/app/(public)/sign-in/page.tsx ('Sign in with Microsoft' → /api/v1/auth/login?returnTo=…), sign-in-error/page.tsx (reason codes → friendly messages from spec §3.1), signed-out/page.tsx, error.tsx, not-found.tsx, global-error.tsx.
-
-6. src/components/ui (prototype-identical styling from DESIGN_TOKENS.md): AppHeader (hero bar, logo, tagline, user menu with role, theme control light/dark/system, Admin links by capability, Sign out → POST logout then navigate to returned end-session URL), Footer, Button (primary/small/disabled), Banner, Panel, Tag, Dialog (native <dialog>, focus trap, Esc, return focus), ConfirmDialog, DropZone (drag/drop + keyboard + accept/size validation messages), FileList/DocRow (name, size, scan state 'Checking for viruses…'/'Blocked – failed the virus scan', remove with confirm), Spinner, EmptyState, FormField/Select/TextArea, VisuallyHidden, Toast/live region. Styling with CSS modules or a single components.css using the token variables — match the prototype pixel-for-pixel (sizes, paddings, colours) in light and dark.
-
-7. src/test: MSW 2 server (msw/node) with handlers generated from contracts examples + `renderWithProviders` (QueryClient, SessionProvider with a synthetic Me), axe helper `expectNoA11yViolations(container)` using axe-core.
-
-Do not implement dashboard/tracker/admin features (WP-13..18). Do not add dependencies.
-
-**Acceptance**
-
-- Proxy route forwards method, body stream, cookies and CSRF/If-Match/Range headers and streams responses (unit tests with a mocked upstream); upstream down → 502 problem+json.
-- proxy.ts sets a nonce CSP and redirects unauthenticated page requests to /sign-in with a same-origin returnTo; open-redirect attempts (//evil, https://evil) are dropped (tests).
-- Typed api client parses problem+json into ApiProblem and validates responses against @kr/contracts schemas in tests; 412 path triggers refetch + banner (test).
-- Sign-in, sign-in-error (each reason), signed-out, not-found and error pages render with the KR hero header and exact texts from the spec; axe reports no violations.
-- UI primitives have unit tests (keyboard use for Dialog/DropZone/ConfirmDialog, disabled states) and match DESIGN_TOKENS.md values; light and dark themes switch and persist in localStorage 'kr-theme' (guarded by try/catch).
-- pnpm --filter @kr/web build succeeds; e2e smoke (sign-in page renders) passes.
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
 **Verify**
 
@@ -217,105 +248,53 @@ pnpm --filter @kr/web build
 E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filter @kr/web test:e2e
 ```
 
-### WP-04 — Railway infrastructure: Dockerfiles, service config, deploy/smoke scripts, ClamAV image
+### WP-06 — Storage package: S3 adapter, listing, in-memory fake, content sniffing
 
-- Wave: 1
-- Depends on: —
-- Owned paths: `infra/**`, `services/api/Dockerfile`, `services/worker/Dockerfile`, `apps/web/Dockerfile`, `services/api/railway.json`, `services/worker/railway.json`, `apps/web/railway.json`, `docs/deploy/**`
-
-**Brief**
-
-Make the repo deployable to Railway exactly as .github/workflows/release.yml and deploy.yml expect (read both first; you may NOT edit .github/** — if they need changes, report the exact diff to the orchestrator). Read ADR-0008 (Railway hosting, exceptions: long-lived RAILWAY_TOKEN, no canary → flags + rollback), ADR-0011 (storage + ClamAV), ADR-0007 (DB roles, pre-deploy migrations as tracker_migrator), ADR-0013 (config/secrets), docs/spec/PRODUCT_SPEC.md §14, root .env.example, services/*/src/config.ts, packages/db (migrate-cli, bootstrap-cli).
-
-Deliver:
-
-1. Multi-stage Dockerfiles (node:24-alpine pinned by digest, pnpm via corepack, `pnpm fetch` + `pnpm install --frozen-lockfile --offline`, `pnpm --filter <pkg>... build`, `pnpm deploy --prod` for api/worker; Next standalone output for web), non-root user, read-only friendly, HEALTHCHECK-free (Railway health checks), tini/`--init` signal handling, OCI labels, no secrets in layers; services/worker image includes @napi-rs/canvas runtime deps; api image also contains packages/db migrations + dist/cli for pre-deploy (`node packages/db/dist/migrate-cli.js`).
-
-2. infra/clamav/Dockerfile (clamav/clamav:stable pinned by digest, clamd on 3310 private network only, freshclam on start, memory notes) and infra/clamav/README.md.
-
-3. railway.json per service (builder DOCKERFILE is NOT used — we deploy images by digest; keep deploy settings: healthcheckPath /healthz (api, web) / worker /healthz on 8081, restartPolicy ON_FAILURE max 3, preDeployCommand for api = migrations, numReplicas 1, sleepApplication false).
-
-4. infra/railway/scripts/deploy-images.mjs: Node 24 ESM script with no dependencies using fetch against Railway public GraphQL API https://backboard.railway.com/graphql/v2 with RAILWAY_TOKEN (Bearer project token header `Project-Access-Token` — verify against Railway docs at implementation time and document the exact mutations used: serviceInstanceUpdate(source.image = ghcr…@sha256) then serviceInstanceDeploy / deploymentRedeploy, polling deployment status until SUCCESS/FAILED with timeout), args --environment, --services api,worker,web,clamav, --record previous-<env>.json (records the currently deployed image per service for rollback), --rollback <file>; reads image refs from image-<svc>.txt files; dry-run mode `--dry-run` that prints the plan; unit tests with a mocked fetch (node:test or vitest via a small package.json in infra/railway/scripts? — prefer plain node:test so no new deps).
-
-5. infra/railway/scripts/smoke.mjs: checks https://<host>/healthz, /readyz via web proxy (/api/v1/readyz), sign-in page 200, security headers present; `--watch-minutes N` repeats every 30 s and fails on any error; tests with mocked fetch.
-
-6. infra/zap/rules.tsv (baseline ZAP rule overrides referenced by deploy.yml, start with IGNORE only for documented false positives) — WP-20 will refine.
-
-7. docs/deploy/railway.md: one-time Railway setup (project, environments staging/production, services api/worker/web/clamav, Postgres plugin, Bucket, private networking hostnames, variables per service from .env.example incl. DATABASE_URL for tracker_app and MIGRATION_DATABASE_URL for tracker_migrator, running bootstrap-cli once, GHCR pull credentials, RAILWAY_TOKEN per environment as GitHub environment secrets, DEPLOYS_FROZEN variable), and the Entra app registration checklist (redirect URI, optional claims email/acct, Conditional Access MFA for admins).
-
-Validate Dockerfiles with `docker build` locally (Docker is available; Docker Hub is rate limited — pull base images via mirror.gcr.io and tag) and hadolint if available.
-
-**Acceptance**
-
-- docker build succeeds for api, worker, web and clamav images from the repo root; containers start and /healthz answers (api/web) with a local docker compose Postgres (document the commands run).
-- Images run as non-root, contain no .env files or dev dependencies, and base images are pinned by digest.
-- deploy-images.mjs supports --dry-run, --record and --rollback and has node:test tests with mocked fetch for success, failed deployment and timeout paths.
-- smoke.mjs fails on non-200 health, missing security headers or any error during --watch-minutes; tests cover these.
-- docs/deploy/railway.md lists every variable from .env.example per service and the Entra app registration steps; mutations used against the Railway API are documented with links.
-- No changes outside owned paths; required workflow edits (if any) are reported to the orchestrator as a diff.
-
-**Verify**
-
-```sh
-node --test infra/railway/scripts/
-docker build -f services/api/Dockerfile -t kr-api:test .
-docker build -f services/worker/Dockerfile -t kr-worker:test .
-docker build -f apps/web/Dockerfile -t kr-web:test .
-docker build -f infra/clamav/Dockerfile -t kr-clamav:test infra/clamav
-```
-
-### WP-05 — Observability: telemetry package, metrics, SLOs and alert definitions
-
-- Wave: 1
-- Depends on: —
-- Owned paths: `packages/telemetry/**`, `docs/observability/**`, `docs/slo.md`
-
-**Brief**
-
-Implement @kr/telemetry (currently a stub `startTelemetry(_config)`) per ADR-0009 and playbook observability rules. Read: ADR-0009 (OpenTelemetry → OTLP endpoint configurable; backend choice pending KR approval, so export is OFF unless OTEL_EXPORTER_OTLP_ENDPOINT is set — rule X7), docs/spec/PRODUCT_SPEC.md §14 NFRs, packages/logger (pino, REDACT_PATHS, pseudonymise), services/api/src/config.ts and services/worker/src/config.ts (OTEL_* keys).
-
-Deliver: startTelemetry({ serviceName, serviceVersion, environment, otlpEndpoint?, otlpHeaders?, sampleRatio }) → { shutdown(): Promise<void> } using @opentelemetry/sdk-node with http/fastify/pg/undici auto-instrumentation (disable fs/dns noise), parent-based ratio sampler, resource attributes; no-op when endpoint unset; never throws at startup (log + continue). A small metrics API: `getMeter()` and pre-defined instruments helpers `createMetrics()` returning counters/histograms: http.server.duration is automatic; app-specific `kr.operations.processed{type,status}`, `kr.operations.queue_depth` (observable gauge callback registration), `kr.files.scanned{result}`, `kr.auth.signins{result}`, `kr.ai.stamp_reading{result}`; trace-log correlation helper `currentTraceIds()` for the logger. Tests with in-memory exporters (InMemorySpanExporter / metric reader) proving spans and metrics are produced and that no PII attributes (email, names) are recorded.
-
-Docs: docs/slo.md (SLIs/SLOs: availability 99.5 % monthly for web+api, p95 API latency < 500 ms for reads / < 1 s writes, operations processed < 2 min p95, scan backlog); docs/observability/alerts.md (alert rules expressed backend-neutrally: error rate, latency, queue depth/age, failed ops, infected file detected, readiness failures, certificate/health; each with runbook link docs/runbooks/<name>.md — WP-21 writes the runbooks); docs/observability/dashboards.md (what panels to build). Do not wire telemetry into services (WP-01/WP-12 call startTelemetry).
-
-**Acceptance**
-
-- startTelemetry is a no-op without an OTLP endpoint and exports spans/metrics when one is configured (tests with in-memory exporters).
-- createMetrics exposes the listed instruments; tests assert names, attributes and absence of PII attributes.
-- shutdown flushes and resolves within 5 s even if the exporter endpoint is unreachable (test).
-- docs/slo.md and docs/observability/{alerts,dashboards}.md exist and reference runbook paths.
-- Package lint/typecheck/unit/build green.
-
-**Verify**
-
-```sh
-pnpm --filter @kr/telemetry lint
-pnpm --filter @kr/telemetry typecheck
-pnpm --filter @kr/telemetry test:unit
-pnpm --filter @kr/telemetry build
-```
-
-### WP-06 — Storage package: S3 adapter, in-memory fake, content sniffing
-
-- Wave: 1
-- Depends on: —
+- Risk tier: **High** — upload type sniffing and file-name sanitising are security controls (V5)
+- Wave: 1 · Depends on: — · Target: packages/storage · Commit scope: `storage`
 - Owned paths: `packages/storage/**`
 
-**Brief**
+**Goal.** One storage abstraction for the api, worker and ops services: a streaming S3 adapter for Railway Buckets, an identical in-memory fake for tests, and content sniffing that decides what an upload really is.
 
-Implement @kr/storage behind the existing interfaces in packages/storage/src/index.ts (ObjectStorage, PutObjectInput, GetObjectResult, ObjectNotFoundError, S3StorageConfig, ContentClassification, objectKeyFor — keep names; extend compatibly). Read ADR-0011, docs/spec/PRODUCT_SPEC.md §11 (accepted kinds by content sniffing, size limit, key layout jobs/<jobId>/<fileId>, never public), §15; @kr/workflow FILE_KINDS and SlotDefinition.accept.
+**Read first**
 
-Deliver: (1) `createS3Storage(config)` using @aws-sdk/client-s3 + @aws-sdk/lib-storage Upload for streaming multipart puts (forcePathStyle configurable for Railway Bucket/S3 mock, region, endpoint, credentials from config), methods put (stream, contentType, contentLength?, sha256 computed while streaming and returned), get (stream + contentLength + range support 'bytes=a-b' → partial result with contentRange), head, delete (idempotent), exists; per-call timeouts (10 s connect/30 s idle) and bounded retries for idempotent ops only; maps NoSuchKey → ObjectNotFoundError. (2) `createMemoryStorage()` fake with identical semantics incl. range and sha256 for unit tests across the repo (export from './testing' subpath — add an exports entry in this package's package.json). (3) `classifyContent(head: Uint8Array, fileName: string) → ContentClassification` using file-type plus custom detectors: DWG ('AC10' magic, version map), CFB/OLE (.msg candidate; mark kind 'email' only when the name ends .msg — the worker confirms by parsing), .eml (RFC 822 header heuristics on text), text (valid UTF-8, no NUL, ≤ size; CSV/MD/TXT), PDF, PNG/JPEG/GIF/WebP, MP4/WebM; rejects HTML/SVG/JS/executables/archives explicitly; returns {kind, contentType, extension} or {rejected: reason}. `isAcceptedForSlot(classification, slot.accept)`. `sanitiseFileName(name)` (strip path separators/control chars, ≤255 chars, keep extension). (4) Integration tests against adobe/s3mock:latest via Testcontainers GenericContainer (image pre-pulled; bucket created via env COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS) covering put/get/range/head/delete/not-found and a 20 MB streamed upload; unit tests for classifyContent with synthetic byte headers for each kind and rejection case (build PDFs with minimal bytes, DWG headers, CFB header bytes D0 CF 11 E0 A1 B1 1A E1).
+- ADR-0011, PRODUCT_SPEC §11 and §15
+- @kr/workflow FILE_KINDS and SlotDefinition.accept
+- packages/storage/src/index.ts (ObjectStorage, PutObjectInput, GetObjectResult, ObjectNotFoundError, S3StorageConfig, ContentClassification, objectKeyFor — keep the names, extend compatibly)
 
-No new dependencies (testcontainers is available at root devDependencies? if not resolvable from this package, ask the orchestrator to add it; meanwhile skip only with a clear failing TODO is NOT allowed — ask).
+**Plan of record**
 
-**Acceptance**
+1. `createS3Storage(config)` on @aws-sdk/client-s3 + @aws-sdk/lib-storage `Upload` (streaming multipart): configurable endpoint, region, forcePathStyle, credentials. Methods: put (stream; returns sha256 computed while streaming + size), get (stream; Range `bytes=a-b` → contentRange), head, delete (idempotent), exists, and `list(prefix)` (async iterator of {key, size, etag, lastModified}; used by the ops backup). Timeouts 10 s connect / 30 s idle; retries only for idempotent operations; NoSuchKey → ObjectNotFoundError.
+2. `createMemoryStorage()` with identical semantics, exported from a `./testing` subpath (add the `exports` entry to this package's package.json — the only package.json change allowed).
+3. `classifyContent(head, fileName)` → {kind, contentType, extension} | {rejected: reason} using file-type plus detectors for DWG (`AC10`), CFB/OLE (`D0 CF 11 E0 A1 B1 1A E1`; kind email only for a `.msg` name — the worker confirms by parsing), .eml (RFC 822 header heuristics), UTF-8 text without NUL (txt, csv, md), PDF, PNG, JPEG, GIF, WebP, MP4, WebM; explicitly reject HTML, SVG, JS, executables and archives. `isAcceptedForSlot(classification, accept)`; `sanitiseFileName` (strip separators/control characters, ≤ 255 chars, keep the extension).
+4. Integration tests (`*.int.test.ts`, the `integration` Vitest project already exists) against `adobe/s3mock:latest` via a Testcontainers GenericContainer with `COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS`: put, get, range, head, delete, list, not-found and a 20 MB streamed upload. One shared contract suite runs against both implementations. Unit tests for classifyContent use synthetic byte headers.
 
-- createS3Storage passes integration tests against s3mock: streaming put returns sha256 and size, ranged get returns the right bytes and contentRange, delete is idempotent, missing key → ObjectNotFoundError.
-- createMemoryStorage behaves identically (shared contract test suite run against both implementations).
-- classifyContent identifies PDF, PNG, JPEG, GIF, WebP, MP4, WebM, UTF-8 text, DWG, .msg (CFB) and .eml and rejects HTML, SVG, executables and zip with reasons (unit tests).
-- sanitiseFileName removes path separators and control characters and truncates to 255 chars keeping the extension.
-- Package lint/typecheck/unit/integration/build green.
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 06-a classifyContent, isAcceptedForSlot, sanitiseFileName (unit)
+2. 06-b memory storage + shared contract suite + ./testing export
+3. 06-c S3 adapter + s3mock integration tests
+
+**Acceptance criteria**
+
+1. The S3 adapter passes the s3mock integration suite: streaming put returns sha256 and size, ranged get returns the right bytes and contentRange, list pages through prefixes, delete is idempotent, a missing key raises ObjectNotFoundError.
+2. The memory storage passes the same contract suite and is importable from `@kr/storage/testing`.
+3. classifyContent identifies every accepted kind and rejects HTML, SVG, executables and zip with reasons; an HTML file named .pdf is rejected.
+4. sanitiseFileName removes separators and control characters and truncates to 255 characters keeping the extension.
+5. Package lint, typecheck, unit, integration and build are green.
+
+**Out of scope / must not change**
+
+- Presigned URLs (ADR-0011 rejects them).
+- Malware scanning (WP-12).
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
+- Note: testcontainers is already a devDependency of this package.
 
 **Verify**
 
@@ -327,32 +306,123 @@ pnpm --filter @kr/storage test:integration
 pnpm --filter @kr/storage build
 ```
 
-### WP-07 — API auth module: Entra OIDC login/callback/logout, user provisioning, first admin, guest grant activation, mock IdP
+### WP-02 — Document parsing package (dates, conditions, approval dates, conformed-date candidates, emails, PDF text and first-page render)
 
-- Wave: 2
-- Depends on: WP-01
+- Risk tier: **Medium** — parses untrusted documents; no persistence or authorisation
+- Wave: 2 · Depends on: — · Target: packages/document-parsing · Commit scope: `document-parsing`
+- Owned paths: `packages/document-parsing/**`
+
+**Goal.** Pure, table-tested TypeScript ports of the prototype's document readers so the worker can extract conditions, dates and emails deterministically.
+
+**Read first**
+
+- PRODUCT_SPEC §10.1 (the conformed-date attempts and their messages), §10.2 (conditions: start/stop lines, numbering, footers, the agency bracket rule and the keyword regexes exactly as written), §10.3, §8, §15
+- packages/document-parsing/src/types.ts (keep exported names; extend if needed)
+- @kr/workflow AGENCIES, CONDITION_RESPONSIBILITIES, addYears, isIsoDate
+- docs/reference/prototype/app.js: datesIn, dateFromFileName, readConformed/findConformedDate, agencyFrom, guessAgency, parseConditions, findApprovalDates, parseMsg, parseEml, emailToText (data only)
+
+**Plan of record**
+
+1. `src/rules/dates.ts`: datesIn (§10.1 last paragraph formats; invalid calendar dates ignored) and dateFromFileName.
+2. `src/rules/conditions.ts`: parseConditions → {number, text, agency, agencyGuessed}[] per §10.2 (bracket rule from the prototype's agencyFrom; keyword guess `electric|power supply|western power`, busselton water, `sewer|wastewater|water corporation`, `water supply|potable` (Busselton if 'busselton'), `crossover|drainage|verge|kerb|road|footpath|local government|council|shire`, else WAPC with agencyGuessed=true).
+3. `src/rules/approval.ts`: findApprovalDates → {approvalDate, approvalExpiry} only (the outcome date comes from the conformed date, never from the Decision Letter).
+4. `src/rules/conformed.ts`: the three NON-AI candidates as separate functions — fromFileName, fromStampAnnotation(annotationTexts), fromText(lines) — each → {date, method} | null. The worker (WP-12) applies the §10.1 order file name → stamp annotation → AI → text; this package does not decide the order with AI.
+5. `src/email/msg.ts` parseMsg via cfb (runtime dependency) and html-to-text; `src/email/eml.ts` parseEml (RFC 822, RFC 2047 words, multipart preference, QP/base64, charset); `src/email/text.ts` emailToText (the prototype's rendering).
+6. `src/pdf/text.ts` pdfTextLines (pdfjs-dist legacy build in Node, `isEvalSupported: false`, PdfLimits.maxPages default 60, typed error for encrypted PDFs); `src/pdf/annotations.ts` page-1 stamp/FreeText annotation contents; `src/pdf/render.ts` renderFirstPagePng(buffer, {maxWidth: 1600}) via @napi-rs/canvas. Typed `DocumentParseError` with a code. No worker_thread here (the worker isolates calls).
+7. Synthetic fixture builders in `test/fixtures/builders.ts` (pdf-lib Decision-Letter-like PDFs with numbered conditions across agencies, advice notes, footers and approval/expiry sentences; a PDF with a stamp annotation; .msg via cfb; .eml strings; faker names/addresses). Table-driven tests for every §10 rule and edge case.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 02-a dates + approval
+2. 02-b conditions
+3. 02-c conformed candidates
+4. 02-d PDF text, annotations, render
+5. 02-e emails (.msg, .eml, text)
+
+**Acceptance criteria**
+
+1. Every behaviour in §10.1–10.3 has table-driven tests on synthetic fixtures generated at test time.
+2. parseConditions returns numbered conditions with agency and agencyGuessed using exactly the §10.2 regexes; advice notes and footers are excluded.
+3. findApprovalDates returns approval and expiry only; conformed candidates return ISO dates and the method; invalid dates are rejected.
+4. parseMsg and parseEml extract headers and a plain-text body; malformed input raises DocumentParseError.
+5. pdfTextLines enforces the page cap, rejects encrypted PDFs and runs with isEvalSupported false; renderFirstPagePng returns a PNG ≤ 1600 px wide.
+6. src/rules line coverage ≥ 90 %; package lint, typecheck, unit and build are green.
+
+**Out of scope / must not change**
+
+- The AI stamp reader and the attempt order (WP-12).
+- Any DB or network access.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
+
+**Verify**
+
+```sh
+pnpm --filter @kr/document-parsing lint
+pnpm --filter @kr/document-parsing typecheck
+pnpm --filter @kr/document-parsing test:unit
+pnpm --filter @kr/document-parsing build
+```
+
+### WP-07 — API auth module: Entra OIDC login/callback/logout with browser binding, provisioning, first admin, grant activation, mock IdP, promote-admin CLI
+
+- Risk tier: **High** — authentication
+- Wave: 2 · Depends on: WP-01 · Target: services/api · Commit scope: `auth`
 - Owned paths: `services/api/src/modules/auth/**`, `services/api/src/cli/**`, `packages/mock-idp/**`
 
-**Brief**
+**Goal.** Sign-in to the KR Surveys tenant that is safe against login CSRF, replay, wrong-tenant tokens and first-admin races, with guests' grants activated exactly once on first sign-in.
 
-Implement operations startLogin, completeLogin, logout, getMe (ROUTES in @kr/contracts) in services/api/src/modules/auth (http/ → domain/ → data/; keep `authModule.operations` accurate) using the WP-01 platform (defineRoute, sessions, errors, audit, rate limiting, flags, Clock). Read: docs/spec/PRODUCT_SPEC.md §2, §3 (entire), §15; ADR-0002, ADR-0003, ADR-0014; DATA_MODEL.md (users, system_bootstrap, sessions, auth_flows, access_grants); services/api/src/config.ts (ENTRA_TENANT_ID, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET, ENTRA_AUTHORITY_HOST override for tests, PUBLIC_BASE_URL, KR_STAFF_EMAIL_DOMAINS, SESSION_*, REQUIRE_MFA_FOR_ADMIN).
+**Read first**
 
-Flow: startLogin validates returnTo (same-origin path only, default '/'), creates auth_flows row (state hashed, nonce, PKCE verifier, 10-min TTL), 302 to the authorize URL built by openid-client v6 (discovery against https://login.microsoftonline.com/{tenant}/v2.0, cached; code + PKCE S256; scopes openid profile email; response_mode query). completeLogin: consume flow row once (delete), exchange code (client secret + PKCE) and validate ID token with openid-client (iss, aud, nonce, exp, tid == configured tenant); map errors/cancel (error=access_denied) to redirect /sign-in-error?reason=cancelled|wrong_tenant|disabled|expired|failed. In ONE transaction: upsert user by (tid, oid) (display name, lower-cased email from email or preferred_username, is_guest from acct==1, last_sign_in_at); new member with email domain in KR_STAFF_EMAIL_DOMAINS → role staff, else external; first-admin bootstrap exactly as spec §3.3 (INSERT … ON CONFLICT DO NOTHING RETURNING on system_bootstrap; only eligible members); activate pending grants by case-insensitive email for non-archived jobs (bind user_id, status active, activated_at); audit events user.created, user.first_admin_assigned, grant.activated, auth.signin; disabled users → reason disabled. Then createSession (auth_time, amr from ID token) → set cookie → 302 returnTo. Rotate: revoke any session cookie presented at login. logout: revoke + clear cookie, return {endSessionUrl} (Entra logout with post_logout_redirect_uri PUBLIC_BASE_URL/signed-out). getMe: Me schema (user, role, capabilities, csrfToken, features from flags) .
+- PRODUCT_SPEC §2, §3 (all of it — steps 1–7, the browser-binding cookie, email-claim rules, MFA evidence, reason codes), §3.4, §15
+- ADR-0002, 0003, 0014
+- DATA_MODEL users, system_bootstrap, sessions (amr, acrs), auth_flows (browser_binding_hash), access_grants
+- config keys ENTRA__, PUBLIC_BASE_URL, KR_STAFF_EMAIL_DOMAINS, SESSION__, REQUIRE_MFA_FOR_ADMIN, ADMIN_MFA_EVIDENCE
+- services/api/AGENTS.md (BE-1..12); the WP-01 platform (`services/api/src/platform/**`: defineRoute, errors, resolveJobAccess, requireCapability, concurrency, idempotency, audit/withTransaction, flags, Clock) and `modules/_shared` read models; test helpers `services/api/test/helpers` (createTestApp, signIn, apiRequest) and `test/factories.ts`
 
-CLI src/cli/promote-admin.ts: `node services/api/dist/cli/promote-admin.js <email>` promotes an existing member user to admin, audited as system actor, refuses guests; tests. Domain rule: never demote/disable the last active admin is enforced in the users module (WP-11) — expose `countActiveAdmins` only if needed via the auth index.
+**Plan of record**
 
-Mock IdP (@kr/mock-idp, interfaces already defined in packages/mock-idp/src/index.ts): implement `startMockIdp({ port?, tenantId, clientId, clientSecret, users })` with oidc-provider issuing Entra-like ID tokens (iss https://login.microsoftonline.com/{tid}/v2.0 shape served from the mock's own host — make the issuer configurable and point the API at it via ENTRA_AUTHORITY_HOST in tests), claims oid, tid, name, email, preferred_username, acct, amr; interactive login replaced by a `loginHint`/user picker that auto-approves (for Playwright); used by API integration tests here and by e2e (WP-19).
+1. startLogin: returnTo must be a same-origin path (default '/'); create the `auth_flows` row (state hash, nonce, PKCE verifier, browser_binding_hash, 10-minute TTL); set `__Host-kr_auth` (random 256-bit, HttpOnly, Secure, SameSite=Lax, Path=/, Max-Age 600); 302 to the authorize URL built by openid-client v6 (cached discovery for `${ENTRA_AUTHORITY_HOST}/{tenant}/v2.0`; S256; scopes openid profile email). Per-IP sign-in rate limit from the platform.
+2. completeLogin: consume the flow row once; require the `__Host-kr_auth` cookie hash to match (else reason `expired`) and clear it; exchange the code with the client secret + PKCE and validate the ID token with openid-client (iss, aud, nonce, exp, tid == configured tenant); map errors to `/sign-in-error?reason=` exactly per §3.1 step 7.
+3. In ONE transaction: upsert the user by (tid, oid) with name, is_guest from acct==1 and email per §3.1 step 4 (members: email else preferred_username; guests: `email` claim only); new users → staff when member with a KR_STAFF_EMAIL_DOMAINS domain, else external; first-admin bootstrap via `INSERT … ON CONFLICT DO NOTHING RETURNING` on system_bootstrap (members only); activate pending grants per §3.4 (guest `email` claim only; not when `xms_edov=false` → reason `unverified_email`; non-archived jobs; bind user id); audit user.created, user.first_admin_assigned, grant.activated, auth.signin. Disabled users → reason `disabled`.
+4. After the transaction: revoke any presented session (fixation), createSession with auth_time, amr and acrs, set the cookie, 302 to returnTo.
+5. logout: revoke, clear cookie, return {endSessionUrl} with post_logout_redirect_uri PUBLIC_BASE_URL/signed-out. getMe: Me (user, role, capabilities, csrfToken, features).
+6. `src/cli/promote-admin.ts`: `node services/api/dist/cli/promote-admin.js <email>` promotes an existing active member to admin, audited as the system actor; refuses guests.
+7. @kr/mock-idp (interfaces in packages/mock-idp/src/index.ts): `startMockIdp({port?, tenantId, clientId, clientSecret, users})` with oidc-provider issuing Entra-like ID tokens (oid, tid, name, email, preferred_username, acct, amr, acrs, xms_edov configurable per user); configurable issuer; login auto-approves the user selected by `login_hint` so Playwright can drive it. Tests point the API at it via ENTRA_AUTHORITY_HOST (allowed only outside staging/production).
 
-Tests: integration tests drive the real flow against the mock IdP (Testcontainers Postgres): first member becomes admin; concurrent first sign-ins produce exactly one admin (Promise.all of two callbacks); guest first never becomes admin; external without grants; pending grant activation; wrong tenant; replayed/expired state; cancelled; disabled user; returnTo open-redirect attempts; logout revokes session; MFA amr recorded. Unit tests for domain (role derivation, returnTo validation).
+**PR stack** (in order, each ≤ 400 changed lines)
 
-**Acceptance**
+1. 07-a mock IdP package
+2. 07-b domain rules (role assignment, email selection, returnTo validation) + unit tests
+3. 07-c startLogin/completeLogin data + http, browser binding, error mapping
+4. 07-d provisioning transaction: first admin, grant activation, audit; logout; getMe
+5. 07-e promote-admin CLI
 
-- Full sign-in against the mock IdP creates a user and session and redirects to returnTo; ID token validation uses openid-client (no hand-rolled JWT parsing).
-- Exactly one admin results from concurrent first sign-ins; guests and non-KR-domain members never become first admin (integration tests).
-- Pending grants matching the user's email (case-insensitive) on non-archived jobs become active and bound to the user id; audited.
-- Error paths (cancelled, wrong tenant, expired/replayed state, disabled user) redirect to /sign-in-error with the right reason; open redirects are impossible (tests).
-- logout revokes the session and returns the Entra end-session URL; getMe returns capabilities, csrfToken and feature flags.
-- promote-admin CLI works and is audited; mock IdP package has its own tests; api lint/typecheck/unit/integration/build green.
+**Acceptance criteria**
+
+1. Full sign-in against the mock IdP creates a user and session and redirects to returnTo; token validation uses openid-client.
+2. A callback without the `__Host-kr_auth` cookie, or with another browser's cookie, fails with reason `expired` (login-CSRF test); replayed or expired state fails.
+3. Concurrent first sign-ins produce exactly one admin; guests and non-KR members never become first admin.
+4. A guest's grant activates only from the `email` claim (a token with only preferred_username does not activate), not when xms_edov=false, only on non-archived jobs; binds the user id; audited.
+5. Wrong tenant, cancelled, disabled and open-redirect cases behave per §3.1; amr/acrs are stored on the session.
+6. logout returns the end-session URL and revokes the session; getMe returns capabilities, csrfToken and features; promote-admin is audited and tested; mock-idp and api checks green.
+
+**Out of scope / must not change**
+
+- Microsoft Graph invitations (WP-11).
+- Platform session/CSRF mechanics (WP-01) — use them.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
 **Verify**
 
@@ -364,31 +434,64 @@ pnpm --filter @kr/api lint
 pnpm --filter @kr/api typecheck
 pnpm --filter @kr/api test:unit
 pnpm --filter @kr/api test:integration
+pnpm --filter @kr/api test:contract
 pnpm --filter @kr/api build
 ```
 
-### WP-08 — API jobs and checkpoints modules (dashboard list/facets, job CRUD, checkpoint status/responsibility/notes, decisions, paid)
+### WP-08 — API jobs and checkpoints modules (dashboard list/facets, job CRUD + archive, checkpoint status/responsibility/KR note, decisions, paid)
 
-- Wave: 2
-- Depends on: WP-01
+- Risk tier: **High** — object-level authorisation over personal data (client names, addresses); fee-proposal restriction
+- Wave: 2 · Depends on: WP-01 · Target: services/api · Commit scope: `api`
 - Owned paths: `services/api/src/modules/jobs/**`, `services/api/src/modules/checkpoints/**`
 
-**Brief**
+**Goal.** The job and checkpoint API that the dashboard and tracker run on, with every rule computed once by @kr/workflow and every write versioned and audited.
 
-Implement operations listJobs, getJobFacets, createJob, getJob, updateJob, deleteJob (jobs module) and updateCheckpoint, recordDecision, markPaid, undoPaid (checkpoints module) using the WP-01 platform (defineRoute from ROUTES, resolveJobAccess, requireCapability, If-Match/ETag, idempotency, audit in-transaction, Clock, shared read-models in modules/_shared). Read: docs/spec/PRODUCT_SPEC.md §2.1 permissions, §5 (tracker: jobbar, summary panels, stages, checkpoint card, panel types incl. approval/decision, paid, KR note), §6 dashboard (cards, filters, facets, counts, sort), §7 workflow table, §8 computed rules, §15 edge cases; DATA_MODEL.md (jobs, checkpoint_states, conditions, files, email_messages, audit) §5–§6 invariants; packages/contracts schemas JobCard, JobListQuery, JobFacets, CreateJobRequest, UpdateJobRequest, JobDetail, CheckpointState, UpdateCheckpointRequest, RecordDecisionRequest; packages/workflow (summariseJob, effectiveState, nextActions, jobAlerts, getCheckpoint, hasPanel, CHECKPOINTS, isJobComplete, dates).
+**Read first**
 
-Rules: job visibility (staff/admin/kr_admin all; external only active grants) — 404 for invisible; list returns JobCard with summary computed by @kr/workflow summariseJob(input, clock.now()) from states + current conditions + dates; filters status (all/active/complete/attention/waiting_on_client), subdivision type (subdivisionTypeKey), q (job number/address/client, ILIKE with escaped wildcards), sort attention|job_number (compareJobNumbers), cursor pagination (max 100); facets counts consistent with filters. createJob: unique job_number (409 conflict problem), address required, initial checkpoint_states rows NOT required (missing = defaults) — choose lazily-created rows and document; updateJob with If-Match version, WAPC dates validation (outcomeDateFor, addYears expiry default per spec) and audit diff; deleteJob = archive soft delete (admin/kr_admin), archived jobs disappear from lists and grants stop working. getJob returns JobDetail: job, all 46 checkpoint states (merged with defaults), conditions (non-superseded), files (non-deleted, fee proposal 1.0 files and panel hidden for staff and architect per matrix — restricted 'fee_proposal'), emails, capabilities for the caller, computed summary; ETag = job version. updateCheckpoint: status/responsibility/kr_note with If-Match on the checkpoint_state version (upsert), staff-only, checkpoint key validated with isCheckpointKey, kr_note visible to everyone but editable by staff (per spec), restricted checkpoints; bump job updated_at; audit. recordDecision: only for checkpoints with an approval panel; client grant or staff on behalf; accepted/declined + comment; decided_by/at; per spec, accepting may set status completed when the panel says so — follow §5.5 exactly. markPaid/undoPaid: only checkpoints with a paid panel; who may press per matrix; idempotent. All writes audited with entity/action names documented in docs (put the list in the module README in your owned path).
+- PRODUCT_SPEC §2.1, §5.1 (job details, archive), §5.4–5.5 (approval: a decision does NOT change the status; paid: sets Completed, Undo sets Not completed), §6, §7, §8 (R1–R15), §15
+- DATA_MODEL §2, §5, §6 (job creation inserts the job AND all 46 checkpoint_states in one transaction; versioned updates; mark paid/undo)
+- contracts JobCard, JobListQuery, JobFacets, CreateJobRequest, UpdateJobRequest, JobDetail, CheckpointState, UpdateCheckpointRequest, RecordDecisionRequest
+- @kr/workflow summariseJob, effectiveState, nextActions, jobAlerts, getCheckpoint, hasPanel, CHECKPOINTS, isJobComplete, dates, compareJobNumbers, subdivisionTypeKey
+- services/api/AGENTS.md (BE-1..12); the WP-01 platform (`services/api/src/platform/**`: defineRoute, errors, resolveJobAccess, requireCapability, concurrency, idempotency, audit/withTransaction, flags, Clock) and `modules/_shared` read models; test helpers `services/api/test/helpers` (createTestApp, signIn, apiRequest) and `test/factories.ts`
 
-Tests: integration tests per operation incl. authz matrix rows (admin, kr_admin, staff, client grant, architect grant, external without grant, disabled), 404 vs 403, If-Match 412/428, pagination, filters/facets, fee proposal visibility, archived job behaviour, audit rows; unit tests for domain mapping (DB → workflow rule input). Contract tests: responses validate against packages/contracts/openapi.yaml (use the existing contract test project in services/api/vitest.config.ts — add tests under your module dirs named *.contract.test.ts).
+**Plan of record**
 
-**Acceptance**
+1. Jobs module: listJobs and getJobFacets (visibility per §2.1; JobCard.summary from summariseJob(input, clock.now()); filters status all/active/complete/attention/waiting_on_client, type, q (ILIKE with wildcards escaped); sort attention then job number; cursor pagination ≤ 100; facet counts consistent with the filters).
+2. createJob: insert the job, all 46 checkpoint_states (default responsibilities from the definition) and the audit row in ONE transaction (DATA_MODEL §6; `files_checkpoint_fk` requires the rows); duplicate job number → 409 with the §6 text; R15 validation.
+3. getJob: job, the 46 states, current conditions, files (not deleted), emails, the caller's capabilities, the summary; ETag = job version. The 1.0 fee-proposal panel data and files are omitted for callers without `fee_proposal.view` (§5.4).
+4. updateJob (If-Match; job details per §5.1 and WAPC dates per UpdateJobRequest; manual conformed date → method manual + outcome +90 unless sent, DATA_MODEL §6; audit diff) and deleteJob (archive = soft delete; `job.delete` capability = admin/kr_admin; archived jobs vanish from lists and their grants stop working).
+5. Checkpoints module: updateCheckpoint (status, responsibility, kr_note; If-Match on the checkpoint version; staff capabilities; isCheckpointKey; bump the job version; audit); recordDecision (approval panels only; client grant or staff on the client's behalf; accepted/declined + comment with R14; the status is NOT changed); markPaid/undoPaid (paid panels only; R13; idempotent).
+6. A README in each module directory listing its audit action names.
 
-- All ten operations are registered via defineRoute and match the contract (contract tests pass).
-- Authorisation matrix rows from PRODUCT_SPEC §2.1 for these operations are covered by integration tests (allowed and denied cases, 404 for invisible jobs).
-- Dashboard list/facets compute summary, attention and waiting-on-client exactly as @kr/workflow rules; filters, search (wildcard-escaped) and cursor pagination work.
-- Fee proposal (1.0) panel data and files are hidden from staff and architects in getJob.
-- Optimistic concurrency: stale If-Match returns 412, missing returns 428; all writes produce audit rows in the same transaction.
-- api lint/typecheck/unit/integration/contract/build green.
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 08-a DB → workflow input mapping + unit tests
+2. 08-b listJobs/getJobFacets
+3. 08-c createJob/getJob (fee-proposal filtering)
+4. 08-d updateJob/deleteJob
+5. 08-e checkpoints: updateCheckpoint, recordDecision, markPaid/undoPaid
+6. 08-f contract tests for all ten operations
+
+**Acceptance criteria**
+
+1. All ten operations are registered via defineRoute; contract tests pass.
+2. createJob creates exactly 46 checkpoint_states in the same transaction (an upload to any checkpoint of a new job satisfies files_checkpoint_fk).
+3. §2.1 rows for these operations are covered for admin, kr_admin, staff, client grant, architect grant, external without grant and disabled user, with 404 for invisible jobs and 403 for missing capabilities.
+4. List and facets compute summary, attention and waiting-on-client via @kr/workflow; filters, escaped search and cursor pagination work.
+5. recordDecision leaves the status unchanged; markPaid sets Completed and undo sets Not completed; fee-proposal data and files are hidden from staff and architects.
+6. Stale If-Match → 412, missing → 428; every write has an audit row in the same transaction; api checks green.
+
+**Out of scope / must not change**
+
+- Files, conditions, notes, access (other modules).
+- Changing @kr/workflow rules — ask the orchestrator.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
 **Verify**
 
@@ -401,28 +504,57 @@ pnpm --filter @kr/api test:contract
 pnpm --filter @kr/api build
 ```
 
-### WP-09 — API files module (streamed uploads, scan gating, content with Range, delete, job package zip, pasted emails)
+### WP-09 — API files module (streamed uploads, sniffing, scan gating, content with Range, delete, job package zip, pasted emails)
 
-- Wave: 2
-- Depends on: WP-01, WP-06
+- Risk tier: **High** — file uploads, downloads and personal documents
+- Wave: 3 · Depends on: WP-01, WP-06, WP-08 · Target: services/api · Commit scope: `api`
 - Owned paths: `services/api/src/modules/files/**`
 
-**Brief**
+**Goal.** Every file enters and leaves through one authorised, size-limited, content-sniffed and malware-gated path, and the job package zip matches the prototype's layout.
 
-Implement operations uploadFile, getFile, getFileContent, deleteFile, downloadJobPackage, pasteEmail in services/api/src/modules/files using the WP-01 platform and @kr/storage (createS3Storage/createMemoryStorage, classifyContent, isAcceptedForSlot, sanitiseFileName, objectKeyFor). Read: docs/spec/PRODUCT_SPEC.md §2.1 (upload/remove/download rows), §5.5 (documents/photos/slots/emails panels), §5.6 (condition evidence), §5.8 job files package, §11 files (sniffing, limits, headers, scan gating, soft delete + purge), §15; ADR-0011; DATA_MODEL.md files, email_messages, operations; @kr/workflow findSlot/slotsOf/hasPanel, presentation.ts folder naming (stageFolderName, checkpointFolderName, conditionEvidenceFolderName, safeName); @kr/db queue.enqueueOperation.
+**Read first**
 
-upload: multipart via @fastify/multipart streaming (no buffering whole file; limit UPLOAD_MAX_BYTES → 413 problem), fields per UploadFields schema (checkpointKey + slot, or conditionId for evidence); authz by slot uploaders (staff | staff_and_client | staff_and_external) + job capability; peek first 4100 bytes → classifyContent → reject 415 with reason; slot accept check; stream to storage computing sha256; insert files row (scan_status 'pending' or 'skipped' when MALWARE_SCAN_MODE=off) and enqueue `file.scan`; for 4.3 email slot with .msg/.eml also insert email_messages(pending) and enqueue `email.parse` after scan; return FileMeta 201. Idempotency-Key supported. getFile: metadata (visibility incl. fee proposal restriction). getFileContent: only when scan_status clean|skipped (else 409 problem 'still being checked' / 'blocked'); headers exactly per §11 (inline only for pdf/image/video/text; text served as text/plain; charset=utf-8; nosniff; sandbox CSP; private, no-store; RFC 5987 filename*); Range support (206/416) for video and pdf.js. deleteFile: soft delete; who may remove: staff any, others own uploads; audited. downloadJobPackage: stream a zip with archiver (no temp files) using the prototype folder layout from @kr/workflow presentation helpers, excluding deleted/unclean files and fee proposal files for staff/architects, include job notes? (follow §5.8 exactly), Content-Disposition attachment '<job number> <address>.zip' sanitised. pasteEmail: create a text email record (email_messages is_pasted=true, parse_status parsed, files row kind 'email' with the pasted text stored as an object) per contract; staff only. Objects keyed jobs/<jobId>/<fileId>; never trust client content-type or name.
+- PRODUCT_SPEC §2.1, §5.5 (slots, uploader rules, scan texts), §5.8 (zip name `<job number> – subdivision files.zip`, top folder, stage/checkpoint folders, evidence, duplicates, Job summary.txt INCLUDING job notes), §11, §11.1, §15
+- ADR-0011
+- DATA_MODEL files (scan_status, scan_attempts), email_messages, operations
+- @kr/workflow findSlot, slotsOf, hasPanel, presentation.ts folder helpers; @kr/db enqueueOperation; @kr/storage (createS3Storage, memory fake, classifyContent, isAcceptedForSlot, sanitiseFileName, objectKeyFor)
+- services/api/AGENTS.md (BE-1..12); the WP-01 platform (`services/api/src/platform/**`: defineRoute, errors, resolveJobAccess, requireCapability, concurrency, idempotency, audit/withTransaction, flags, Clock) and `modules/_shared` read models; test helpers `services/api/test/helpers` (createTestApp, signIn, apiRequest) and `test/factories.ts`
 
-Tests: integration with Testcontainers Postgres + createMemoryStorage (and one smoke test against s3mock is optional): each slot uploader rule, size limit, sniffing rejection (HTML renamed .pdf), scan gating states, Range requests, headers, delete permissions, zip structure (unzip in test with a minimal reader — use node:zlib + parse central directory, or ask the orchestrator for a dev dependency), fee proposal exclusion, idempotent upload replay; contract tests.
+**Plan of record**
 
-**Acceptance**
+1. uploadFile: streaming @fastify/multipart (never buffer the whole file); UPLOAD_MAX_BYTES → 413; fields checkpointKey+slot or conditionId (evidence; the condition must be current and on the same job — the DB also enforces it); authorise by the slot's uploaders (staff / staff_and_client / staff_and_external) and the job capability; upload rate limit (platform); peek 4100 bytes → classifyContent → 415 with reason; the slot's accept list (server-enforced — §5.5 Change); stream to storage computing sha256; files row `pending` (or `skipped` when MALWARE_SCAN_MODE=disabled); enqueue `file.scan`; for .msg/.eml in the 4.3 email slot also insert email_messages(pending) for parsing after the scan; 201 FileMeta; Idempotency-Key.
+2. getFile (metadata; fee-proposal restriction) and getFileContent: only for clean/skipped files, otherwise 409 with the §11.1/§5.5 message for pending, infected or error; exact §11 headers (inline only for pdf/image/video/text, text as text/plain; charset=utf-8, nosniff, the sandbox CSP for non-PDF, Cache-Control private, no-store, RFC 5987 filename*); Range (206/416).
+3. deleteFile: soft delete; staff any file, others only their own uploads; audited.
+4. downloadJobPackage: stream a zip with archiver (no temp files) exactly per §5.8 (file name, top folder, folders from the presentation helpers, evidence folders, duplicate suffixes, Job summary.txt with job line, download time, conformed/outcome dates, stages and statuses, conditions with comments, job notes); only clean/skipped files; fee-proposal files only for `fee_proposal.view`.
+5. pasteEmail: staff only; creates the email record (is_pasted, parse_status parsed) and a files row of kind email per the contract.
 
-- Uploads stream to storage with size limit (413), content sniffing (415 for disallowed or mismatched content) and slot/uploader authorisation per PRODUCT_SPEC §2.1 (integration tests).
-- New files are pending until scanned; content is served only for clean/skipped files, otherwise 409 with the spec message (tests).
-- getFileContent sets the exact headers from §11 and supports Range (206/416).
-- Job package zip streams with the prototype folder layout, excludes deleted/unclean files and fee proposal files for staff/architects (test inspects zip entries).
-- Soft delete permissions (staff any, others own) and audit rows; pasteEmail stores a parsed email record.
-- api lint/typecheck/unit/integration/contract/build green.
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 09-a uploadFile (multipart streaming, sniffing, slot rules, enqueue)
+2. 09-b getFile/getFileContent (headers, Range, scan gating)
+3. 09-c deleteFile + pasteEmail
+4. 09-d downloadJobPackage + Job summary.txt
+5. 09-e contract tests
+
+**Acceptance criteria**
+
+1. Uploads stream with the size limit (413), sniffing (415; an HTML file renamed .pdf is refused) and slot/uploader authorisation per §2.1.
+2. Files stay pending until scanned; content is served only when clean or skipped, otherwise 409 with the spec message for pending, infected and error.
+3. getFileContent sets the exact §11 headers and supports Range (206/416).
+4. The zip streams with the §5.8 name, layout, exclusions and Job summary.txt incl. notes (a test reads the entries with yauzl, already a devDependency).
+5. Soft delete permissions and audit rows are correct; pasteEmail stores an email record; api checks green.
+
+**Out of scope / must not change**
+
+- Scanning and parsing (WP-12).
+- Presigned URLs.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
 **Verify**
 
@@ -435,27 +567,171 @@ pnpm --filter @kr/api test:contract
 pnpm --filter @kr/api build
 ```
 
-### WP-10 — API conditions and operations modules (extraction/conformance requests, condition edits, operation status)
+### WP-13 — Web dashboard, inline new-job form and access manager
 
-- Wave: 2
-- Depends on: WP-01
+- Risk tier: **Medium** — UI feature; capability-gated, no security configuration
+- Wave: 3 · Depends on: WP-03 · Target: apps/web · Commit scope: `web`
+- Owned paths: `apps/web/src/app/(app)/page.tsx`, `apps/web/src/app/(app)/page.test.tsx`, `apps/web/src/features/dashboard/**`, `apps/web/src/features/access/**`
+
+**Goal.** The first page after sign-in, identical to the prototype dashboard, where staff create a job inline or open an existing one, and manage client/architect access.
+
+**Read first**
+
+- PRODUCT_SPEC §4 (dashboard jobbar: ← BACK TO TRACKER to the last opened job, Save as PDF), §6 (all of it: header, filters, type chips, summary chips, cards, sort, empty states, inline NEW JOB form and its messages, ACCESS MANAGER texts), §3.4 (grant statuses, bound account name, invitation text by Me.features 'entra-guest-invites'), §2.1, §12
+- DESIGN_TOKENS rows Dashboard, NewJobForm, AccessManager
+- docs/reference/prototype/screenshots/blank-11-dashboard.png, blank-14-dark-dashboard.png, blank-17-mobile-dashboard.png, blank-06-access-manager-dashboard-view.png
+- WP-03 building blocks: lib/api (typed client, queryKeys, useOptimisticVersionedMutation), lib/session (useSession), components/ui, src/test (MSW, renderWithProviders, axe)
+
+**Plan of record**
+
+1. Dashboard `/`: listJobs (filters in URL search params) + getJobFacets; cards and counts only from JobCard.summary (never recompute workflow rules); display helpers only from @kr/workflow (formatDateWithWeekday, jobDisplayText); load more at 50; skeletons, problem banners, keyboard-navigable grid, responsive and print styles.
+2. Inline NEW JOB form in the dashboard header (§6 — not a separate route): createJob → navigate to `/jobs/{id}`; the §6 duplicate message on 409.
+3. Access manager (`features/access`, staff only): form, validation and success/duplicate messages per §6; Pending/Active/Revoked list with the bound account name for active grants; revoke with "Remove? Yes/No"; invitation sent/failed chip; text by the 'entra-guest-invites' feature.
+4. Capability gating from Me (externals: no NEW JOB, no access manager, the §3.4 empty message when they have no grants).
+5. Dashboard jobbar per §4: ← BACK TO TRACKER to the job id in localStorage `kr-last-job` (written by the tracker, WP-14; hidden when absent or no longer visible), Save as PDF; the §5.1 archived banner when the URL has `?archived=<job number>`.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 13-a dashboard header, filters, chips, summary counts
+2. 13-b job cards grid, sorting, paging, empty states
+3. 13-c inline new-job form
+4. 13-d access manager
+
+**Acceptance criteria**
+
+1. Dashboard renders cards, filters, type chips and counts exactly as §6 with filters reflected in the URL.
+2. Externals see only granted jobs and the §3.4 no-access message; staff see NEW JOB and the access manager.
+3. The inline new-job form validates, shows the §6 duplicate error and navigates on success.
+4. The access manager adds and revokes grants, shows statuses, the bound name and the invitation text for both flag states.
+5. Matches DESIGN_TOKENS light and dark and the blank-* reference screenshots; axe passes; web checks green.
+
+**Out of scope / must not change**
+
+- Tracker page (WP-14).
+- Admin pages (WP-18).
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
+
+**Verify**
+
+```sh
+pnpm --filter @kr/web lint
+pnpm --filter @kr/web typecheck
+pnpm --filter @kr/web test:unit
+pnpm --filter @kr/web build
+```
+
+### WP-14 — Web tracker page frame (job picker, job details/archive dialog, summary panels, stages, outcome box with live countdown, print)
+
+- Risk tier: **Medium** — UI feature
+- Wave: 3 · Depends on: WP-03 · Target: apps/web · Commit scope: `web`
+- Owned paths: `apps/web/src/app/(app)/jobs/[jobId]/**`, `apps/web/src/features/tracker/**`
+
+**Goal.** The tracker page for one job, laid out exactly as the prototype, composing the checkpoint, conditions, notes, files and viewer features.
+
+**Read first**
+
+- PRODUCT_SPEC §5.1 (jobbar, banners, the job details dialog and archive — Additions), §5.2 (summary panel: progress + approval date and expiry inputs ONLY; status key), §5.3 (stages, excluded agency stages, links, the outcome box rendered inside WAPC Approval after 4.2), §5.5 outcome-box row (conformed date + outcome date inputs, hints, countdown tiles ticking EVERY SECOND, the 'until outcome date – <date>' caption, past state), §8 R1–R15 (display only), §12, §15
+- DESIGN_TOKENS rows JobBar, ProgressPanel/ApprovalDates, StatusKey, StageBar, OutcomeBox/Countdown
+- docs/reference/prototype/screenshots/blank-01/02/03/12/13/15/16 and blank-stage-*.png
+- feature stubs you compose (do not change their props): CheckpointCard from '@/features/checkpoints', ConditionsPanel/AgencyConditions from '@/features/conditions', JobNotes from '@/features/notes', JobFiles from '@/features/job-files', useViewer from '@/features/viewer'
+
+**Plan of record**
+
+1. Route `/jobs/[jobId]`: `useJob(jobId)` exported from features/tracker on queryKeys.jobs.detail (shared by the other features); 404 → not-found; problems → banners per §5.1; `?stage=` and `#checkpoint-<key>` deep links (§4).
+2. Jobbar: picker (jobDisplayText, grouped In progress/Complete, natural sort), DASHBOARD, Save as PDF (expand all, print, restore), EDIT JOB dialog (job details per §5.1 with If-Match/412) and, for `job.delete`, Archive job… with the §5.1 confirm, then navigate to `/?archived=<job number>` (WP-13 shows the §5.1 banner). Remember the opened job id in localStorage `kr-last-job` (try/catch) for the dashboard's ← BACK TO TRACKER.
+3. Summary panels per §5.2 (progress ring/bar/chips; approval date + expiry inputs editable with `job.edit`, expiry status via approvalExpiryStatus with a minute tick) and the status key.
+4. Stages per §5.3 (open state in localStorage `kr-wf-open` under try/catch; excluded agency bar; Expand/Collapse all; links) rendering CheckpointCard for each checkpoint and AgencyConditions in agency stages.
+5. Outcome box after 4.2 inside the WAPC Approval stage (§5.5 row): conformed date (manual entry → updateJob) and outcome date (override, "reset to 90 days"), hints by conformedSource, countdown via outcomeCountdown with an injected clock from `useNow(1000)` (`role=timer`, `aria-live=off`), soon/past states.
+6. Print stylesheet per §12.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 14-a route, useJob, jobbar + picker + banners
+2. 14-b job details / archive dialog
+3. 14-c summary panels + status key
+4. 14-d stages + composition of feature stubs
+5. 14-e outcome box + countdown + print
+
+**Acceptance criteria**
+
+1. Jobbar, summary panels, status key, stages and the outcome box render correctly for every §5.1–5.3/§5.5 state (excluded agency, complete job, expired/expiring approval, countdown soon/past, empty dates).
+2. The summary panel contains only progress and the approval date/expiry inputs; the outcome box sits after 4.2 inside WAPC Approval; the countdown updates every second with an injected clock (fake-timer test).
+3. EDIT JOB saves with If-Match and handles 412 with the §5.1 banner; archive asks the §5.1 confirmation, is only offered with job.delete, and navigates to the dashboard.
+4. Composes the feature stubs through their index exports with unchanged props; print hides controls; axe passes; matches DESIGN_TOKENS and the blank-* screenshots; web checks green.
+
+**Out of scope / must not change**
+
+- Checkpoint card internals (WP-15), conditions UI (WP-16), viewer/notes/files (WP-17).
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
+
+**Verify**
+
+```sh
+pnpm --filter @kr/web lint
+pnpm --filter @kr/web typecheck
+pnpm --filter @kr/web test:unit
+pnpm --filter @kr/web build
+```
+
+### WP-10 — API conditions and operations modules (extraction and conformance requests, condition edits, operation status)
+
+- Risk tier: **High** — field-level authorisation and asynchronous processing of personal documents
+- Wave: 4 · Depends on: WP-01, WP-08 · Target: services/api · Commit scope: `api`
 - Owned paths: `services/api/src/modules/conditions/**`, `services/api/src/modules/operations/**`
 
-**Brief**
+**Goal.** Staff can start Decision Letter extraction and conformance reading as tracked asynchronous operations, and everyone with access edits conditions within their field permissions.
 
-Implement operations startConditionsExtraction, updateCondition, startConformanceReading (conditions module) and getOperation (operations module) with the WP-01 platform and @kr/db queue (enqueueOperation). Read: docs/spec/PRODUCT_SPEC.md §2.1 (extract conditions / edit condition rows), §5.5 (conditions panel at 5.0, conformance panel at 4.2), §5.6 condition card (tick, responsibility kr/client, agency select with 'guessed' marker, KR comment, client comment), §8 rules (agency exclusion depends on conditions), §10 (what the worker does with these operations), §15; ADR-0006 (operations queue: 202 + Location /v1/operations/{id}, polling); DATA_MODEL.md conditions (superseded_at, extraction_id), operations, idempotency_keys; contracts StartConditionsExtractionRequest, StartConformanceReadingRequest, UpdateConditionRequest, Condition, Operation + result schemas.
+**Read first**
 
-startConditionsExtraction: staff only; body references a clean PDF file uploaded to the 5.0 Decision Letter slot of the same job (validate slot via @kr/workflow findSlot, scan_status clean|skipped, not deleted); Idempotency-Key required; enqueue `conditions.extract` with payload {jobId, fileId, replaceExisting}; if conditions exist and replaceExisting is false → 409 problem asking for confirmation (spec text); returns 202 Operation. startConformanceReading: staff; file in the 4.2 slot; enqueue `conformance.read` with payload {jobId, fileId, allowAi: flags.isEnabled('ai-stamp-reading')}; 202. updateCondition: If-Match version; staff may change isCleared (sets cleared_at/by), responsibility, agency (clears agencyGuessed), krComment; client/architect grants may change clientComment only (403 otherwise); only non-superseded conditions; audit with diff. getOperation: caller must be able to see the operation's job (404 otherwise); returns status/result/error (error messages safe for users; no stack traces); include `Retry-After: 2` while queued/running.
+- PRODUCT_SPEC §2.1, §5.5 (conditions row: only files whose name contains 'decision'; replace confirmation; conformance row), §5.6, §8, §10.1, §10.2, §15
+- ADR-0006 (202 + Location /v1/operations/{id}, polling)
+- DATA_MODEL conditions (superseded_at, extraction_id), operations, idempotency_keys
+- contracts schemas for these operations, Condition, Operation
+- services/api/AGENTS.md (BE-1..12); the WP-01 platform (`services/api/src/platform/**`: defineRoute, errors, resolveJobAccess, requireCapability, concurrency, idempotency, audit/withTransaction, flags, Clock) and `modules/_shared` read models; test helpers `services/api/test/helpers` (createTestApp, signIn, apiRequest) and `test/factories.ts`
 
-Tests: integration tests for each operation incl. permission matrix, idempotent replays (same key → same operation id), validation of file/slot/scan state, supersede confirmation, condition field-level permissions, getOperation visibility; contract tests.
+**Plan of record**
 
-**Acceptance**
+1. startConditionsExtraction: staff (`conditions.extract`); the file must be a clean, non-deleted PDF in the 5.0 decision slot of the same job whose name contains 'decision' (case-insensitive, §10.2; else 409/422 problem with the §5.5 message); Idempotency-Key required; if current conditions exist and replaceExisting is false → 409 problem with the §5.5 count text; enqueue `conditions.extract` {jobId, fileId, replaceExisting}; 202 + Location.
+2. startConformanceReading: `conformance.read`; the file must be a clean PDF in the 4.2 slot; enqueue `conformance.read` {jobId, fileId, allowAi: flags.isEnabled('ai-stamp-reading')}; 202.
+3. updateCondition: If-Match; staff may change isCleared (cleared_at/by), responsibility, agency (clears agencyGuessed), krComment; client and architect grants clientComment only, other fields → 403; non-superseded only (superseded → 404); audit diff.
+4. getOperation: 404 unless the caller can see the operation's job; user-safe error messages; Retry-After: 2 while queued/running.
 
-- Extraction and conformance requests validate the file (same job, correct slot, clean, not deleted) and enqueue exactly one operation per Idempotency-Key (integration tests).
-- Re-extraction over existing conditions requires explicit replaceExisting (409 otherwise).
-- updateCondition enforces field-level permissions (clientComment for client/architect grants; everything else staff), If-Match, and audits diffs.
-- getOperation hides operations of invisible jobs (404) and returns safe error messages.
-- api lint/typecheck/unit/integration/contract/build green.
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 10-a startConditionsExtraction + startConformanceReading
+2. 10-b updateCondition field permissions
+3. 10-c getOperation
+4. 10-d contract tests
+
+**Acceptance criteria**
+
+1. Extraction and conformance requests validate file, slot, scan state and the 'decision' name rule, and enqueue exactly one operation per Idempotency-Key (same key → same operation id).
+2. Re-extraction over existing conditions requires replaceExisting (409 otherwise).
+3. updateCondition enforces field-level permissions per §2.1 and If-Match and audits the diff.
+4. getOperation returns 404 for operations on invisible jobs and only user-safe messages; api checks green.
+
+**Out of scope / must not change**
+
+- The worker handlers (WP-12).
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
 **Verify**
 
@@ -470,25 +746,53 @@ pnpm --filter @kr/api build
 
 ### WP-11 — API notes, access grants (+ optional Graph invitations), user administration and audit trail
 
-- Wave: 2
-- Depends on: WP-01
+- Risk tier: **High** — access control administration, user management and personal data
+- Wave: 4 · Depends on: WP-01, WP-08 · Target: services/api · Commit scope: `api`
 - Owned paths: `services/api/src/modules/notes/**`, `services/api/src/modules/access/**`, `services/api/src/modules/users/**`, `services/api/src/modules/audit/**`
 
-**Brief**
+**Goal.** Notes, the access manager, user administration and the audit trail, with the last-admin and session-revocation guarantees.
 
-Implement operations listNotes, createNote, deleteNote (notes), listAccessGrants, createAccessGrant, revokeAccessGrant (access), listUsers, updateUser (users), listAuditEvents (audit) with the WP-01 platform. Read: docs/spec/PRODUCT_SPEC.md §2 (roles, matrix), §3.3 (last admin protection), §3.4 (grants, guest invites flag), §5.7 job notes (audience all/surveyor/client and who sees what), §6 access manager on dashboard, §9 administration (users page, audit page filters), §15; ADR-0003, ADR-0014; DATA_MODEL.md job_notes, access_grants, users, sessions, audit_events (append-only: tracker_app has INSERT/SELECT only); contracts schemas JobNote, AccessGrant, User, AuditEvent and their pages/queries.
+**Read first**
 
-Notes: visible per audience rules (externals never see 'surveyor' notes; follow spec), anyone with job access may add; delete any (staff) / own (externals); soft delete; cursor pagination newest first; body length limits per contract. Access: staff manage grants on any job; email normalised lower-case; duplicate active/pending grant for same email+job+role → 409; if a user with that email already exists and is_guest/external → immediately active and bound; revoking sets status revoked (effective next request — no caching); when flag 'entra-guest-invites' is enabled, call Microsoft Graph POST https://graph.microsoft.com/v1.0/invitations with client-credentials token (ENTRA_* app; token via openid-client client_credentials grant or fetch to the tenant token endpoint; 10 s timeout; failure recorded in invitation_status/invitation_error, never fails the grant creation) — implement behind an interface `GuestInviter` with a fake for tests. Users: admin only (+ assertMfaForAdmin); list with search/role filter/pagination; updateUser role/status with If-Match; cannot demote/disable the last active admin (409 with spec text) — check inside a transaction with row locks; role/status change revokes all of that user's sessions (platform revokeAllForUser); audit. Audit: admin/kr_admin (+ MFA check), filters job, actor, action prefix, date range (Perth dates → UTC bounds via @kr/workflow dates), cursor pagination; never expose raw secrets; changes JSON passed through.
+- PRODUCT_SPEC §2, §3.3, §3.4, §5.7 (audience is a LABEL only — everyone on the job reads every note), §6 access manager, §9.1, §9.2, §15
+- ADR-0003, 0014
+- DATA_MODEL job_notes, access_grants, users, sessions, audit_events (append-only)
+- contracts JobNote, AccessGrant, User, AuditEvent and their pages
+- services/api/AGENTS.md (BE-1..12); the WP-01 platform (`services/api/src/platform/**`: defineRoute, errors, resolveJobAccess, requireCapability, concurrency, idempotency, audit/withTransaction, flags, Clock) and `modules/_shared` read models; test helpers `services/api/test/helpers` (createTestApp, signIn, apiRequest) and `test/factories.ts`
 
-Tests: integration tests for each operation and permission row, last-admin protection under concurrency (two simultaneous demotions → exactly one succeeds), session revocation on role change, grant activation interplay with existing users, Graph inviter called only with flag on (fake), audit filters; contract tests.
+**Plan of record**
 
-**Acceptance**
+1. Notes: listNotes (newest first, cursor, 50 per page), createNote (anyone with job access; audience all/surveyor/client as a label only; contract length limits), deleteNote (staff any, others own; soft delete; audited).
+2. Access: listAccessGrants/createAccessGrant/revokeAccessGrant (staff; emails lower-cased; duplicate pending/active → 409 with the §6 text; an existing external user with that email → active and bound immediately; the bound account name in the response; revocation effective on the next request, no caching). With 'entra-guest-invites' on: Microsoft Graph POST /v1.0/invitations with a client-credentials token, 10 s timeout, behind a GuestInviter interface with a fake; failures recorded in invitation_status/invitation_error, never failing the grant.
+3. Users: listUsers (search, role filter, cursor) and updateUser (role/status with If-Match) — admin only plus assertMfaForAdmin; cannot change own role or status; the last active admin can never be demoted or disabled (409 "There must be at least one active admin." — row locks in one transaction); a change revokes all the user's sessions; audited.
+4. Audit: listAuditEvents (admin and kr_admin plus the MFA check; filters job, actor, action prefix, Perth date range → UTC via @kr/workflow; cursor).
 
-- Notes audience visibility and delete rules match PRODUCT_SPEC §5.7 and §2.1 (integration tests per role).
-- Grants: duplicate → 409, existing external user bound immediately, revoke takes effect on the next request; Graph invitation only when the flag is on and failures are recorded without failing the grant.
-- Users: admin-only with MFA requirement; last active admin cannot be demoted or disabled even concurrently; role/status changes revoke sessions.
-- Audit list filters by job, actor, action and Perth date range with cursor pagination; admin/kr_admin only.
-- All writes audited; api lint/typecheck/unit/integration/contract/build green.
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 11-a notes
+2. 11-b access grants
+3. 11-c Graph inviter behind the flag
+4. 11-d users + last-admin guard
+5. 11-e audit + contract tests
+
+**Acceptance criteria**
+
+1. Every participant reads every note regardless of audience; delete rules match §5.7/§2.1.
+2. Grants: duplicates → 409; existing external users bound immediately; revocation effective on the next request; Graph is called only with the flag on and failures are recorded.
+3. Users: admin-only with MFA evidence; own role/status unchangeable; the last admin is protected under concurrency (two concurrent demotions → exactly one succeeds); changes revoke sessions.
+4. Audit filters work with Perth dates and cursor pagination; admin and kr_admin only; all writes audited; api checks green.
+
+**Out of scope / must not change**
+
+- Grant activation at sign-in (WP-07).
+- Real Graph calls in tests.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
 **Verify**
 
@@ -501,28 +805,298 @@ pnpm --filter @kr/api test:contract
 pnpm --filter @kr/api build
 ```
 
-### WP-12 — Worker service: queue poller, ClamAV scanning, conditions extraction, conformed date (incl. AI flag), email parsing, sweeps
+### WP-15 — Web checkpoint cards and panels (status, responsibility, documents, slots, approval/decision, paid, KR note, emails, clearance, survey, conformance)
 
-- Wave: 2
-- Depends on: WP-02, WP-05, WP-06
+- Risk tier: **Medium** — UI feature
+- Wave: 4 · Depends on: WP-03 · Target: apps/web · Commit scope: `web`
+- Owned paths: `apps/web/src/features/checkpoints/**`
+
+**Goal.** Every checkpoint card and panel type of the prototype, driven by the workflow definition and gated by capabilities.
+
+**Read first**
+
+- PRODUCT_SPEC §5.4 (card, status labels, responsibility select, tags, restricted fee proposal text), §5.5 (every panel row: approval decision buttons "<Yes> <noun>" / "Decline <noun>", the form texts and the decline error; a decision does NOT change the status; paid; kr_note autosave; documents/photos; survey; slots; clearance; conformance texts; emails incl. dropping plain text as a pasted email), §2.1, §11, §11.1, §15
+- @kr/workflow types (Panel union, SlotDefinition, CheckpointDefinition) and definition.ts (all 46)
+- DESIGN_TOKENS rows CheckpointCard, Tag, Folder/DocRow/DropZone, DecisionPanel, PaidPanel/KrNotePanel, EmailsPanel
+- docs/reference/prototype/screenshots/blank-stage-*.png and blank-08-approval-decline-form-validation.png
+
+**Plan of record**
+
+1. CheckpointCard (keep the stub's export and props: job, checkpoint, definition) with an exhaustive switch over the Panel union (never check) rendering every panel type except conditions, for which it renders ConditionsPanel from '@/features/conditions'.
+2. Mutations: updateCheckpoint (If-Match on the checkpoint version, optimistic, 412 rollback + banner), recordDecision, markPaid/undoPaid, uploadFile (WP-03 helper, progress, Idempotency-Key), deleteFile (inline confirm), pasteEmail, startConformanceReading with useOperation; invalidate the job detail after success.
+3. Open files with useViewer().open(files, index); gate by JobDetail.capabilities, never by role names; scan states per §5.5.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 15-a card shell, status + responsibility controls, tags, restricted state
+2. 15-b documents/photos/slots/clearance/survey panels + uploads
+3. 15-c approval decision + paid + KR note
+4. 15-d emails panel + paste
+5. 15-e conformance panel + operation polling
+
+**Acceptance criteria**
+
+1. All 46 definitions and every panel type (except conditions) render with the exact §5.4–5.5 texts (button labels come from the definition, e.g. "Approve fee proposal", "Accept quote").
+2. Status/responsibility changes are optimistic with If-Match and roll back on 412; a decision leaves the status unchanged; paid sets Completed and undo Not completed (as returned by the API).
+3. Uploads respect slot accept and uploader rules and show progress, Scanning…, blocked and scan-error states; removal asks for confirmation.
+4. Decision (incl. the decline-without-comment error and focus), paid/undo, KR note autosave, email paste and conformance re-read call the right operations and refresh the job.
+5. Visibility follows capabilities; axe passes; matches DESIGN_TOKENS and the blank-stage screenshots; web checks green.
+
+**Out of scope / must not change**
+
+- Conditions UI (WP-16)
+- Outcome box (WP-14)
+- Viewer (WP-17).
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
+
+**Verify**
+
+```sh
+pnpm --filter @kr/web lint
+pnpm --filter @kr/web typecheck
+pnpm --filter @kr/web test:unit
+pnpm --filter @kr/web build
+```
+
+### WP-04 — Container images, ClamAV configuration, local stack, and the ops service (migrate with pre-migration backup, nightly backup)
+
+- Risk tier: **High** — infrastructure as code, database migrations in production, backups
+- Wave: 5 · Depends on: WP-01, WP-03, WP-06 · Target: infra, services/ops, Dockerfiles · Commit scope: `infra`
+- Owned paths: `services/api/Dockerfile`, `services/worker/Dockerfile`, `services/ops/**`, `apps/web/Dockerfile`, `infra/clamav/**`, `docker-compose.yml`, `.dockerignore`
+
+**Goal.** Reproducible, minimal, non-root images for every Railway service, a ClamAV that can scan every accepted upload, and the ops jobs that migrate safely (backup first, DDL credentials only there) and back up nightly.
+
+**Read first**
+
+- ADR-0007 (the migrate service), ADR-0008 (topology, order, backups), ADR-0011 (clamd limits), ADR-0013
+- PRODUCT_SPEC §11, §14, §17
+- .github/workflows/release.yml (matrix: api, worker, web, clamav, ops; build arg RELEASE_VERSION) — read only
+- .env.example; services/*/src/config.ts (HOST '::', PORT); packages/db migrate.ts, migrate-cli and bootstrap-cli; services/ops/src (config + entry skeletons)
+
+**Plan of record**
+
+1. Multi-stage Dockerfiles for api, worker, web and ops: `node:24-alpine` pinned by digest (pull via mirror.gcr.io, record the digest), corepack pnpm, `pnpm fetch` then `pnpm install --frozen-lockfile --offline`, `pnpm --filter <pkg>... build`, `pnpm deploy --prod` (api, worker, ops) or Next standalone (web); non-root user, tini/`--init`-style signal handling, OCI labels, RELEASE_VERSION build arg → env; no secrets or .env in any layer; `.dockerignore`. Web: `ENV HOSTNAME=::` (dual-stack; fall back to 0.0.0.0 only if Next rejects it — document), PORT from Railway. Worker: @napi-rs/canvas runtime present. Ops: `postgresql17-client` for pg_dump. No mock IdP, no dev dependencies in any image.
+2. `infra/clamav/Dockerfile` (clamav/clamav:stable pinned by digest) + `infra/clamav/clamd.conf`: TCP 3310 on `::`, `StreamMaxLength 60M`, `MaxFileSize 60M`, `MaxScanSize 240M`, freshclam on start; README with memory guidance (2–3 GB) and a test that a 55 MB synthetic file scans clean and EICAR is detected.
+3. services/ops `migrate-main.ts`: if pending migrations exist (compare loadMigrations with schema_migrations via @kr/db), stream `pg_dump --format=custom` of MIGRATION_DATABASE_URL to the backup bucket (`db/pre-migrate/<utc>-<release>.dump` via createS3Storage), then migrate as tracker_migrator, then serve `/healthz` on HOST/PORT returning 200 only after success (Railway's health check gates the next service); exit 1 on any failure without serving 200.
+4. services/ops `backup-main.ts` (Railway cron): nightly pg_dump to `db/nightly/<utc>.dump`; incremental copy of the files bucket into `objects/` of the backup bucket (list + compare size/etag, stream copy); a manifest records when a source object disappeared, and copies whose source has been gone for > BACKUP_RETENTION_DAYS are deleted (purged files must not live forever in backups); prune dumps older than BACKUP_RETENTION_DAYS; exit 0/1; structured logs only.
+5. `docker-compose.yml`: postgres 17, s3mock (files and backups buckets), clamav from infra/clamav, plus an optional `stack` profile running api, worker and web from the local images with `.env.example` values; `pnpm db:up` keeps working.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 04-a api + worker Dockerfiles, .dockerignore
+2. 04-b web Dockerfile
+3. 04-c ClamAV image + clamd.conf + scan-size test
+4. 04-d ops migrate service (+ int tests on Testcontainers)
+5. 04-e ops backup service (+ int tests with s3mock)
+6. 04-f docker-compose stack profile
+
+**Acceptance criteria**
+
+1. docker build succeeds for api, worker, web, ops and clamav; containers start, listen on `::` and answer /healthz (web /api/healthz) against local Postgres (commands documented).
+2. Images run as non-root, contain no .env files, dev dependencies or the mock IdP, and use digest-pinned bases; hadolint passes (`docker run --rm -i mirror.gcr.io/hadolint/hadolint:v2.12.0 hadolint --failure-threshold warning - < Dockerfile`).
+3. The ClamAV image scans a 55 MB synthetic file (clean) and detects EICAR.
+4. migrate: with pending migrations it writes a dump to the backup bucket before migrating, reports healthy only after success, and exits non-zero on failure (integration tests with Testcontainers Postgres and s3mock); without pending migrations it takes no dump.
+5. backup: dump + incremental object copy + retention pruning are covered by integration tests; ops lint, typecheck, unit, integration and build are green.
+
+**Out of scope / must not change**
+
+- Railway API scripts, service settings and the deploy guide (WP-23).
+- Any change to .github/** — send the orchestrator a diff if release.yml needs one.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
+- Note: Use @kr/db, @kr/storage, @kr/config and @kr/logger only; pg_dump is an OS package in the image.
+
+**Verify**
+
+```sh
+pnpm --filter @kr/ops lint
+pnpm --filter @kr/ops typecheck
+pnpm --filter @kr/ops test:unit
+pnpm --filter @kr/ops test:integration
+pnpm --filter @kr/ops build
+docker build -f services/api/Dockerfile -t kr-api:test .
+docker build -f services/worker/Dockerfile -t kr-worker:test .
+docker build -f apps/web/Dockerfile -t kr-web:test .
+docker build -f services/ops/Dockerfile -t kr-ops:test .
+docker build -f infra/clamav/Dockerfile -t kr-clamav:test infra/clamav
+```
+
+### WP-05 — Observability: telemetry package, metrics, SLOs and alert definitions
+
+- Risk tier: **Medium** — telemetry must not leak personal data; no new external hosts (X7)
+- Wave: 5 · Depends on: — · Target: packages/telemetry · Commit scope: `telemetry`
+- Owned paths: `packages/telemetry/**`, `docs/observability/**`, `docs/slo.md`
+
+**Goal.** Traces and metrics that are off until KR approves a backend, never carry personal data, and define the SLOs and alerts the runbooks answer.
+
+**Read first**
+
+- ADR-0009, ADR-0008 (smoke watch), PRODUCT_SPEC §14
+- packages/logger; OTEL_* keys in services/api and services/worker config
+
+**Plan of record**
+
+1. startTelemetry({serviceName, serviceVersion, environment, otlpEndpoint?, otlpHeaders?, sampleRatio}) → {shutdown()} on @opentelemetry/sdk-node with http, fastify, pg and undici instrumentation (fs and dns off), parent-based ratio sampler, resource attributes; a no-op without an endpoint; never throws at startup.
+2. getMeter(), createMetrics() → kr.operations.processed{type,status}, kr.operations.queue_depth (observable gauge registration), kr.files.scanned{result}, kr.auth.signins{result}, kr.ai.stamp_reading{result}, kr.backup.runs{result}; currentTraceIds() for log correlation.
+3. Tests with in-memory span exporters and metric readers: spans and metrics produced, no PII attributes, shutdown resolves within 5 s with an unreachable endpoint.
+4. docs/slo.md (availability 99.5 % monthly; API p95 < 300 ms / p99 < 800 ms reads per §14; writes p95 < 1 s; operations < 2 min p95; scan backlog), docs/observability/alerts.md (backend-neutral rules, each linking `docs/runbooks/<name>.md` from this fixed list: api-availability, api-latency, worker-queue-backlog, operation-failures, malware-detected, malware-scan-errors, clamav-down, auth-failure-spike, migrate-failed, backup-failed, db-connections-saturated) and docs/observability/dashboards.md.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 05-a startTelemetry + tests
+2. 05-b metrics + trace ids + tests
+3. 05-c SLO, alert and dashboard docs
+
+**Acceptance criteria**
+
+1. startTelemetry is a no-op without an endpoint and exports spans and metrics when configured (in-memory exporter tests).
+2. createMetrics exposes the listed instruments; tests assert names/attributes and that no PII is recorded.
+3. shutdown resolves within 5 s with an unreachable endpoint.
+4. docs/slo.md, alerts.md (exactly the runbook names listed) and dashboards.md exist; package checks green.
+
+**Out of scope / must not change**
+
+- Wiring into services (WP-01 and WP-12 call startTelemetry/createMetrics).
+- Choosing or calling an external backend.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
+
+**Verify**
+
+```sh
+pnpm --filter @kr/telemetry lint
+pnpm --filter @kr/telemetry typecheck
+pnpm --filter @kr/telemetry test:unit
+pnpm --filter @kr/telemetry build
+pnpm exec prettier --check docs/slo.md docs/observability
+```
+
+### WP-16 — Web conditions UI (5.0 extraction, conditions checklist, condition cards, agency evidence)
+
+- Risk tier: **Medium** — UI feature
+- Wave: 5 · Depends on: WP-03 · Target: apps/web · Commit scope: `web`
+- Owned paths: `apps/web/src/features/conditions/**`
+
+**Goal.** The Decision Letter extraction flow and the WAPC conditions checklist, with each condition editable in the 5.0 checklist and in its agency stage from a single source.
+
+**Read first**
+
+- PRODUCT_SPEC §5.5 conditions row (button texts "Extract conditions from Decision Letter" / "Re-extract …" / "Extract conditions – <file>", only for PDFs whose name contains 'decision', the 'Decision Letter in the file name' message, the replace confirmation, result messages, the checklist and footer), §5.6 (condition card), §8 R1 (agency exclusion), §10.2, §2.1, §15
+- DESIGN_TOKENS row ConditionsPanel/ConditionCard/AgencyEvidence
+- docs/reference/prototype/screenshots/blank-stage-02-wapc-approval.png and blank-stage-03..06
+
+**Plan of record**
+
+1. ConditionsPanel (props job, checkpoint) and AgencyConditions (props job, agency), keeping the stub exports.
+2. Extraction: startConditionsExtraction with an Idempotency-Key, the §5.5 replace confirmation on 409 then retry with replaceExisting, useOperation progress, result messages (counts, guessed agencies, no conditions, unreadable), job invalidation.
+3. Condition card per §5.6: agency select with "Agency is correct" when guessed and the guessed badge, cleared checkbox with struck-through text, responsibility, KR and client comments (autosave 700 ms and on blur, never replaced under the cursor), evidence uploads via the WP-03 uploadFile with conditionId, viewer via useViewer; updateCondition with If-Match (optimistic, 412 rollback); field permissions from capabilities.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 16-a 5.0 folder + extraction lifecycle
+2. 16-b conditions checklist + condition card editing
+3. 16-c AgencyConditions + evidence uploads
+
+**Acceptance criteria**
+
+1. Extraction runs as an async operation with progress, counts and failure messages; re-extraction requires the §5.5 confirmation; non-'decision' PDFs show the §5.5 message instead of a button.
+2. Condition cards support tick, agency, responsibility and comments with §2.1 field permissions and optimistic If-Match; clients can only comment.
+3. AgencyConditions lists that agency's conditions with evidence uploads and the guessed marker; edits show in both places.
+4. Texts and styles match §5.5–5.6 and DESIGN_TOKENS; axe passes; web checks green.
+
+**Out of scope / must not change**
+
+- The 5.0 card shell (WP-15) and stage exclusion rendering (WP-14).
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
+
+**Verify**
+
+```sh
+pnpm --filter @kr/web lint
+pnpm --filter @kr/web typecheck
+pnpm --filter @kr/web test:unit
+pnpm --filter @kr/web build
+```
+
+### WP-12 — Worker service: queue poller, ClamAV scanning with retries, conditions extraction, conformed-date reading (incl. AI flag), email parsing, sweeps
+
+- Risk tier: **High** — malware scanning, processing of personal documents, third-party AI call
+- Wave: 6 · Depends on: WP-02, WP-04, WP-05, WP-06, WP-08 · Target: services/worker · Commit scope: `worker`
 - Owned paths: `services/worker/src/**`, `services/worker/test/**`, `services/worker/vitest.config.ts`
 
-**Brief**
+**Goal.** All document work happens off the request path, isolated and time-limited, with results that follow the spec exactly and never block the user.
 
-Implement the worker (ADR-0006, ADR-0010, ADR-0011) consuming the operations queue from @kr/db (claimNextOperation with SKIP LOCKED, completeOperation, failOperation with backoff, requeueExpiredLeases). Read: docs/spec/PRODUCT_SPEC.md §10 (all), §11 (scan gating, infected handling, purge sweep), §8 (dates: outcomeDateFor, approval expiry), §15; ADR-0006/0010/0011; DATA_MODEL.md operations, files, email_messages, conditions, jobs, audit_events; services/worker/src/config.ts (WORKER__, CLAMAV__, MALWARE_SCAN_MODE, FEATURE_AI_STAMP_READING, ANTHROPIC_API_KEY/MODEL (default claude-sonnet-5-5)/TIMEOUT, PDF_MAX_PAGES, PORT 8081); @kr/document-parsing (WP-02 API), @kr/storage (WP-06), @kr/telemetry createMetrics (WP-05).
+**Read first**
 
-Deliver: src/main.ts (config, logger, telemetry, db pool, storage, health server on PORT with /healthz + /readyz (db), SIGTERM: stop claiming, finish in-flight within 25 s); src/poller.ts (concurrency WORKER_CONCURRENCY, lease WORKER_LEASE_SECONDS with heartbeat extension, idle backoff, requeue expired leases periodically, per-handler timeout, structured logs with operation id/type, metrics); handlers in src/handlers/*.ts each pure-ish around injected ports (db repo, storage, clamd, ai): (1) file.scan — stream object to clamd via INSTREAM protocol over TCP (src/clients/clamd.ts, chunked, 60 s timeout, size limit, PING health) → clean/infected/error; infected → delete object, scan_status infected + scan_detail signature, audit system event, metric; MALWARE_SCAN_MODE=off → skipped; on clean + email file → enqueue email.parse. (2) email.parse — download, parseMsg/parseEml → email_messages parsed/failed. (3) conditions.extract — pdfTextLines → parseConditions + findApprovalDates; in one transaction supersede previous conditions (superseded_at) when replaceExisting, insert new rows with extraction_id = operation id, set jobs.approval_date/approval_expiry/outcome_date if found and not manually set (follow §10.2 precedence), conditions_source_file_id/extracted_at; result summary (counts per agency, guessed count) stored in operations.result per contracts schema. (4) conformance.read — order of attempts per §10.1: file name → stamp annotation → page text → (only if payload.allowAi and FEATURE_AI_STAMP_READING and ANTHROPIC_API_KEY set) AI image reading: renderFirstPagePng, call Anthropic with @anthropic-ai/sdk `client.messages.parse` using a zod output schema (zodOutputFormat helper from '@anthropic-ai/sdk/helpers/zod') {found: boolean, date: 'yyyy-mm-dd'|null, stampText: string|null}, base64 PNG image block + short instruction, max_tokens small, timeout ANTHROPIC_TIMEOUT_MS, handle stop_reason 'refusal' and parse failure as not found, never send anything but the first-page image; record jobs.conformed_date/method/file/stamp_text when found and not manually overridden; result per contract. Put the AI client behind `StampReader` interface with a fake in tests (no network in tests). (5) Sweeps (scheduled inside the worker every hour with advisory lock): purge objects of files soft-deleted > 30 days (purged_at), delete expired sessions/auth_flows/idempotency keys/rate limits, retry stuck scans. Errors: typed; transient → failOperation with backoff; permanent (parse errors) → failed with user-safe message.
+- PRODUCT_SPEC §8 (R10), §10.1 (the attempt ORDER: file name → stamp annotation → AI (only when allowed) → text; on success OVERWRITE the job's conformed date, method, source file, stamp text and outcome date (+90) and audit — even if previously entered by hand), §10.2 (extraction sets approval_date and approval_expiry only — never outcome_date), §10.3, §11 (scan limits, error retries), §15
+- ADR-0006, 0010, 0011
+- DATA_MODEL operations, files (scan_attempts), email_messages, conditions, jobs, audit_events
+- services/worker/src/config.ts (HOST, PORT, CLAMAV_STREAM_MAX_BYTES, UPLOAD_MAX_BYTES, SCAN_ERROR_MAX_RETRIES)
+- @kr/document-parsing (WP-02), @kr/storage (WP-06), @kr/telemetry createMetrics (WP-05), @kr/db queue (claimNextOperation, completeOperation, failOperation, requeueExpiredLeases)
+- infra/clamav/clamd.conf (WP-04)
 
-Tests: unit tests for each handler with fakes (memory storage, fake clamd server via node:net, fake StampReader); integration tests with Testcontainers Postgres for queue processing end-to-end (enqueue → process → DB state), lease expiry/requeue, concurrency (two workers never process the same op), and one test against the real clamav/clamav:stable container (pre-pulled; mark it as a separate integration file; it may take ~60 s to load signatures — use EICAR test string generated at runtime). Synthetic PDFs/emails via pdf-lib/cfb only.
+**Plan of record**
 
-**Acceptance**
+1. `src/main.ts`: config, logger, telemetry, db, storage; health server on HOST/PORT (Railway sets PORT) with /healthz and /readyz; SIGTERM: stop claiming, finish in-flight work ≤ 25 s.
+2. `src/poller.ts`: WORKER_CONCURRENCY, SKIP LOCKED leases with heartbeat extension, idle backoff, periodic requeue of expired leases, per-handler timeouts, logs and metrics.
+3. Parsing isolation: every PDF/email parse and render runs in a `worker_thread` with `resourceLimits` (heap cap) and a hard timeout (terminate on expiry); pdf.js with `isEvalSupported: false`.
+4. file.scan: stream to clamd INSTREAM (`src/clients/clamd.ts`: chunked, CLAMAV_TIMEOUT_MS, CLAMAV_STREAM_MAX_BYTES cap, PING) → clean / infected (delete object, scan_detail, system audit row, metric) / error (increment scan_attempts). MALWARE_SCAN_MODE=disabled → skipped. A clean email file triggers email.parse.
+5. email.parse: parseMsg / parseEml → email_messages parsed or failed.
+6. conditions.extract: pdfTextLines → parseConditions + findApprovalDates; in one transaction supersede the current conditions (and soft-delete their evidence) when replaceExisting, insert the new ones with extraction_id, set approval_date/approval_expiry when found, conditions_source_file_id and conditions_extracted_at; store the result summary (counts per agency, guessed numbers) per the contract.
+7. conformance.read in the §10.1 order with the §10.1 messages; the AI step runs only if payload.allowAi && FEATURE_AI_STAMP_READING && ANTHROPIC_API_KEY: renderFirstPagePng → @anthropic-ai/sdk `client.messages.parse` with `zodOutputFormat` from '@anthropic-ai/sdk/helpers/zod' and schema {found, date: yyyy-mm-dd|null, stampText|null}, one base64 PNG image block plus a short instruction, small max_tokens, ANTHROPIC_TIMEOUT_MS, model ANTHROPIC_MODEL (default claude-sonnet-5-5); stop_reason 'refusal', timeout or parse failure → fall through to the text rule. Behind a StampReader interface. On success overwrite per §10.1 and audit.
+8. Hourly sweeps under an advisory lock: purge objects of files soft-deleted > 30 days (purged_at); delete expired sessions (+7 days), auth_flows, idempotency keys, rate-limit rows; re-scan files in `error` while scan_attempts < SCAN_ERROR_MAX_RETRIES; requeue stuck `pending` scans.
+9. Transient errors → failOperation with backoff; permanent → failed with a user-safe message.
 
-- Poller claims operations with SKIP LOCKED, extends leases, requeues expired ones, and never processes one operation twice under two concurrent workers (integration test).
-- file.scan marks clean/infected/error via clamd INSTREAM; infected objects are deleted and audited; EICAR detected by the real ClamAV container test.
-- conditions.extract supersedes old conditions transactionally and sets approval/outcome dates per spec precedence; result matches the contract schema.
-- conformance.read follows the spec order and calls the AI stamp reader only when the flag, key and payload allow it; refusals/parse failures are treated as not found (tests with a fake reader).
-- email.parse fills email_messages; sweeps purge 30-day-old deleted files and expired auth/session rows.
-- Graceful shutdown finishes in-flight work; worker lint/typecheck/unit/integration/build green.
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 12-a main, health server, poller, leases
+2. 12-b clamd client + file.scan + retries
+3. 12-c parse isolation (worker_thread) + email.parse
+4. 12-d conditions.extract
+5. 12-e conformance.read + StampReader + AI fallback
+6. 12-f sweeps
+
+**Acceptance criteria**
+
+1. The poller uses SKIP LOCKED leases, requeues expired ones and never double-processes an operation with two concurrent workers (integration test).
+2. file.scan sets clean/infected/error; infected objects are deleted and audited; error scans are retried up to SCAN_ERROR_MAX_RETRIES; the real clamav container (built from infra/clamav or clamav/clamav:stable with infra/clamav/clamd.conf mounted) detects an EICAR string built at runtime and scans a 55 MB synthetic file without error.
+3. conformance.read follows the §10.1 order exactly (a fixture whose text contains 'conformed' still reaches the AI step before the text rule when AI is allowed), overwrites earlier values incl. manual ones, sets outcome = conformed + 90, and calls the AI reader only when flag, key and payload allow; refusals fall through.
+4. conditions.extract supersedes transactionally and sets approval date/expiry only (outcome_date unchanged); email.parse fills email_messages; a parse that exceeds the thread's memory or time limit fails the operation cleanly.
+5. Sweeps purge 30-day-old deleted files and expired rows; graceful shutdown works; worker lint, typecheck, unit, integration and build are green.
+
+**Out of scope / must not change**
+
+- API endpoints (WP-09, WP-10).
+- Real Anthropic calls in tests (use a fake StampReader).
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
 **Verify**
 
@@ -534,146 +1108,50 @@ pnpm --filter @kr/worker test:integration
 pnpm --filter @kr/worker build
 ```
 
-### WP-13 — Web dashboard, new job form and access manager
-
-- Wave: 2
-- Depends on: WP-03
-- Owned paths: `apps/web/src/app/(app)/page.tsx`, `apps/web/src/app/(app)/page.test.tsx`, `apps/web/src/app/(app)/jobs/new/**`, `apps/web/src/features/dashboard/**`, `apps/web/src/features/access/**`
-
-**Brief**
-
-Build the dashboard-first home page (`/`) exactly like the prototype dashboard, plus the new-job form and the access manager. Read: docs/spec/PRODUCT_SPEC.md §4 (navigation), §6 dashboard (header, filter, type chips with counts, summary counts incl. 'Waiting on client', card grid, card contents: job number, address, client, type, progress, next actions with responsibility, alerts, red/green left border, empty states incl. the external-with-no-grants message, sort), §3.4 + §6 access manager (grant form email/name/role/job, list with status Pending/Active/Revoked, revoke, invitation status text depending on the 'entra-guest-invites' feature from Me.features), §2.1 permissions, §12 (a11y/responsive/print); docs/spec/DESIGN_TOKENS.md rows Dashboard, NewJobForm, AccessManager (owner WP-13); prototype markup/classes in /home/claude/inputs/prototype (data only). Use only WP-03 building blocks: src/lib/api (typed client, queryKeys, useOptimisticVersionedMutation), src/lib/session (useSession capabilities), src/components/ui primitives, src/test (MSW, renderWithProviders, axe). Data: listJobs (filters in URL search params so views are shareable), getJobFacets, createJob (then navigate to /jobs/{id}), listAccessGrants/createAccessGrant/revokeAccessGrant. All computed numbers come from the API (JobCard.summary) — never recompute workflow rules client-side except pure display helpers from @kr/workflow (formatDateWithWeekday, jobDisplayText). Capability-gated UI: externals see no New job / access manager. Loading skeletons, error banners (ApiProblem detail), keyboard navigable card grid, responsive breakpoints from tokens, print styles.
-
-Tests: component tests with MSW for filters/search/sort, counts, empty states, capability gating, create job validation and 409 duplicate job number message, grant add/revoke and duplicate 409, invitation text with flag on/off; axe checks on each state.
-
-**Acceptance**
-
-- Dashboard renders cards, filters, type chips and summary counts from listJobs/getJobFacets exactly as PRODUCT_SPEC §6 (texts and states), with filters reflected in the URL.
-- External users see only granted jobs and the no-access message; staff see New job and the access manager (capability gating tests).
-- New job form validates input, shows the duplicate job number error and navigates to the tracker on success.
-- Access manager adds/revokes grants, shows Pending/Active/Revoked and the invitation text for the flag state.
-- Matches DESIGN_TOKENS.md styles in light and dark; axe finds no violations; web lint/typecheck/unit/build green.
-
-**Verify**
-
-```sh
-pnpm --filter @kr/web lint
-pnpm --filter @kr/web typecheck
-pnpm --filter @kr/web test:unit
-pnpm --filter @kr/web build
-```
-
-### WP-14 — Web tracker page frame (job picker, summary panels, approval dates, outcome countdown, stages, print)
-
-- Wave: 2
-- Depends on: WP-03
-- Owned paths: `apps/web/src/app/(app)/jobs/[jobId]/**`, `apps/web/src/features/tracker/**`
-
-**Brief**
-
-Build the tracker page `/jobs/[jobId]` frame that composes the checkpoint, conditions, viewer, notes and files features. Read: docs/spec/PRODUCT_SPEC.md §5.1 jobbar + banner (job picker select with jobDisplayText, natural sort, edit job details dialog for staff with WAPC dates and If-Match), §5.2 summary panels (progress ring/bar/counts, approval dates panel: approval date, expiry with status, conformed date + method, outcome date), §5.3 stages (collapsible stage bars with label/percent/excluded state, chevrons, outcome box + countdown after the WAPC Approval stage per StageDefinition.outcomeBoxAfter), status key/legend, §8 rules R1–R15 (display only; values come from the API JobDetail.summary and @kr/workflow pure helpers such as summariseStage/approvalExpiryStatus/outcomeCountdown with an injected clock from a `useNow()` hook ticking each minute), §12 print and responsive, §15; DESIGN_TOKENS.md rows JobBar, ProgressPanel/ApprovalDates, StatusKey, StageBar, OutcomeBox/Countdown (owner WP-14); prototype markup in /home/claude/inputs/prototype (data only).
-
-Composition contract (do not change these stubs' props; import from feature index files): `CheckpointCard` from '@/features/checkpoints' (props job, checkpoint, definition), `ConditionsPanel`/`AgencyConditions` from '@/features/conditions', `JobNotes` from '@/features/notes' (jobId, capabilities), `JobFiles` from '@/features/job-files' (job), `useViewer` from '@/features/viewer'. Data: getJob via WP-03 queryKeys.jobs.detail(jobId) in a `useJob(jobId)` hook you export from features/tracker (other feature WPs read the same query key); updateJob mutation with useOptimisticVersionedMutation; 404 → not-found page; problem banners. Stage open/closed state remembered per user in localStorage (try/catch). Server component page.tsx fetches nothing secret; client components for interactivity. Print layout per spec.
-
-Tests: component tests with MSW for all summary/stage states (excluded agency stage label, complete job, expired/expiring approval, countdown soon/past, empty dates), job picker navigation, edit details with 412 conflict, print-only elements; axe.
-
-**Acceptance**
-
-- Tracker frame renders jobbar, summary panels, status key, all stages in order with correct labels/percent/excluded state and the outcome box + countdown, from JobDetail (component tests for each state in PRODUCT_SPEC §5.1–5.3).
-- Composes CheckpointCard, ConditionsPanel/AgencyConditions, JobNotes and JobFiles through their index exports without changing their props.
-- Edit job details uses If-Match and handles 412 by refreshing with the conflict banner.
-- Countdown/date displays use an injected clock and Perth dates; print styles hide interactive controls.
-- axe passes; matches DESIGN_TOKENS.md; web lint/typecheck/unit/build green.
-
-**Verify**
-
-```sh
-pnpm --filter @kr/web lint
-pnpm --filter @kr/web typecheck
-pnpm --filter @kr/web test:unit
-pnpm --filter @kr/web build
-```
-
-### WP-15 — Web checkpoint cards and panels (status, responsibility, documents, slots, approval/decision, paid, KR note, emails, clearance, survey, conformance)
-
-- Wave: 2
-- Depends on: WP-03
-- Owned paths: `apps/web/src/features/checkpoints/**`
-
-**Brief**
-
-Implement `CheckpointCard` (keep the existing stub's export and props: job, checkpoint, definition) and every panel type except conditions (WP-16 owns the 'conditions' panel; render `ConditionsPanel` from '@/features/conditions' when the definition has it). Read: docs/spec/PRODUCT_SPEC.md §5.4 checkpoint card (title/number/description, status segmented control Completed/Not completed/Not required with exact labels, responsibility select KR/Client/Architect, progress-claim/fee/KR-pays/trigger tags, restricted fee proposal), §5.5 panel types: approval (folder + documents + decision buttons ACCEPT/DECLINE with comment, result box), paid (client response button e.g. INVOICE PAID/WORKS COMPLETE + Undo), kr_note, documents (documents/photos variants with thumbnails), slots (named drop slots with requirement chips req.ok/miss, uploader rules), clearance, survey, conformance (4.2: conformed date display, method, 'Read again' → startConformanceReading + operation polling, manual date override via updateJob), emails (4.3: list, upload .msg/.eml, paste email dialog → pasteEmail), §2.1 matrix (who sees/edits what), §11 file states (pending scan, blocked), §11.1 viewer opening, §15; packages/workflow types (Panel union, SlotDefinition, CheckpointDefinition) and definition.ts (all 46); DESIGN_TOKENS.md rows CheckpointCard, Tag, Folder/DocRow/DropZone, DecisionPanel, PaidPanel/KrNotePanel, EmailsPanel (owner WP-15); prototype markup (data only).
-
-Data: read job from the getJob query (queryKeys.jobs.detail); mutations updateCheckpoint (If-Match checkpoint version, optimistic), recordDecision, markPaid/undoPaid, uploadFile (WP-03 helper with progress; Idempotency-Key), deleteFile (ConfirmDialog), pasteEmail, startConformanceReading + useOperation polling; invalidate job detail after success. Open files with `useViewer().open(files, index)` from '@/features/viewer'. Capability gating from JobDetail.capabilities (never infer from role names). Render exhaustively over the Panel union (TypeScript `never` check) so a new panel type fails typecheck.
-
-Tests: component tests with MSW per panel type and per role (staff vs client vs architect), status change optimistic + 412 rollback, slot accept/size errors, upload progress and scan states, decision flow, paid/undo, email paste, conformance re-read polling success/failure; a test that renders all 46 checkpoint definitions without errors; axe.
-
-**Acceptance**
-
-- CheckpointCard renders all 46 definitions and every panel type (except conditions, delegated to WP-16) with the exact labels from PRODUCT_SPEC §5.4–5.5.
-- Status/responsibility changes are optimistic with If-Match and roll back with the conflict banner on 412.
-- Uploads respect slot accept/uploader rules, show progress, pending-scan and blocked states; removal asks for confirmation.
-- Decision, paid/undo, KR note, email paste and conformance re-read flows call the right operations and refresh the job (MSW tests).
-- Role-based visibility follows JobDetail.capabilities; axe passes; web lint/typecheck/unit/build green.
-
-**Verify**
-
-```sh
-pnpm --filter @kr/web lint
-pnpm --filter @kr/web typecheck
-pnpm --filter @kr/web test:unit
-pnpm --filter @kr/web build
-```
-
-### WP-16 — Web conditions UI (5.0 extraction, condition cards, agency evidence)
-
-- Wave: 2
-- Depends on: WP-03
-- Owned paths: `apps/web/src/features/conditions/**`
-
-**Brief**
-
-Implement `ConditionsPanel` (props job, checkpoint — keep stub export) and `AgencyConditions` (props job, agency — rendered by the tracker inside each agency stage). Read: docs/spec/PRODUCT_SPEC.md §5.5 conditions panel (Decision Letter drop slot handled by the slot rendering? — check §5.5/§7 for 5.0: the extract button 'Read conditions from the Decision Letter', progress while the operation runs, re-extract confirmation when conditions exist, summary counts, grouped list), §5.6 condition card (number, text, agency select with 'guessed — please check' marker, cleared tick with struck-through text, state label, responsibility KR/Client, KR comment (staff), client comment (client/architect/staff), evidence uploads per condition with folder), §8 R-rules on agency exclusion (a stage disappears to 'Not required' when no conditions name it — explain in UI per spec), §2.1 matrix rows for conditions, §10.2, §15; DESIGN_TOKENS.md row ConditionsPanel/ConditionCard/AgencyEvidence (owner WP-16); prototype markup (data only).
-
-Data: conditions come from the getJob query (queryKeys.jobs.detail); startConditionsExtraction (Idempotency-Key, replaceExisting confirm on 409) + useOperation polling then invalidate job; updateCondition with If-Match (optimistic, 412 rollback); evidence upload via WP-03 uploadFile with conditionId; files open in the viewer via useViewer from '@/features/viewer'. Field-level permissions from JobDetail.capabilities.
-
-Tests: MSW component tests for extraction lifecycle (queued → running → succeeded with counts; failed with message), re-extract confirmation, card edits per role (client can only comment), guessed agency marker and change, cleared styling, evidence upload/remove, agency grouping in AgencyConditions, empty state before extraction; axe.
-
-**Acceptance**
-
-- Extraction runs as an async operation with progress, success counts and failure message; re-extraction requires confirmation (MSW tests).
-- Condition cards support tick, agency, responsibility and comments with field-level permissions per PRODUCT_SPEC §2.1 and optimistic If-Match updates.
-- AgencyConditions lists the agency's conditions with evidence uploads and the guessed-agency marker.
-- Texts and styles match PRODUCT_SPEC §5.5–5.6 and DESIGN_TOKENS.md; axe passes; web lint/typecheck/unit/build green.
-
-**Verify**
-
-```sh
-pnpm --filter @kr/web lint
-pnpm --filter @kr/web typecheck
-pnpm --filter @kr/web test:unit
-pnpm --filter @kr/web build
-```
-
 ### WP-17 — Web document viewer (pdf.js), job notes and job files package
 
-- Wave: 2
-- Depends on: WP-03
+- Risk tier: **Medium** — UI feature; renders untrusted PDFs in the browser
+- Wave: 6 · Depends on: WP-03 · Target: apps/web · Commit scope: `web`
 - Owned paths: `apps/web/src/features/viewer/**`, `apps/web/src/features/notes/**`, `apps/web/src/features/job-files/**`, `apps/web/public/pdfjs/**`
 
-**Brief**
+**Goal.** The in-app document viewer, job notes and the job files download, behaving and looking like the prototype.
 
-Implement three features behind their existing stub exports. (1) Viewer: `ViewerProvider` + `useViewer().open(files, index)` (keep API). Read PRODUCT_SPEC §11.1 (modal dialog, focus trap, Esc, return focus, ‹ › navigation, 'n of m', Open in new tab, Close; body by kind: PDF via pdfjs-dist rendering all pages in canvases with lazy rendering and a worker served from same origin (copy the worker into public/pdfjs or import via new URL; CSP worker-src 'self' blob:), image <img>, video <video controls> using Range, text/email <pre> (email: header block subject/from/to/date then body from FileMeta.email), DWG message + DOWNLOAD <name> button, pending-scan and blocked messages), §12 a11y; DESIGN_TOKENS.md DocumentViewer row (owner WP-17). Content URL from contracts buildPath(getFileContent). (2) JobNotes (props jobId, capabilities): PRODUCT_SPEC §5.7 (form with audience select For everyone/For surveyors/For client per capability, list newest first with author/date (formatInstantShort, Perth), delete own/any with confirm, cursor 'Show older'); listNotes/createNote/deleteNote via WP-03 api + queryKeys.jobs.notes. (3) JobFiles (props job): PRODUCT_SPEC §5.8 — job files box, 'Download all files (.zip)' → downloadJobPackage (plain link through the BFF, no blob buffering), counts per stage, note about fee proposal exclusion when relevant. DESIGN_TOKENS rows JobNotes, JobFiles (owner WP-17).
+**Read first**
 
-Tests: viewer keyboard/focus tests, navigation, each kind (mock pdfjs-dist in unit tests via a small adapter interface `PdfRenderer` you define; real pdf.js exercised in e2e by WP-19), pending/blocked states; notes per role and audience, pagination, delete confirm; job files link and counts; axe.
+- PRODUCT_SPEC §11.1 (viewer), §5.7 (job notes: audience select "For: Everyone / Surveyor / Client" is a label only, everyone reads every note; "FOR CLIENT" chip; texts), §5.8 (job files texts, DOWNLOAD ALL FILES (.ZIP)), §2.1, §12
+- DESIGN_TOKENS rows DocumentViewer, JobNotes, JobFiles
+- docs/reference/prototype/screenshots/blank-04-job-notes.png, blank-05-job-files-download.png
 
-**Acceptance**
+**Plan of record**
 
-- Viewer opens any file list at an index, traps focus, closes on Esc returning focus, navigates with ‹ › and renders each kind per PRODUCT_SPEC §11.1 (PDF through pdf.js with a same-origin worker).
-- DWG shows the message and a direct download; pending/blocked files show the scan messages.
-- Job notes support audience, newest-first list, older pages and delete rules per role.
-- Job files offer the streamed zip download through the BFF and show counts.
-- axe passes; matches DESIGN_TOKENS.md; web lint/typecheck/unit/build green.
+1. Viewer (keep ViewerProvider/useViewer().open(files, index)): modal dialog per §11.1 (focus trap, Esc, return focus, ‹ ›, "n of m", Open in new tab, Close); PDF via pdfjs-dist with `isEvalSupported: false`, all pages lazily into canvases, worker served same-origin from public/pdfjs (CSP worker-src 'self' blob:), loaded lazily (bundle budget); images, video (Range), text/email `<pre>` (email header block from FileMeta.email); DWG message + DOWNLOAD <name>; pending / blocked / scan-error messages. Content URL from buildPath('getFileContent').
+2. JobNotes (jobId, capabilities) per §5.7: audience select as a label, newest first with author and Perth date (formatInstantShort), delete own/any per capability with "Delete?" confirm, empty and validation texts, load more after 50; listNotes/createNote/deleteNote on queryKeys.jobs.notes.
+3. JobFiles (job) per §5.8: count text, DOWNLOAD ALL FILES (.ZIP) as a plain link through the BFF (no blob buffering; disabled when 0).
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 17-a viewer dialog shell + non-PDF kinds
+2. 17-b PDF renderer (PdfRenderer adapter, same-origin worker)
+3. 17-c job notes
+4. 17-d job files
+
+**Acceptance criteria**
+
+1. The viewer opens at an index, traps focus, closes on Esc returning focus, navigates, and renders each kind per §11.1; PDFs use pdf.js with isEvalSupported false on a same-origin worker (unit tests mock a PdfRenderer adapter; WP-19 covers real pdf.js).
+2. DWG shows the message plus a direct download; pending, blocked and scan-error files show the spec messages.
+3. Notes: audience is a label (no visibility filtering), newest first, paging and per-capability delete.
+4. Job files offer the streamed zip link and counts; axe passes; matches DESIGN_TOKENS; web checks green.
+
+**Out of scope / must not change**
+
+- The zip itself (WP-09).
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
 **Verify**
 
@@ -686,21 +1164,43 @@ pnpm --filter @kr/web build
 
 ### WP-18 — Web admin pages (users, audit trail)
 
-- Wave: 2
-- Depends on: WP-03
+- Risk tier: **Medium** — UI feature over admin endpoints (authorisation is server-side)
+- Wave: 6 · Depends on: WP-03 · Target: apps/web · Commit scope: `web`
 - Owned paths: `apps/web/src/app/(app)/admin/**`, `apps/web/src/features/admin/**`
 
-**Brief**
+**Goal.** Admins manage users and admins/KR admins read the audit trail.
 
-Build `/admin/users` (admin only) and `/admin/audit` (admin + kr_admin). Read: docs/spec/PRODUCT_SPEC.md §9 (users list with search, role filter, role change admin/kr_admin/staff/external with confirmation, disable/enable, last-admin protection message from the API 409, guest marker, last sign-in; audit list with filters job, actor, action, Perth date range, expandable change diffs, cursor pagination, CSV export is NOT in scope unless §9 says so), §3.1 MFA requirement message (403 'Multi-factor sign-in required' → explain and offer sign-out/sign-in), §2.1, §12; DESIGN_TOKENS.md (reuse dashboard/table styles; no prototype equivalent — follow tokens). Use WP-03 lib/api (listUsers, updateUser with If-Match, listAuditEvents), queryKeys, session capabilities (pages return not-found for users without the capability; the header links are already capability-gated by WP-03), components/ui.
+**Read first**
 
-Tests: MSW component tests for list/search/filter, role change confirm + 409 last admin + 412, disable/enable, MFA 403 state, audit filters → query params, pagination, diff rendering; axe.
+- PRODUCT_SPEC §9.1 (users: table, search, role filter, role change with confirmation, disable/enable, cannot change own role/status, the 409 last-admin text), §9.2 (audit: filters job/user/action/Perth date range, columns, diffs, newest first), §3.1 (MFA 403 "Multi-factor sign-in required" with a sign-out-and-in-again offer), §2.1, §12
+- DESIGN_TOKENS (reuse table and dashboard styles)
+- WP-03 lib/api (listUsers, updateUser with If-Match, listAuditEvents), queryKeys, useSession, components/ui
 
-**Acceptance**
+**Plan of record**
 
-- Users page lists, searches and filters users, changes roles/status with confirmation and shows API problems (last admin 409, 412 conflict, MFA 403).
-- Audit page filters by job, actor, action and Perth date range with cursor pagination and readable change diffs.
-- Pages are inaccessible without the capability; axe passes; web lint/typecheck/unit/build green.
+1. /admin/users (users.manage) and /admin/audit (audit.read) per §9; without the capability show the not-found page; problem states for 409, 412 and the MFA 403.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 18-a users page
+2. 18-b audit page
+
+**Acceptance criteria**
+
+1. Users page lists, searches, filters and changes role/status with confirmation; own row is read-only; shows the 409, 412 and MFA 403 problems.
+2. Audit page filters by job, actor, action and Perth date range with cursor pagination and readable diffs.
+3. Both pages are inaccessible without the capability; axe passes; web checks green.
+
+**Out of scope / must not change**
+
+- CSV export (not in §9).
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
 **Verify**
 
@@ -711,24 +1211,55 @@ pnpm --filter @kr/web test:unit
 pnpm --filter @kr/web build
 ```
 
-### WP-19 — End-to-end, accessibility and visual regression suite
+### WP-19 — End-to-end, accessibility, visual regression and prototype-parity suite
 
-- Wave: 3
-- Depends on: WP-07, WP-08, WP-09, WP-10, WP-11, WP-12, WP-13, WP-14, WP-15, WP-16, WP-17, WP-18
+- Risk tier: **Low** — tests only (no product code)
+- Wave: 7 · Depends on: WP-07, WP-08, WP-09, WP-10, WP-11, WP-12, WP-13, WP-14, WP-15, WP-16, WP-17, WP-18 · Target: apps/web · Commit scope: `web`
 - Owned paths: `apps/web/e2e/**`, `apps/web/playwright.config.ts`
 
-**Brief**
+**Goal.** Prove the real stack works end to end for every role, is accessible, stays visually stable, and looks like the prototype.
 
-Create the Playwright suite that runs the real stack locally and in CI (reusable-ci-node e2e job runs `pnpm test:e2e` in apps/web). Read: docs/spec/PRODUCT_SPEC.md (all user journeys §3–§11, §12 a11y/responsive/print, §15), docs/definition-of-done.md, apps/web/AGENTS.md, existing apps/web/playwright.config.ts and e2e/smoke.spec.ts. Harness (e2e/global-setup.ts): start Postgres via @kr/db/testing (Testcontainers) + migrate; start the mock IdP from @kr/mock-idp with synthetic users (first KR member, staff, kr_admin, client guest, architect guest, external without grants); start the API (dist build) with ENTRA_AUTHORITY_HOST pointing to the mock IdP, memory or s3mock storage (s3mock container), MALWARE_SCAN_MODE=off (one separate project may use real ClamAV), worker process with a fake StampReader; start web (`next start`) with API_INTERNAL_URL; seed synthetic jobs through the API as staff (never SQL into business tables except via factories exported by services/api test helpers if exposed; never real client data). Browser: Chromium; locally set E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome (download from the Playwright CDN is blocked in this sandbox).
+**Read first**
 
-Journeys: first sign-in becomes admin; staff creates a job, sets statuses, uploads to slots (synthetic PDF generated with pdf-lib), views PDF in the viewer (real pdf.js), extracts conditions from a synthetic Decision Letter, edits a condition, agency stage exclusion, conformed date from file name, emails paste, notes, zip download; client guest sees only granted job, accepts a quote, uploads to a staff_and_client slot, cannot see fee proposal as architect/staff; access grant activation on guest sign-in; admin changes a role (session revoked); audit page shows events; dashboard filters; dark mode; keyboard-only flow for a checkpoint; print emulation of the tracker. Each page state runs @axe-core/playwright (WCAG 2.2 AA tags) with zero violations; visual snapshots (toHaveScreenshot) of dashboard, tracker (light/dark), viewer at desktop and mobile widths with masks for dates; retries 0 locally/2 in CI; traces on failure.
+- PRODUCT_SPEC §3–§12 and §15
+- docs/definition-of-done.md
+- apps/web/playwright.config.ts and e2e/smoke.spec.ts
+- docs/reference/prototype/README.md and screenshots/blank-*.png
 
-**Acceptance**
+**Plan of record**
 
-- `pnpm --filter @kr/web test:e2e` starts the full synthetic stack and passes all journeys listed in the brief locally.
-- Every visited page state passes axe (WCAG 2.2 AA) with zero violations.
-- Visual snapshots exist for dashboard, tracker (light/dark) and viewer at desktop and mobile widths.
-- No real client data in fixtures; the harness tears down containers and processes reliably.
+1. Harness `e2e/global-setup.ts`: Postgres via @kr/db/testing + migrate; @kr/mock-idp with synthetic users (first KR member, staff, kr_admin, client guest, architect guest, external without grants); the API from dist with ENTRA_AUTHORITY_HOST at the mock, storage on s3mock, MALWARE_SCAN_MODE=disabled (plus one project with the real ClamAV container); the worker with a fake StampReader; `next start` with API_INTERNAL_URL; synthetic jobs seeded through the API as staff. Export the harness for reuse (WP-22). Reliable teardown.
+2. Journeys: first sign-in becomes admin; staff create a job, set statuses, upload to slots (pdf-lib PDFs), view a PDF in the real viewer; extract conditions from a synthetic Decision Letter, edit one, see an agency stage excluded; conformed date from the file name; paste an email; notes; zip download; a client guest sees only the granted job, accepts a quote and uploads to a staff_and_client slot; fee proposal hidden from architects and staff; grant activation on guest sign-in; an admin changes a role and that user's session is revoked; the audit page shows the events; edit job details and archive; dashboard filters; dark mode; a keyboard-only checkpoint flow; tracker in print emulation.
+3. @axe-core/playwright (WCAG 2.2 AA) on every visited state with zero violations; toHaveScreenshot snapshots of dashboard, tracker (light and dark) and viewer at desktop and 390 px, dates masked; retries 0 locally / 2 in CI; traces on failure.
+4. Prototype parity `e2e/parity/`: seed the prototype's blank demo state with synthetic data (job DEMO-000 "Blank demo job", Survey-Strata, nothing set) and capture the same views as `docs/reference/prototype/screenshots/blank-*.png` at the same viewport sizes; compute a pixel diff per view (report-only, attached as artifacts with side-by-side images) and an `e2e/parity/CHECKLIST.md` listing each view, its diff ratio and the expected differences (header additions, theme control, real sign-in) for a human sign-off.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 19-a harness + sign-in journeys
+2. 19-b staff job journeys
+3. 19-c conditions/conformance/emails/zip journeys
+4. 19-d client/architect/admin/audit journeys
+5. 19-e axe + visual snapshots
+6. 19-f prototype parity + checklist
+
+**Acceptance criteria**
+
+1. `pnpm --filter @kr/web test:e2e` starts the synthetic stack and all listed journeys pass locally.
+2. axe finds zero WCAG 2.2 AA violations on every visited state.
+3. Visual snapshots exist for dashboard, tracker (light and dark) and viewer at desktop and mobile widths.
+4. The parity report covers every blank-* view with a diff ratio and the checklist is ready for human sign-off.
+5. No real client data; containers and processes are torn down reliably.
+
+**Out of scope / must not change**
+
+- Fixing product defects: report them to the orchestrator with a failing test.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: yes — create the initial baselines (they are reviewed in the PR)
 
 **Verify**
 
@@ -737,48 +1268,221 @@ pnpm build
 E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filter @kr/web test:e2e
 ```
 
-### WP-20 — Security hardening: threat model, authz completeness tests, headers, ZAP rules, mutation testing gate
+### WP-20 — Security hardening: threat model, authz completeness, login-CSRF and header tests, ZAP rules, mutation-runner check
 
-- Wave: 3
-- Depends on: WP-07, WP-08, WP-09, WP-10, WP-11, WP-12
+- Risk tier: **High** — security configuration and authorisation tests
+- Wave: 7 · Depends on: WP-03, WP-07, WP-08, WP-09, WP-10, WP-11, WP-12 · Target: services/api, infra/zap, docs/security · Commit scope: `security`
 - Owned paths: `docs/security/**`, `services/api/test/security/**`, `infra/zap/**`, `stryker.shared.mjs`
 
-**Brief**
+**Goal.** Evidence that every route is authenticated, CSRF-protected and authorised as the matrix says, plus a threat model and DAST rules a reviewer can trust.
 
-Harden and prove security properties across the finished API (read docs/security-checklist.md, playbook security rules referenced in AGENTS.md, ADR-0002/0003/0007/0011/0014, PRODUCT_SPEC §2.1, §3, §11, §14). Deliver: (1) docs/security/threat-model.md (STRIDE per component: web BFF, API, worker, storage, ClamAV, Entra, Railway, GitHub Actions; data classification; trust boundaries diagram in Mermaid; mitigations mapped to tests). (2) services/api/test/security/*.int.test.ts: route completeness test — every operation in @kr/contracts ROUTES is registered (strict equality now that all modules exist) and every non-public route rejects unauthenticated (401) and missing CSRF (403 for writes); a generated authorisation matrix test that walks PRODUCT_SPEC §2.1 rows × roles (admin, kr_admin, staff, client grant, architect grant, external no grant, disabled) against real routes with factories; IDOR tests (ids from another job → 404); upload abuse (polyglot, oversized, path traversal names, zip bombs N/A); header tests (helmet, content endpoint CSP/nosniff/disposition); session fixation/rotation; rate limits on auth. Fix nothing outside owned paths — file defects as questions to the orchestrator with failing tests attached (tests may be committed in a separate commit marked with the defect id only if they pass; otherwise report). (3) infra/zap/rules.tsv refined after a local baseline scan against the docker-compose stack (document command). (4) Mutation testing: the repo uses Stryker's command runner because @stryker-mutator/vitest-runner 10.0.0 does not activate mutants under Vitest 5 (see stryker.shared.mjs). Re-check upstream; if a fixed vitest-runner exists (older than 24 h per minimumReleaseAge) propose the switch with evidence (scores before/after on packages/workflow); otherwise keep the command runner and document the trade-off in docs/security/../testing note. Verify CI changed-files mutation runtime stays < 10 min for a typical PR.
+**Read first**
 
-**Acceptance**
+- docs/security-checklist.md; ADR-0002, 0003, 0005, 0007, 0011, 0014; PRODUCT_SPEC §2.1, §3, §11, §14
 
-- Threat model document covers every component and maps mitigations to tests.
-- Route completeness test enforces that every ROUTES operation is registered, authenticated (except PUBLIC_PATHS) and CSRF-protected for writes.
-- Authorisation matrix test covers every PRODUCT_SPEC §2.1 row for every role; IDOR and upload-abuse tests exist; any failures are reported as defects with reproduction.
-- ZAP baseline rules are justified line by line; mutation testing approach verified with recorded scores.
+**Plan of record**
+
+1. docs/security/threat-model.md: STRIDE per component (web BFF, API, worker, ops/migrate/backup, storage, ClamAV, Entra, Railway, GitHub Actions); data classification; a Mermaid trust-boundary diagram; mitigations mapped to tests.
+2. services/api/test/security/*.int.test.ts: route completeness (every ROUTES operation registered — strict equality; every non-public route 401 without a session; every write 403 without CSRF); the authorisation matrix walking every §2.1 row × role (admin, kr_admin, staff, client grant, architect grant, external without grant, disabled); IDOR (ids from another job → 404; evidence for another job's condition refused); upload abuse (polyglots, oversize, path traversal names); security headers incl. the content endpoint; session fixation/rotation; login CSRF (callback without the binding cookie); per-IP sign-in limit with spoofed X-Forwarded-For prefixes; ENTRA_AUTHORITY_HOST pinning. Commit only passing tests; report failures as defects with the failing test attached.
+3. infra/zap/rules.tsv: baseline overrides from a local ZAP baseline scan (ghcr.io/zaproxy/zaproxy:stable via mirror if needed) against the docker-compose stack profile; the command and a justification per line in docs/security/zap.md.
+4. Mutation testing: re-check whether a @stryker-mutator/vitest-runner release older than 24 h supports Vitest 5; if so propose the switch with before/after scores on packages/workflow, otherwise keep the command runner and document the trade-off in stryker.shared.mjs; confirm changed-file mutation (scripts/ci/mutation-targets.mjs) stays under 10 min for a typical PR.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 20-a threat model
+2. 20-b route completeness + authz matrix
+3. 20-c IDOR, upload abuse, headers, session, login CSRF, proxy/IP tests
+4. 20-d ZAP rules + doc
+5. 20-e mutation runner check
+
+**Acceptance criteria**
+
+1. The threat model covers every component and maps mitigations to tests.
+2. Route completeness enforces registration, authentication (except PUBLIC_PATHS) and CSRF on writes.
+3. The authz matrix covers every §2.1 row for every role; IDOR, upload-abuse, login-CSRF and IP-spoofing tests exist; failures are reported as defects with reproductions.
+4. ZAP rules are justified line by line; the mutation approach is verified with recorded scores and timings.
+
+**Out of scope / must not change**
+
+- Fixing other modules (report defects).
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
 **Verify**
 
 ```sh
 pnpm --filter @kr/api test:integration
 pnpm --filter @kr/workflow test:mutation
+pnpm exec prettier --check docs/security
 ```
 
-### WP-21 — Operations documentation: runbooks, deploy guide, backup/restore drill, user guide
+### WP-23 — Railway delivery: service settings as code, deploy-images and smoke scripts, deploy guide
 
-- Wave: 3
-- Depends on: WP-04, WP-05, WP-12
+- Risk tier: **High** — deployment automation (IaC) and production configuration
+- Wave: 7 · Depends on: WP-04 · Target: infra/railway, docs/deploy · Commit scope: `infra`
+- Owned paths: `infra/railway/**`, `docs/deploy/**`
+
+**Goal.** deploy.yml can promote attested images to Railway staging and production in the right order, with settings applied as code, health-gated, smoke-tested and reversible.
+
+**Read first**
+
+- .github/workflows/release.yml and deploy.yml (read only: SERVICES order 'clamav migrate api worker web backup', --record/--rollback, smoke flags)
+- ADR-0007, 0008 (topology, order, settings-as-code, smoke watch, backups), 0011, 0013
+- PRODUCT_SPEC §14
+- .env.example and every services/*/src/config.ts
+- WP-04 images and services/ops start commands
+
+**Plan of record**
+
+1. `infra/railway/services/<service>.json` for clamav, migrate, api, worker, web, backup: image name (ops for migrate and backup), start command, health-check path and timeout (api /readyz, worker /healthz, web /api/healthz, migrate /healthz), restart policy, cron schedule (backup daily 18:15 UTC = 02:15 Perth), replicas, sleep settings where safe; a JSON schema + validation test.
+2. `infra/railway/scripts/deploy-images.mjs` (Node 24, no dependencies) on Railway's public GraphQL API (https://backboard.railway.com/graphql/v2) with RAILWAY_TOKEN: for each service in order apply the settings (serviceInstanceUpdate incl. source.image = the digest from image-<image>.txt) and FAIL if Railway reports different values; trigger the deployment; poll status with a timeout and stop at the first unhealthy/failed service; --environment, --services, --record previous-<env>.json, --rollback <file>, --dry-run. Verify the exact token header, queries and mutations against Railway's current docs and document them (marking anything unverified). node:test with a mocked fetch: success, failure, timeout, settings drift, order stop.
+3. `infra/railway/scripts/smoke.mjs`: web /api/healthz and /api/readyz (NOT /api/v1/readyz), the sign-in page, security headers (CSP with nonce, HSTS, nosniff, frame-ancestors, Referrer-Policy), and a latency probe (p95 of N requests against the §14/SLO budgets); `--watch-minutes N` repeats every 30 s and fails on any error or budget breach; node:test tests.
+4. `docs/deploy/railway.md`: one-time setup (project, environments, services from the topology, Postgres 17 with Railway backups ON, the files and backups Buckets, private hostnames, IPv6 listening), per-service variables from .env.example (MIGRATION_DATABASE_URL ONLY on migrate; tracker_app URL on api/worker; read-only files-bucket keys on backup), running bootstrap-cli once, GHCR pull credentials, RAILWAY_TOKEN as an environment secret, DEPLOYS_FROZEN, verifying TRUST_PROXY_HOPS and X-Forwarded-For handling in staging; the Entra app registration checklist (redirect URI, front-channel logout, optional claims email, acct, xms_edov, client secret rotation, Conditional Access MFA for admins) and the go-live checks (prove amr or acrs MFA evidence for an admin sign-in, prove guest email claims), plus whether Railway Buckets support versioning (record the finding).
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 23-a service settings JSON + schema test
+2. 23-b deploy-images.mjs + tests
+3. 23-c smoke.mjs + tests
+4. 23-d deploy guide
+
+**Acceptance criteria**
+
+1. deploy-images.mjs deploys in the given order, waits for each service to be healthy, stops at the first failure, detects settings drift, and supports --dry-run, --record and --rollback (node:test).
+2. smoke.mjs checks the web health/readiness routes, headers and latency budgets and fails on any error during --watch-minutes (node:test).
+3. docs/deploy/railway.md lists every .env.example variable per service, the Entra steps and the go-live checks; Railway API calls are documented with what is verified and what is not.
+4. Needed workflow edits are reported to the orchestrator as a diff instead of being made.
+
+**Out of scope / must not change**
+
+- Never run the railway CLI or touch real Railway projects.
+- Dockerfiles (WP-04).
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
+
+**Verify**
+
+```sh
+node --test infra/railway/
+pnpm exec prettier --check infra/railway docs/deploy
+```
+
+### WP-21 — Operations documentation: runbooks, backup/restore drill, incident response, user guides
+
+- Risk tier: **Low** — documentation
+- Wave: 8 · Depends on: WP-04, WP-05, WP-07, WP-11, WP-12, WP-23 · Target: docs · Commit scope: `docs`
 - Owned paths: `docs/runbooks/**`, `docs/operations/**`, `docs/user-guide/**`, `README.md`
 
-**Brief**
+**Goal.** Operators can run, recover and audit the system on Railway, and staff and clients know how to use it.
 
-Write the operational documentation needed to run the system on Railway. Read: ADR-0008, 0009, 0011, 0013, docs/deploy/railway.md (WP-04), docs/slo.md and docs/observability/alerts.md (WP-05, each alert links to docs/runbooks/<name>.md), .github/workflows/{release,deploy}.yml, packages/db migrate/bootstrap CLIs, services/api/src/cli/promote-admin.ts (WP-07), PRODUCT_SPEC §14. Deliver: docs/runbooks/ — one runbook per alert (symptoms, dashboards, diagnosis commands that are read-only, mitigation, escalation), plus deploy-and-rollback.md (release → staging → production approval, DEPLOYS_FROZEN kill switch, rollback with previous-<env>.json, feature flag kill), database-migrations.md (expand/contract, failed pre-deploy migration recovery), backup-and-restore.md (Railway Postgres backups + point-in-time options, bucket object versioning/retention, quarterly restore drill procedure with a checklist and evidence template), secrets-rotation.md (ENTRA client secret, S3 keys, ANTHROPIC key, RAILWAY_TOKEN, session invalidation), incident-response.md (severity levels, comms, data breach notification obligations under the Australian Privacy Act NDB scheme — flag for KR's legal review), first-admin-recovery.md, malware-detected.md; docs/operations/README.md index and on-call checklist; docs/user-guide/ short staff and client guides (sign-in as guest, tracker basics) with no real client data; update README.md links. Commands in runbooks must never be destructive without an explicit confirmation step.
+**Read first**
 
-**Acceptance**
+- ADR-0007, 0008, 0009, 0011, 0013
+- docs/deploy/railway.md (WP-23)
+- docs/slo.md and docs/observability/alerts.md (WP-05: the fixed runbook list)
+- .github/workflows/release.yml and deploy.yml
+- packages/db migrate/bootstrap CLIs, services/ops (migrate, backup), services/api/src/cli/promote-admin.ts
+- PRODUCT_SPEC §3.3, §11, §14, §17
 
-- Every alert in docs/observability/alerts.md has a runbook with diagnosis and mitigation steps.
-- Deploy/rollback, migrations, backup/restore drill, secrets rotation, incident response and first-admin recovery runbooks exist and match the workflows and CLIs in the repo.
-- User guides exist for staff and clients; README links to operations docs; markdown passes prettier --check.
+**Plan of record**
+
+1. One runbook per alert in docs/observability/alerts.md (symptoms, dashboards, read-only diagnosis, mitigation, escalation).
+2. deploy-and-rollback.md (release → staging → production approval; DEPLOYS_FROZEN; rollback via previous-<env>.json; killing a flag); database-migrations.md (expand/contract; recovering from a failed migrate service using its pre-migration dump); backup-and-restore.md (Railway Postgres backups, nightly dumps and object copies in the backup bucket, restore commands, quarterly drill checklist with an evidence template); secrets-rotation.md (Entra secret, S3 keys incl. backup bucket, Anthropic key, RAILWAY_TOKEN, GHCR credentials, session invalidation); incident-response.md (severity levels, comms, Australian Privacy Act NDB obligations flagged for KR legal review); first-admin-recovery.md; malware-detected.md; unarchive-job.md (operator SQL with confirmation).
+3. docs/operations/README.md (index + on-call checklist); docs/user-guide/ (staff guide; client/architect guest sign-in and tracker basics); README.md links.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 21-a alert runbooks
+2. 21-b deploy, migrations, backup/restore
+3. 21-c secrets, incident response, recovery runbooks
+4. 21-d operations index, user guides, README
+
+**Acceptance criteria**
+
+1. Every alert in docs/observability/alerts.md has a runbook with diagnosis and mitigation.
+2. Runbooks match the repo's workflows, scripts and CLIs; every destructive command has an explicit confirmation step.
+3. User guides exist; README links them; prettier --check passes.
+
+**Out of scope / must not change**
+
+- Running any cloud CLI.
+- Real client data in examples.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
 
 **Verify**
 
 ```sh
 pnpm exec prettier --check docs README.md
+```
+
+### WP-22 — Performance budgets: per-route bundle budget, web-vitals checks, k6 API smoke
+
+- Risk tier: **Medium** — CI quality gates (no product behaviour)
+- Wave: 8 · Depends on: WP-19 · Target: apps/web, services/api/load · Commit scope: `web`
+- Owned paths: `apps/web/perf/**`, `apps/web/.size-limit.json`, `apps/web/scripts/perf/**`, `services/api/load/**`
+
+**Goal.** The playbook's performance budgets (PRODUCT_SPEC §14) are measured and enforced instead of assumed.
+
+**Read first**
+
+- PRODUCT_SPEC §14 (API p95 < 300 ms / p99 < 800 ms reads; LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1; first-load JS ≤ 170 KB gzip per route; pdf.js lazy)
+- ADR-0005
+- apps/web/.size-limit.json (current single 400 KB budget) and the `perf:check` script
+- the WP-19 e2e harness (reuse it)
+- services/api package.json `test:load` (expects load/smoke.js)
+
+**Plan of record**
+
+1. Per-route first-load JS budget (≤ 170 KB gzip) in `apps/web/.size-limit.json` or `apps/web/scripts/perf/check-route-budgets.mjs` computed from the Next build output (document the method); `perf:check` (already a script; CI runs it after build) fails when a route exceeds its budget and proves pdf.js is not in any route's first load.
+2. `apps/web/perf/` Playwright project (own config file) on the WP-19 harness measuring LCP, CLS and an INP proxy for the dashboard and tracker on a throttled profile, failing over budget.
+3. `services/api/load/smoke.js` (k6) against the e2e stack with a session created through the harness: list jobs, get job, facets; thresholds p95 < 300 ms, p99 < 800 ms; run via `docker run mirror.gcr.io/grafana/k6` when k6 is not installed.
+4. Send the orchestrator the CI diff to run the web-vitals project and the k6 smoke in the e2e job (do not edit .github).
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 22-a route bundle budgets
+2. 22-b web-vitals project
+3. 22-c k6 smoke + CI diff proposal
+
+**Acceptance criteria**
+
+1. `pnpm --filter @kr/web perf:check` enforces ≤ 170 KB gzip first-load JS per route after `pnpm build`.
+2. The web-vitals project reports LCP/CLS/INP proxy for dashboard and tracker and fails over budget.
+3. `pnpm --filter @kr/api test:load` (or the documented docker command) runs the k6 smoke with the §14 thresholds against the e2e stack.
+4. The CI wiring is proposed as an exact diff.
+
+**Out of scope / must not change**
+
+- Optimising product code: report budget breaches with measurements to the orchestrator.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
+- Note: Do not edit apps/web/package.json: `perf:check` already exists; propose a diff to the orchestrator if another script is needed.
+
+**Verify**
+
+```sh
+pnpm build
+pnpm --filter @kr/web perf:check
+E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filter @kr/web exec playwright test -c perf/playwright.config.ts
 ```
