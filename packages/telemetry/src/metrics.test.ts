@@ -22,17 +22,23 @@ function setup() {
   return { meter: provider.getMeter("test"), collect, provider };
 }
 
+// In production the caller passes the @kr/contracts enums; telemetry owns no copy of them.
+const LABELS = {
+  operationTypes: ["conditions.extract", "conformance.read", "email.parse", "file.scan"],
+  operationStatuses: ["succeeded", "failed"],
+} as const;
+
 const points = (all: MetricData[], name: string) => all.find((m) => m.descriptor.name === name)?.dataPoints ?? [];
 
 describe("createMetrics", () => {
   it("exposes exactly the eight kr.* instruments with their attributes", async () => {
     const { meter, collect } = setup();
-    const m = createMetrics(meter);
+    const m = createMetrics(LABELS, meter);
     m.recordOperation({ type: "file.scan", status: "succeeded", durationSeconds: 3 });
     m.recordOperation({ type: "file.scan", status: "succeeded" });
     m.recordOperation({ type: "email.parse", status: "failed" });
-    m.observeQueueDepth(() => 7);
-    m.observeQueueAge(() => 42);
+    m.observeQueueDepth(() => ({ "file.scan": 7 }));
+    m.observeQueueAge(() => ({ "file.scan": 42 }));
     m.recordFileScan("infected");
     m.recordSignin("failure");
     m.recordStampReading("timeout");
@@ -43,8 +49,12 @@ describe("createMetrics", () => {
     const ops = points(all, "kr.operations.processed").map((p) => [p.attributes, p.value]);
     expect(ops).toContainEqual([{ type: "file.scan", status: "succeeded" }, 2]);
     expect(ops).toContainEqual([{ type: "email.parse", status: "failed" }, 1]);
-    expect(points(all, "kr.operations.queue_depth").map((p) => [p.attributes, p.value])).toEqual([[{}, 7]]);
-    expect(points(all, "kr.operations.queue_age").map((p) => [p.attributes, p.value])).toEqual([[{}, 42]]);
+    expect(points(all, "kr.operations.queue_depth").map((p) => [p.attributes, p.value])).toEqual([
+      [{ type: "file.scan" }, 7],
+    ]);
+    expect(points(all, "kr.operations.queue_age").map((p) => [p.attributes, p.value])).toEqual([
+      [{ type: "file.scan" }, 42],
+    ]);
     expect(points(all, "kr.files.scanned")[0]?.attributes).toEqual({ result: "infected" });
     expect(points(all, "kr.auth.signins")[0]?.attributes).toEqual({ result: "failure" });
     expect(points(all, "kr.ai.stamp_reading")[0]?.attributes).toEqual({ result: "timeout" });
@@ -53,7 +63,7 @@ describe("createMetrics", () => {
 
   it("records the duration histogram per type and status, in seconds, only for valid durations", async () => {
     const { meter, collect } = setup();
-    const m = createMetrics(meter);
+    const m = createMetrics(LABELS, meter);
     m.recordOperation({ type: "file.scan", status: "succeeded", durationSeconds: 3 });
     m.recordOperation({ type: "file.scan", status: "succeeded", durationSeconds: 150 });
     m.recordOperation({ type: "file.scan", status: "succeeded", durationSeconds: Number.NaN });
@@ -81,7 +91,7 @@ describe("createMetrics", () => {
 
   it("records anything outside the closed label sets as 'other', so no personal data can enter a metric", async () => {
     const { meter, collect } = setup();
-    const m = createMetrics(meter);
+    const m = createMetrics(LABELS, meter);
     const leak = "jo.bloggs@example.test";
     m.recordOperation({ type: leak, status: "Lot 4 Smith St" } as never);
     m.recordFileScan(leak as never);
@@ -108,20 +118,22 @@ describe("createMetrics", () => {
 
   it("observes the queue depth per collection (async reader), skips bad readings and can be unregistered", async () => {
     const { meter, collect } = setup();
-    const m = createMetrics(meter);
+    const m = createMetrics(LABELS, meter);
     let reading = 3;
     let reads = 0;
     const stop = m.observeQueueDepth(() => {
       reads++;
-      return Promise.resolve(reading);
+      return Promise.resolve({ "file.scan": reading });
     });
-    expect(points(await collect(), "kr.operations.queue_depth")[0]?.value).toBe(3);
+    const depth = async () => points(await collect(), "kr.operations.queue_depth")[0];
+    expect((await depth())?.value).toBe(3);
+    expect((await depth())?.attributes).toEqual({ type: "file.scan" });
     reading = 9;
-    expect(points(await collect(), "kr.operations.queue_depth")[0]?.value).toBe(9);
+    expect((await depth())?.value).toBe(9);
     reading = Number.NaN;
-    expect(points(await collect(), "kr.operations.queue_depth")[0]?.value).toBe(9);
+    expect((await depth())?.value).toBe(9);
     reading = -1;
-    expect(points(await collect(), "kr.operations.queue_depth")[0]?.value).toBe(9);
+    expect((await depth())?.value).toBe(9);
     stop();
     const before = reads;
     await collect();
@@ -130,7 +142,7 @@ describe("createMetrics", () => {
 
   it("observes depth and age per operation type, sync or async, skipping bad values", async () => {
     const { meter, collect } = setup();
-    const m = createMetrics(meter);
+    const m = createMetrics(LABELS, meter);
     let reads = 0;
     const stopDepth = m.observeQueueDepth(() => {
       reads++;
@@ -153,12 +165,24 @@ describe("createMetrics", () => {
     expect(reads).toBe(before);
   });
 
+  it("takes the closed sets from the caller: whatever it does not list is 'other'", async () => {
+    const { meter, collect } = setup();
+    const m = createMetrics({ operationTypes: ["a.b"], operationStatuses: ["done"] }, meter);
+    m.recordOperation({ type: "a.b", status: "done" });
+    m.recordOperation({ type: "file.scan" as never, status: "succeeded" as never });
+    const ops = points(await collect(), "kr.operations.processed").map((p) => p.attributes);
+    expect(ops).toEqual([
+      { type: "a.b", status: "done" },
+      { type: "other", status: "other" },
+    ]);
+  });
+
   it("describes each instrument with a unit", async () => {
     const { meter, collect } = setup();
-    const m = createMetrics(meter);
+    const m = createMetrics(LABELS, meter);
     m.recordSignin("success");
-    m.observeQueueDepth(() => 0);
-    m.observeQueueAge(() => 0);
+    m.observeQueueDepth(() => ({ "file.scan": 0 }));
+    m.observeQueueAge(() => ({ "file.scan": 0 }));
     m.recordOperation({ type: "file.scan", status: "succeeded", durationSeconds: 1 });
     const all = await collect();
     const units = Object.fromEntries(all.map((x) => [x.descriptor.name, x.descriptor.unit]));
@@ -181,11 +205,11 @@ describe("default meter", () => {
   });
 
   it("is a harmless no-op before telemetry starts", () => {
-    const m: KrMetrics = createMetrics();
+    const m: KrMetrics = createMetrics(LABELS);
     expect(() => {
       m.recordOperation({ type: "file.scan", status: "failed" });
-      m.observeQueueDepth(() => 1)();
-      m.observeQueueAge(() => 1)();
+      m.observeQueueDepth(() => ({ "file.scan": 1 }))();
+      m.observeQueueAge(() => ({ "file.scan": 1 }))();
     }).not.toThrow();
     expect(getMeter()).toBeDefined();
   });
@@ -194,7 +218,7 @@ describe("default meter", () => {
     const exporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE);
     const metricReader = new PeriodicExportingMetricReader({ exporter, exportIntervalMillis: 60_000 });
     handle = startTelemetry({ serviceName: "kr-test", serviceVersion: "0", environment: "test" }, { metricReader });
-    createMetrics().recordBackupRun("failure");
+    createMetrics(LABELS).recordBackupRun("failure");
     await metricReader.forceFlush();
     const all = exporter.getMetrics().flatMap((m) => m.scopeMetrics.flatMap((s) => s.metrics));
     expect(points(all, "kr.backup.runs")[0]?.attributes).toEqual({ result: "failure" });

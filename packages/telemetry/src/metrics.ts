@@ -2,6 +2,9 @@
  * Business metrics (ADR-0009). Attribute values come from closed sets: anything else is recorded as "other", so a
  * caller can never put a name, email, file name or id into a metric (PRODUCT_SPEC §14). No-ops until startTelemetry
  * has registered a meter provider.
+ *
+ * The operation `type` and `status` sets are owned by @kr/contracts (OperationType, OperationStatus), so they are
+ * not restated here: the caller hands them to createMetrics (see MetricLabels) and the types flow from there.
  */
 import { metrics, type Meter, type ObservableGauge } from "@opentelemetry/api";
 
@@ -16,15 +19,11 @@ export const METRIC_NAMES = {
   backupRuns: "kr.backup.runs",
 } as const;
 
-export const OPERATION_TYPES = ["conditions.extract", "conformance.read", "email.parse", "file.scan"] as const;
-export const OPERATION_STATUSES = ["succeeded", "failed"] as const;
 export const SCAN_RESULTS = ["clean", "infected", "error"] as const;
 export const SIGNIN_RESULTS = ["success", "failure"] as const;
 export const STAMP_READING_RESULTS = ["read", "disabled", "refused", "timeout", "unparseable", "error"] as const;
 export const BACKUP_RESULTS = ["success", "failure"] as const;
 
-export type OperationType = (typeof OPERATION_TYPES)[number];
-export type OperationStatus = (typeof OPERATION_STATUSES)[number];
 export type ScanResult = (typeof SCAN_RESULTS)[number];
 export type SigninResult = (typeof SIGNIN_RESULTS)[number];
 export type StampReadingResult = (typeof STAMP_READING_RESULTS)[number];
@@ -35,28 +34,37 @@ export const OTHER = "other";
 /** Seconds from enqueue to finish; brackets the 120 s target of SLO-4. */
 export const OPERATION_DURATION_BUCKETS = [0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600];
 
-/** A queue reading: one number (recorded without a type) or one number per operation type. */
-export type QueueReading = number | Partial<Record<OperationType, number>>;
-export type QueueReader = () => QueueReading | Promise<QueueReading>;
+/** A queue reading: one number per operation type (types missing from the result are not observed). */
+export type QueueReading<T extends string = string> = Partial<Record<T, number>>;
+export type QueueReader<T extends string = string> = () => QueueReading<T> | Promise<QueueReading<T>>;
 
-function closed<const T extends readonly string[]>(allowed: T, value: string): T[number] | typeof OTHER {
-  return allowed.includes(value) ? value : OTHER;
+/**
+ * The closed label sets for the operation metrics. Pass `OperationType.options` and the finished states of
+ * `OperationStatus` from @kr/contracts (not a copy), e.g. `["succeeded", "failed"]` as `const`.
+ */
+export interface MetricLabels<T extends string = string, S extends string = string> {
+  readonly operationTypes: readonly T[];
+  readonly operationStatuses: readonly S[];
+}
+
+function closed<T extends string>(allowed: readonly T[], value: string): T | typeof OTHER {
+  return (allowed as readonly string[]).includes(value) ? (value as T) : OTHER;
 }
 
 export function getMeter(): Meter {
   return metrics.getMeter("kr");
 }
 
-export interface KrMetrics {
+export interface KrMetrics<T extends string = string, S extends string = string> {
   /** `durationSeconds` (enqueue to finish) also feeds the kr.operations.duration histogram when it is a valid number. */
-  recordOperation(op: { type: OperationType; status: OperationStatus; durationSeconds?: number }): void;
+  recordOperation(op: { type: T; status: S; durationSeconds?: number }): void;
   /**
    * Registers the queued-operations reader behind the kr.operations.queue_depth gauge; it is called once per
    * collection. Returns a function that unregisters it.
    */
-  observeQueueDepth(read: QueueReader): () => void;
+  observeQueueDepth(read: QueueReader<T>): () => void;
   /** Same shape for kr.operations.queue_age: the age in seconds of the oldest queued operation. */
-  observeQueueAge(read: QueueReader): () => void;
+  observeQueueAge(read: QueueReader<T>): () => void;
   recordFileScan(result: ScanResult): void;
   recordSignin(result: SigninResult): void;
   recordStampReading(result: StampReadingResult): void;
@@ -68,19 +76,16 @@ const isValid = (n: number): boolean => Number.isFinite(n) && n >= 0;
 /** Registers `read` on the gauge. Readings outside a closed type collapse into "other" (combined with `combine`). */
 function observeReader(
   gauge: ObservableGauge,
+  types: readonly string[],
   read: QueueReader,
   combine: (a: number, b: number) => number,
 ): () => void {
   const callback = async (result: { observe(value: number, attributes?: { type: string }): void }) => {
     const reading = await read();
-    if (typeof reading === "number") {
-      if (isValid(reading)) result.observe(reading);
-      return;
-    }
     const byType = new Map<string, number>();
-    for (const [type, value] of Object.entries(reading)) {
-      if (!isValid(value)) continue;
-      const key = closed(OPERATION_TYPES, type);
+    for (const [type, value] of Object.entries(reading as Record<string, number | undefined>)) {
+      if (value === undefined || !isValid(value)) continue;
+      const key = closed(types, type);
       byType.set(key, byType.has(key) ? combine(byType.get(key) ?? 0, value) : value);
     }
     for (const [type, value] of byType) result.observe(value, { type });
@@ -91,7 +96,10 @@ function observeReader(
   };
 }
 
-export function createMetrics(meter: Meter = getMeter()): KrMetrics {
+export function createMetrics<const T extends string, const S extends string>(
+  labels: MetricLabels<T, S>,
+  meter: Meter = getMeter(),
+): KrMetrics<T, S> {
   const operations = meter.createCounter(METRIC_NAMES.operationsProcessed, {
     description: "Operations finished by the worker",
     unit: "{operation}",
@@ -121,12 +129,15 @@ export function createMetrics(meter: Meter = getMeter()): KrMetrics {
   const backups = meter.createCounter(METRIC_NAMES.backupRuns, { description: "Backup runs", unit: "{run}" });
   return {
     recordOperation: ({ type, status, durationSeconds }) => {
-      const attributes = { type: closed(OPERATION_TYPES, type), status: closed(OPERATION_STATUSES, status) };
+      const attributes = {
+        type: closed(labels.operationTypes, type),
+        status: closed(labels.operationStatuses, status),
+      };
       operations.add(1, attributes);
       if (durationSeconds !== undefined && isValid(durationSeconds)) duration.record(durationSeconds, attributes);
     },
-    observeQueueDepth: (read) => observeReader(queueDepth, read, (a, b) => a + b),
-    observeQueueAge: (read) => observeReader(queueAge, read, Math.max),
+    observeQueueDepth: (read) => observeReader(queueDepth, labels.operationTypes, read, (a, b) => a + b),
+    observeQueueAge: (read) => observeReader(queueAge, labels.operationTypes, read, Math.max),
     recordFileScan: (result) => {
       scans.add(1, { result: closed(SCAN_RESULTS, result) });
     },
