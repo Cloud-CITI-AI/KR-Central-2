@@ -5,11 +5,13 @@
  */
 import type { ApiModule } from "../../platform/module.js";
 import { registerStartRoutes } from "./http/start-routes.js";
+import { registerUpdateConditionRoute } from "./http/update-condition.js";
 
 export const conditionsModule: ApiModule = {
   name: "conditions",
   operations: ["startConditionsExtraction", "updateCondition", "startConformanceReading"],
   register(app, deps) {
     registerStartRoutes(app, deps);
+    registerUpdateConditionRoute(app, deps);
   },
 };
