@@ -4,6 +4,7 @@ import { STAGES, type Agency } from "@kr/workflow";
 import { conditionPermissions } from "./capabilities";
 import { AgencyPicker } from "./AgencyPicker";
 import { ConditionEditor } from "./ConditionEditor";
+import { ConditionEvidence } from "./ConditionEvidence";
 import { GUESSED_BADGE, GUESSED_TITLE } from "./messages";
 import { useUpdateCondition } from "./useUpdateCondition";
 import styles from "./ConditionCard.module.css";
@@ -68,6 +69,7 @@ export function ConditionCard({ job, condition, variant }: ConditionCardProps) {
       </div>
       <div className={styles.text}>{condition.text}</div>
       <ConditionEditor condition={condition} permissions={permissions} save={save} />
+      <ConditionEvidence job={job} condition={condition} />
     </div>
   );
 }

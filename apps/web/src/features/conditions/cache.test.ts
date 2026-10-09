@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { applyConditionEdit, mapCondition } from "./cache";
+import { syntheticFile } from "@/features/checkpoints/test-fixtures";
+import { applyConditionEdit, mapCondition, withEvidence, withoutEvidence } from "./cache";
 import { conditionAt, syntheticConditionJob } from "./test-fixtures";
 
 const job = syntheticConditionJob({
@@ -49,5 +50,18 @@ describe("applyConditionEdit", () => {
       agency: "Western Power",
       agencyGuessed: false,
     });
+  });
+});
+
+describe("withEvidence and withoutEvidence", () => {
+  const file = syntheticFile(job.id, { name: "Stat dec.pdf", conditionId: first.id });
+
+  it("adds a file to one condition once and takes it out again, leaving the others alone", () => {
+    const added = withEvidence(job, first.id, file);
+    expect(conditionAt(added, 0).evidence).toEqual([file]);
+    expect(conditionAt(added, 1)).toBe(second);
+    expect(withEvidence(added, first.id, file)).toStrictEqual(added);
+    expect(conditionAt(withoutEvidence(added, first.id, file), 0).evidence).toEqual([]);
+    expect(conditionAt(withoutEvidence(added, first.id, file), 1)).toBe(second);
   });
 });

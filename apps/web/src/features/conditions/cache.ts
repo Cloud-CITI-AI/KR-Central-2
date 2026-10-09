@@ -1,4 +1,4 @@
-import type { Condition, JobDetail, UpdateConditionRequest } from "@kr/contracts";
+import type { Condition, FileMeta, JobDetail, UpdateConditionRequest } from "@kr/contracts";
 import type { z } from "zod";
 
 export type UpdateConditionBody = z.output<typeof UpdateConditionRequest>;
@@ -23,4 +23,16 @@ export function applyConditionEdit(job: JobDetail, id: string, body: UpdateCondi
     krComment: body.krComment ?? c.krComment,
     clientComment: body.clientComment ?? c.clientComment,
   }));
+}
+
+/** `job` with `file` among the evidence of condition `id` (unchanged when it is there already). */
+export function withEvidence(job: JobDetail, id: string, file: FileMeta): JobDetail {
+  return mapCondition(job, id, (c) =>
+    c.evidence.some((f) => f.id === file.id) ? c : { ...c, evidence: [...c.evidence, file] },
+  );
+}
+
+/** `job` without `file` among the evidence of condition `id`. */
+export function withoutEvidence(job: JobDetail, id: string, file: FileMeta): JobDetail {
+  return mapCondition(job, id, (c) => ({ ...c, evidence: c.evidence.filter((f) => f.id !== file.id) }));
 }
