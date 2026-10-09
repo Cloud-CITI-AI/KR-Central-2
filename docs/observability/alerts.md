@@ -11,8 +11,8 @@ Conventions:
 - "for" is how long the condition must hold before firing. Rates use 5-minute windows unless stated.
 - Deploy markers from `deploy.yml` are shown on every dashboard; an alert that starts at a deploy points at rollback
   first (deploy runbook).
-- Metrics with no `kr.` prefix come from the http and pg instrumentations. `http.route` is present once the Fastify
-  instrumentation is added by the API service; until then group by `http.request.method` only.
+- Metrics with no `kr.` prefix come from the http and pg instrumentations. `http.route` is the matched route template
+  (for example `/v1/jobs/:id`), set by the Fastify instrumentation inside `@kr/telemetry`; query strings never reach it.
 
 | Alert                    | Severity | Runbook                                                             |
 | ------------------------ | -------- | ------------------------------------------------------------------- |

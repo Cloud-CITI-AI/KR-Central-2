@@ -22,7 +22,7 @@ const DROPPED_KEYS = new Set([
   "exception.stacktrace",
 ]);
 const DROPPED_PREFIXES = ["enduser.", "user.", "http.request.header.", "http.response.header.", "db.query.parameter."];
-const URL_KEYS = new Set(["url.full", "http.url", "http.target"]);
+const URL_KEYS = new Set(["url.full", "http.url", "http.target", "url.path"]);
 const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/;
 
 function scrubValue(value: AttributeValue): AttributeValue {

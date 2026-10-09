@@ -35,7 +35,7 @@ describe("scrubAttributes", () => {
     const out = scrubAttributes({
       "url.full": "https://api.test/v1/jobs?search=lot&token=t#x",
       "http.target": "/v1/jobs?x=1",
-      "url.path": "/v1/jobs",
+      "url.path": "/v1/jobs?email=a@b.com&x=1#frag",
     });
     expect(out).toEqual({ "url.full": "https://api.test/v1/jobs", "http.target": "/v1/jobs", "url.path": "/v1/jobs" });
   });

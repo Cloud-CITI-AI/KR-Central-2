@@ -20,7 +20,7 @@ Audience: everyone on call. The first dashboard to open for any page.
 
 Audience: engineers investigating api-latency.
 
-- Top routes by p95 and by request count (`http.route` once Fastify instrumentation is on, otherwise method only).
+- Top routes by p95 and by request count (`http.route`, the matched route template).
 - Status code breakdown per route (2xx, 4xx, 5xx); 429 (rate limited) and 412 (version conflict) highlighted.
 - Slowest traces: link the panel to the trace search filtered by duration above 800 ms. Traces are sampled (default
   10 %), so absence of a trace does not mean absence of a request.

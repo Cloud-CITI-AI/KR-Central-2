@@ -94,11 +94,16 @@ function createPipelines(config: TelemetryConfig, hooks: TelemetryTestHooks | un
   return { spanProcessor, metricReader };
 }
 
+function disableAll(instrumentations: readonly unknown[]): void {
+  for (const entry of instrumentations.flat(Infinity) as { disable?: () => void }[]) entry.disable?.();
+}
+
 export function startTelemetry(config: TelemetryConfig, hooks?: TelemetryTestHooks): TelemetryRuntime {
   const enabled =
     Boolean(config.otlpEndpoint?.trim()) || hooks?.spanExporter !== undefined || hooks?.metricReader !== undefined;
   if (!enabled) return { status: "disabled", shutdown: () => Promise.resolve() };
   let sdk: NodeSDK;
+  const instrumentations = [createInstrumentations(), ...(config.instrumentations ?? [])];
   try {
     const { spanProcessor, metricReader } = createPipelines(config, hooks);
     sdk = new NodeSDK({
@@ -113,7 +118,7 @@ export function startTelemetry(config: TelemetryConfig, hooks?: TelemetryTestHoo
       sampler: createSampler(config.sampleRatio),
       ...(spanProcessor ? { spanProcessors: [spanProcessor] } : {}),
       ...(metricReader ? { metricReaders: [metricReader] } : {}),
-      instrumentations: [createInstrumentations(), ...(config.instrumentations ?? [])],
+      instrumentations,
     });
     sdk.start();
   } catch (error: unknown) {
@@ -133,6 +138,8 @@ export function startTelemetry(config: TelemetryConfig, hooks?: TelemetryTestHoo
       const stopped = sdk.shutdown().catch((error: unknown) => {
         handle.error = error;
       });
+      // The SDK leaves its instrumentations patched; disabling them lets a restarted SDK (tests) install fresh ones.
+      disableAll(instrumentations);
       await Promise.race([stopped, timedOut]);
       clearTimeout(timer);
     },

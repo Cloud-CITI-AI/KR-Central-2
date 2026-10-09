@@ -1,8 +1,9 @@
 /**
- * Auto-instrumentation set (ADR-0009): http (incoming + outgoing), pg and undici; fastify is added by the service
- * through `TelemetryConfig.instrumentations`. Everything else, fs and dns included, is switched off: they are noisy and
- * record file paths and host names.
+ * Instrumentation set (ADR-0009): http (incoming + outgoing), pg, undici and Fastify (@fastify/otel, registered when a
+ * Fastify app is created, so services add nothing). Everything else, fs and dns included, is switched off: they are
+ * noisy and record file paths and host names.
  */
+import { FastifyOtelInstrumentation } from "@fastify/otel";
 import { getNodeAutoInstrumentations, type InstrumentationConfigMap } from "@opentelemetry/auto-instrumentations-node";
 
 export const PROBE_PATHS = ["/healthz", "/readyz"];
@@ -61,5 +62,13 @@ export function createInstrumentations(): ReturnType<typeof getNodeAutoInstrumen
   };
   // No parent span means background polling (worker queue claims): not worth a trace of its own.
   config["@opentelemetry/instrumentation-pg"] = { requireParentSpan: true, enhancedDatabaseReporting: false };
-  return getNodeAutoInstrumentations(config);
+  return [
+    ...getNodeAutoInstrumentations(config),
+    // Puts the matched route (request.routeOptions.url) on the http server span, which gives http.route to traces and
+    // to the http.server duration metric. The probe filter here covers the Fastify request spans.
+    new FastifyOtelInstrumentation({
+      registerOnInitialization: true,
+      ignorePaths: (route) => isProbeRequest(route.url),
+    }),
+  ];
 }

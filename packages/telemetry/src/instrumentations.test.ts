@@ -9,10 +9,11 @@ afterEach(() => {
 });
 
 describe("createInstrumentations", () => {
-  it("enables only http, pg and undici (fs and dns are off)", () => {
+  it("enables only http, pg, undici and fastify (fs and dns are off)", () => {
     created = createInstrumentations();
     const names = created.map((i) => i.instrumentationName).sort();
     expect(names).toEqual([
+      "@fastify/otel",
       "@opentelemetry/instrumentation-http",
       "@opentelemetry/instrumentation-pg",
       "@opentelemetry/instrumentation-undici",
@@ -28,6 +29,13 @@ describe("createInstrumentations", () => {
     };
     expect(http.ignoreIncomingRequestHook({ url: "/healthz" } as IncomingMessage)).toBe(true);
     expect(http.ignoreIncomingRequestHook({ url: "/v1/jobs" } as IncomingMessage)).toBe(false);
+    const fastify = created.find((i) => i.instrumentationName === "@fastify/otel")?.getConfig() as {
+      registerOnInitialization: boolean;
+      ignorePaths: (route: { url: string; method: string }) => boolean;
+    };
+    expect(fastify.registerOnInitialization).toBe(true);
+    expect(fastify.ignorePaths({ url: "/readyz", method: "GET" })).toBe(true);
+    expect(fastify.ignorePaths({ url: "/v1/jobs/:id", method: "GET" })).toBe(false);
   });
 });
 
