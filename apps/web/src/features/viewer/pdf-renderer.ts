@@ -7,7 +7,7 @@ import type { DocumentInitParameters } from "pdfjs-dist/types/src/display/api";
 export interface PdfRenderTask {
   /** Resolves when the page is drawn, or when it was cancelled. Rejects when drawing failed. */
   readonly done: Promise<void>;
-  cancel(): void;
+  readonly cancel: () => void;
 }
 
 export interface PdfPageHandle {
@@ -15,18 +15,18 @@ export interface PdfPageHandle {
   readonly width: number;
   readonly height: number;
   /** Draw into `canvas` so that it fills `cssWidth` CSS pixels (the caller sizes the element with CSS). */
-  render(canvas: HTMLCanvasElement, cssWidth: number): PdfRenderTask;
+  readonly render: (canvas: HTMLCanvasElement, cssWidth: number) => PdfRenderTask;
 }
 
 export interface PdfDocumentHandle {
   readonly pageCount: number;
   /** 1-based. */
-  page(pageNumber: number): Promise<PdfPageHandle>;
-  destroy(): Promise<void>;
+  readonly page: (pageNumber: number) => Promise<PdfPageHandle>;
+  readonly destroy: () => Promise<void>;
 }
 
 export interface PdfRenderer {
-  open(url: string): Promise<PdfDocumentHandle>;
+  readonly open: (url: string) => Promise<PdfDocumentHandle>;
 }
 
 /** Where `public/pdfjs` is served: same origin, so CSP `worker-src 'self' blob:` and `connect-src 'self'` suffice. */
