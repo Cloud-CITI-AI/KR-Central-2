@@ -1,4 +1,4 @@
-/** Checkpoint routes: updateCheckpoint and recordDecision; markPaid and undoPaid follow. */
+/** Checkpoint routes (PRODUCT_SPEC §5.4, §5.5): updateCheckpoint, recordDecision, markPaid and undoPaid. */
 import type { FastifyInstance } from "fastify";
 import { resolveJobAccess } from "../../../platform/authz.js";
 import { setEtag } from "../../../platform/concurrency.js";
@@ -9,8 +9,11 @@ import {
   capabilitiesForUpdate,
   hasApprovalPanel,
   hasNoteBox,
+  hasPaidPanel,
   planCheckpointUpdate,
   planDecision,
+  planPaid,
+  planUndoPaid,
 } from "../domain/checkpoint-update.js";
 import { applyCheckpointPlan, requireFeeProposalAccess } from "./apply-plan.js";
 
@@ -52,6 +55,37 @@ export function registerCheckpointRoutes(app: FastifyInstance, deps: ModuleDeps)
       access,
       checkpointKey: params.checkpointKey,
       plan: (row) => planDecision(row, body, auth.user.id, deps.clock.now()),
+    });
+  });
+
+  // R13: the client response button (INVOICE PAID, WORKS COMPLETE …) records the time and completes the checkpoint.
+  defineRoute(app, "markPaid", async ({ auth, request, params }) => {
+    const access = await resolveJobAccess(deps.db, auth, params.jobId, "checkpoint.paid.record");
+    requireFeeProposalAccess(access, params.checkpointKey);
+    if (!hasPaidPanel(params.checkpointKey)) {
+      throw new ConflictError({ detail: "This checkpoint has no client response button." });
+    }
+    return applyCheckpointPlan({
+      deps,
+      request,
+      auth,
+      access,
+      checkpointKey: params.checkpointKey,
+      plan: (row) => planPaid(row, auth.user.id, deps.clock.now()),
+    });
+  });
+
+  // Undo clears the response and sets Not completed; on a checkpoint that is not paid it changes nothing.
+  defineRoute(app, "undoPaid", async ({ auth, request, params }) => {
+    const access = await resolveJobAccess(deps.db, auth, params.jobId, "checkpoint.paid.record");
+    requireFeeProposalAccess(access, params.checkpointKey);
+    return applyCheckpointPlan({
+      deps,
+      request,
+      auth,
+      access,
+      checkpointKey: params.checkpointKey,
+      plan: (row) => planUndoPaid(row),
     });
   });
 }
