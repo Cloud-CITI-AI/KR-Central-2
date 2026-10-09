@@ -21,6 +21,15 @@ system that signs users in with Microsoft Entra ID (KR tenant; the first eligibl
 - Decisions: [`docs/adr/`](docs/adr/) · Delivery plan: [`docs/plan/WORK_PACKAGES.md`](docs/plan/WORK_PACKAGES.md)
 - Rules for humans and AI agents: [`AGENTS.md`](AGENTS.md)
 
+## Running and using it
+
+- Operators: [`docs/operations/`](docs/operations/README.md) (index and on-call checklist), the
+  [runbooks](docs/runbooks/README.md) (one per alert, plus deploy and rollback, migrations, backup and restore, secrets
+  rotation, incident response, first-admin recovery), the [Railway deployment guide](docs/deploy/railway.md),
+  [service objectives](docs/slo.md) and [alerts](docs/observability/alerts.md).
+- Users: the [user guide](docs/user-guide/README.md), with a [staff guide](docs/user-guide/staff-guide.md) and a
+  [client and architect guide](docs/user-guide/client-and-architect-guide.md).
+
 ## Local development
 
 Requirements: Node 24 (`.nvmrc`), pnpm 11 (`corepack enable`), Docker.
