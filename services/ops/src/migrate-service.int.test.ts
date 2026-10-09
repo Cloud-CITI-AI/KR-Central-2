@@ -1,5 +1,8 @@
+import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createLogger } from "@kr/logger";
-import { createPool, migrate } from "@kr/db";
+import { createPool, MIGRATIONS_DIR, migrate } from "@kr/db";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   createBareDatabase,
@@ -18,6 +21,7 @@ const PRE_MIGRATE_KEY = "db/pre-migrate/20261009T070102Z-v1.2.3-test.dump";
 
 let s3: S3Mock;
 let pgDumpPath: string;
+let extraDir: string;
 const databases: ThrowawayDatabase[] = [];
 const services: MigrateService[] = [];
 
@@ -76,14 +80,27 @@ async function start(
 
 const health = (service: MigrateService): Promise<Response> => fetch(`http://127.0.0.1:${service.port}/healthz`);
 
+/** The shipped migrations plus one more file, in a temporary directory. */
+async function migrationsWith(name: string, sql: string): Promise<string> {
+  const dir = await mkdtemp(join(extraDir, "m-"));
+  await cp(MIGRATIONS_DIR, dir, { recursive: true });
+  await writeFile(join(dir, name), sql);
+  return dir;
+}
+
 beforeAll(async () => {
-  [s3, pgDumpPath] = await Promise.all([startS3Mock([BUCKET], BUCKET), pgDump17()]);
+  [s3, pgDumpPath, extraDir] = await Promise.all([
+    startS3Mock([BUCKET], BUCKET),
+    pgDump17(),
+    mkdtemp(join(tmpdir(), "kr-ops-migrations-")),
+  ]);
 });
 
 afterAll(async () => {
   await Promise.all(services.map((s) => s.close().catch(() => undefined)));
   await Promise.all(databases.map((d) => d.drop()));
   await s3.stop();
+  await rm(extraDir, { recursive: true, force: true });
 });
 
 describe("migrate service against real Postgres 17 and an S3 bucket", () => {
@@ -103,6 +120,38 @@ describe("migrate service against real Postgres 17 and an S3 bucket", () => {
     expect(dump.includes("audit_events")).toBe(false);
   });
 
+  it("answers 503 while the migration runs and 200 only after it finished", async () => {
+    const db = await bareDatabase();
+    const dir = await migrationsWith("0002_slow.sql", "SELECT pg_sleep(2);\n");
+    const service = await start(db, { migrationsDir: dir });
+    const during: number[] = [];
+    while (service.status() === "migrating") {
+      during.push((await health(service)).status);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await service.done;
+    expect(during.length).toBeGreaterThan(3);
+    expect(new Set(during)).toEqual(new Set([503]));
+    expect((await health(service)).status).toBe(200);
+  });
+
+  it("dumps a populated database and applies only the new migration", async () => {
+    const db = await bareDatabase();
+    await migrate({ connectionString: db.migratorUrl });
+    const dir = await migrationsWith(
+      "0002_ops_probe.sql",
+      "CREATE TABLE tracker.ops_probe (id integer PRIMARY KEY);\n",
+    );
+    const service = await start(db, { migrationsDir: dir });
+    const outcome = await service.done;
+    expect(outcome.pending).toEqual(["0002_ops_probe.sql"]);
+    expect(outcome.applied).toEqual(["0002_ops_probe.sql"]);
+    const dump = await readObject(outcome.backupKey ?? "missing");
+    expect(dump.includes("audit_events")).toBe(true); // the existing schema is in the recovery point
+    expect(dump.includes("ops_probe")).toBe(false); // the new table is not
+    expect(await appliedVersions(db.migratorUrl)).toEqual(["0001", "0002"]);
+  });
+
   it("takes no dump when nothing is pending", async () => {
     const db = await bareDatabase();
     await migrate({ connectionString: db.migratorUrl });
@@ -112,5 +161,35 @@ describe("migrate service against real Postgres 17 and an S3 bucket", () => {
     expect(outcome).toEqual({ pending: [], backupKey: undefined, applied: [] });
     expect(await listKeys("db/")).toEqual(before);
     expect((await health(service)).status).toBe(200);
+  });
+
+  it("fails without ever answering 200 when a migration errors, leaving the dump as the recovery point", async () => {
+    const db = await bareDatabase();
+    await migrate({ connectionString: db.migratorUrl });
+    const dir = await migrationsWith("0002_broken.sql", "CREATE TABLE tracker.no_such_schema_x.t (id int);\n");
+    const service = await start(db, { migrationsDir: dir });
+    await expect(service.done).rejects.toThrow(/0002_broken\.sql failed/);
+    expect(service.status()).toBe("failed");
+    expect((await health(service)).status).toBe(503);
+    expect(await appliedVersions(db.migratorUrl)).toEqual(["0001"]);
+    expect((await listKeys("db/pre-migrate/")).length).toBeGreaterThan(0);
+  });
+
+  it("changes nothing and never answers 200 when the dump fails", async () => {
+    const db = await bareDatabase();
+    const failing = join(extraDir, "pg_dump_fails");
+    await writeFile(failing, '#!/bin/sh\necho "pg_dump: error: connection refused" >&2\nexit 1\n', { mode: 0o755 });
+    const service = await start(db, { PG_DUMP_PATH: failing });
+    await expect(service.done).rejects.toThrow(/pg_dump failed \(exit 1\)/);
+    expect((await health(service)).status).toBe(503);
+    expect(await appliedVersions(db.migratorUrl)).toEqual([]); // not even the migrations table was created
+  });
+
+  it("fails when the database cannot be reached", async () => {
+    const db = await bareDatabase();
+    const unreachable = db.migratorUrl.replace(/@([^:/]+):\d+\//, "@127.0.0.1:1/");
+    const service = await start({ ...db, migratorUrl: unreachable });
+    await expect(service.done).rejects.toThrow();
+    expect(service.status()).toBe("failed");
   });
 });
