@@ -86,3 +86,11 @@ Legend: **A** accepted · **A\*** accepted with a different fix · **R** rejecte
 - `sessions.acrs` and `files.scan_attempts` columns added to 0001 (MFA evidence option; scan retries).
 - `yauzl` added as an api devDependency so WP-09 can assert zip entries without asking for a dependency mid-wave.
 - Four `LESSONS.md` entries record the review's generalisable lessons (brief paraphrasing, migrator credentials, workflow chaining, CI matrix completeness).
+
+## Coding-phase decisions
+
+One line per orchestrator answer to a coding agent, newest last.
+
+- WP-05: Fastify spans via `@fastify/otel` 0.21.1 (MIT, Fastify org) in `@kr/telemetry` deps, not the deprecated `@opentelemetry/instrumentation-fastify`; 0.21.2 is younger than `minimumReleaseAge`. `fastify` 5.12.5 added as a telemetry devDependency for tests.
+- WP-05: add `kr.operations.duration{type,status}` (s, enqueue → finish), a closed `type` attribute on `kr.operations.queue_depth` and `kr.operations.queue_age{type}` (oldest queued, s), so SLO-4 and the ADR-0009 queue-age alert are measurable from OTLP alone.
+- WP-05: no telemetry SDK without an endpoint (brief wins over ADR-0009); ADR-0009 amended: `requestId` is the correlation key until export is on.

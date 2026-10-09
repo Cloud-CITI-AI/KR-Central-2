@@ -19,7 +19,8 @@ only. Any external backend is a new external host (X7) needing approval.
 - Traces/metrics: OpenTelemetry Node SDK (`@kr/telemetry`) with HTTP, Fastify, pg and undici instrumentation, W3C trace
   context propagated web → api; RED metrics per route; queue depth/age and scan outcomes from the worker. Export via
   OTLP/HTTP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set — **backend to be chosen by KR** (recommendation: Grafana Cloud,
-  free tier is enough; alternatives Honeycomb, Better Stack). Until approved, export is off and logs carry trace ids.
+  free tier is enough; alternatives Honeycomb, Better Stack). Until approved, telemetry is a no-op (no SDK started), so `requestId`
+  is the log correlation key; logs carry `traceId` once export is on.
 - Request id: web proxy generates `x-request-id` if absent; API echoes it in responses and problem bodies.
 - Health: `/healthz` (liveness), `/readyz` (DB + bucket) for Railway health checks.
 - SLOs (docs/slo.md): availability 99.5 %/30 days for web+API, p95 < 300 ms reads; operations completed < 2 min p95.
@@ -39,4 +40,5 @@ Observability is "logs-only" until KR approves a backend; SLO alerting is a go-l
 
 ## Compliance check
 
-Logger redaction unit tests; a contract test on one request asserts requestId/traceId fields; runbook links in alert defs.
+Logger redaction unit tests; a contract test on one request asserts the requestId field (and traceId when
+telemetry is enabled); runbook links in alert defs.
