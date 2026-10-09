@@ -12,6 +12,9 @@ export const IDEMPOTENCY_KEEP_HOURS = 24;
 /** A file still `pending` after this long, with no scan queued or running, gets a new scan. */
 export const STUCK_SCAN_MINUTES = 15;
 
+/** A file still `pending` after this long, whatever was tried meanwhile, is an alert: its scan never completes. */
+export const PENDING_ALERT_HOURS = 24;
+
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
@@ -29,6 +32,8 @@ export interface Cutoffs {
   readonly rateLimitsExpiredBeforeMs: number;
   /** Files uploaded before this and still pending are stuck. */
   readonly pendingUploadedBefore: Date;
+  /** Files uploaded before this and still pending have been stuck for too long: the sweep alerts on them. */
+  readonly pendingAlertBefore: Date;
 }
 
 export function cutoffs(now: Date): Cutoffs {
@@ -41,5 +46,6 @@ export function cutoffs(now: Date): Cutoffs {
     idempotencyCreatedBefore: before(IDEMPOTENCY_KEEP_HOURS * HOUR_MS),
     rateLimitsExpiredBeforeMs: now.getTime(),
     pendingUploadedBefore: before(STUCK_SCAN_MINUTES * MINUTE_MS),
+    pendingAlertBefore: before(PENDING_ALERT_HOURS * HOUR_MS),
   };
 }

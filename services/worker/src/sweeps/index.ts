@@ -19,6 +19,6 @@ export function buildSweepTasks(deps: SweepDeps): SweepTask[] {
     { name: "expired_rows", run: (c) => deleteExpiredRows(deps.db, c) },
     // rescans before stuck scans: a file just put back to `pending` has a scan queued, so it is not "stuck"
     { name: "rescan_errors", run: () => rescanErroredFiles(deps.db, deps.maxScanRetries) },
-    { name: "requeue_stuck_scans", run: (c) => requeueStuckScans(deps.db, c) },
+    { name: "requeue_stuck_scans", run: (c) => requeueStuckScans(deps.db, c, deps.log) },
   ];
 }

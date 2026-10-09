@@ -22,4 +22,8 @@ describe("cutoffs", () => {
   it("calls a scan stuck after 15 minutes", () => {
     expect(c.pendingUploadedBefore).toEqual(new Date("2026-10-09T07:45:00.000Z"));
   });
+
+  it("alerts on a scan still pending after 24 hours", () => {
+    expect(c.pendingAlertBefore).toEqual(new Date("2026-10-08T08:00:00.000Z"));
+  });
 });

@@ -3,6 +3,7 @@ import { createMemoryStorage } from "@kr/storage/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { enqueue, insertJob, openDb } from "../../test/db.js";
 import { insertFile } from "../../test/files.js";
+import { captureLog } from "../../test/log.js";
 import { cutoffs } from "../domain/retention.js";
 import { requeueStuckScans, rescanErroredFiles } from "./sweeps.js";
 
@@ -93,11 +94,38 @@ describe("requeueStuckScans", () => {
     const op = await enqueue(db, jobId, "file.scan", { fileId: failedBefore.id });
     await db.updateTable("operations").set({ status: "failed" }).where("id", "=", op.id).execute();
 
-    expect(await requeueStuckScans(db, cutoffs(NOW))).toEqual({ requeued: 2 });
+    expect(await requeueStuckScans(db, cutoffs(NOW), captureLog().log)).toEqual({ requeued: 2, stalled: 0 });
     const queued = (await scans())
       .filter((r) => r.status === "queued")
       .map((r) => (r.payload as { fileId: string }).fileId);
     expect(queued.sort()).toEqual([waiting.id, stuck.id, failedBefore.id].sort());
-    expect((await requeueStuckScans(db, cutoffs(NOW))).requeued).toBe(0);
+    expect((await requeueStuckScans(db, cutoffs(NOW), captureLog().log)).requeued).toBe(0);
+  });
+
+  it("raises an error-level alert, with ids only, for a file still pending after 24 hours even though scans are queued for it", async () => {
+    const forever = await insertFile(db, storage, jobId, { scanStatus: "pending" });
+    await upload(forever.id, 25 * 60);
+    await enqueue(db, jobId, "file.scan", { fileId: forever.id }); // a scan is queued: the file is not "stuck", it is late
+    const late = await insertFile(db, storage, jobId, { scanStatus: "pending" });
+    await upload(late.id, 23 * 60);
+    const gone = await insertFile(db, storage, jobId, { scanStatus: "pending" });
+    await upload(gone.id, 30 * 60);
+    await db.updateTable("files").set({ deleted_at: NOW }).where("id", "=", gone.id).execute();
+
+    const captured = captureLog();
+    const report = await requeueStuckScans(db, cutoffs(NOW), captured.log);
+    expect(report).toEqual({ requeued: 1, stalled: 1 }); // `late` is stuck, not yet an alert
+    const alert = captured.lines.filter((l) => l.event === "scan_pending_too_long");
+    expect(alert).toHaveLength(1);
+    expect(alert[0]).toMatchObject({ level: "error", stalled: 1, fileIds: [forever.id] });
+    expect(JSON.stringify(alert[0])).not.toContain("Decision Letter");
+  });
+
+  it("stays quiet when no file has waited that long", async () => {
+    const f = await insertFile(db, storage, jobId, { scanStatus: "pending" });
+    await upload(f.id, 60);
+    const captured = captureLog();
+    expect((await requeueStuckScans(db, cutoffs(NOW), captured.log)).stalled).toBe(0);
+    expect(captured.events()).toEqual([]);
   });
 });

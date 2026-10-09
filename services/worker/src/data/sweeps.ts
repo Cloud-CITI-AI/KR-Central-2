@@ -142,8 +142,20 @@ export async function rescanErroredFiles(db: Db, maxRetries: number): Promise<{ 
   return { requeued: due.length, exhausted: files.length - due.length };
 }
 
-/** A file still `pending` after the stuck-scan time, with no scan queued or running (it failed for good, or was lost), gets a new scan. */
-export async function requeueStuckScans(db: Db, c: Cutoffs): Promise<{ requeued: number }> {
+/** The most file ids one alert line lists (the count is always exact). */
+const ALERT_IDS = 20;
+
+/**
+ * A file still `pending` after the stuck-scan time, with no scan queued or running (it failed for good, or was lost), gets a new scan.
+ * A file that is STILL pending after 24 hours, whatever was queued meanwhile (every hourly sweep queues another scan for one with none),
+ * means scans do not complete for it: that is logged as `scan_pending_too_long` at error level (ids only) and counted as `stalled`, the
+ * alert signal for runbook `malware-scan-errors`.
+ */
+export async function requeueStuckScans(
+  db: Db,
+  c: Cutoffs,
+  log: Logger,
+): Promise<{ requeued: number; stalled: number }> {
   const files = await db
     .selectFrom("files")
     .select(["id", "job_id"])
@@ -163,5 +175,24 @@ export async function requeueStuckScans(db: Db, c: Cutoffs): Promise<{ requeued:
       createdBy: null,
     });
   }
-  return { requeued: files.length };
+  const stalledFiles = await db
+    .selectFrom("files")
+    .select(["id"])
+    .where("scan_status", "=", "pending")
+    .where("deleted_at", "is", null)
+    .where("purged_at", "is", null)
+    .where("uploaded_at", "<", c.pendingAlertBefore)
+    .orderBy("uploaded_at")
+    .limit(SCAN_BATCH)
+    .execute();
+  if (stalledFiles.length > 0)
+    log.error(
+      {
+        event: "scan_pending_too_long",
+        stalled: stalledFiles.length,
+        fileIds: stalledFiles.slice(0, ALERT_IDS).map((f) => f.id),
+      },
+      "Files have been waiting for a virus scan for over 24 hours",
+    );
+  return { requeued: files.length, stalled: stalledFiles.length };
 }
