@@ -1,5 +1,6 @@
 import { PROBLEM_TYPES } from "@kr/contracts";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { queryKeys } from "@/lib/api";
@@ -84,6 +85,64 @@ describe("ApprovalDates inputs", () => {
     expect(screen.getByLabelText("Approval expiry")).toHaveValue("2028-03-16");
     await waitFor(() => {
       expect(seen).toEqual([{ ifMatch: '"1"', body: { approvalExpiry: "2028-03-16" } }]);
+    });
+  });
+
+  it("typing a date digit by digit saves once, when the person leaves the field, with the final date", async () => {
+    const job = syntheticJob({ fields: { approvalExpiry: "2026-06-14" } });
+    const bodies: unknown[] = [];
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      handlerFor("updateJob", async ({ request }) => {
+        bodies.push(await request.json());
+        await gate;
+        return HttpResponse.json({ ...job, approvalExpiry: "2027-06-14", version: 2 });
+      }),
+    );
+    const { queryClient } = renderTracker(<ApprovalDates job={job} />);
+    queryClient.setQueryData(queryKeys.jobs.detail(job.id), job);
+    const input = screen.getByLabelText("Approval expiry");
+    await userEvent.click(input);
+    // what Chromium reports while the year is typed over: a valid date after every digit
+    for (const year of ["0002", "0020", "0202", "2027"]) {
+      fireEvent.keyDown(input, { key: "2" });
+      fireEvent.change(input, { target: { value: `${year}-06-14` } });
+      expect(input).toHaveValue(`${year}-06-14`);
+    }
+    expect(bodies).toEqual([]);
+    await userEvent.tab();
+    await waitFor(() => {
+      expect(bodies).toEqual([{ approvalExpiry: "2027-06-14" }]);
+    });
+    expect(input).toHaveValue("2027-06-14"); // the draft stays until the save settles
+    release();
+  });
+
+  it("saves a typed date on Enter, and nothing when the value is unchanged", async () => {
+    const job = syntheticJob({ fields: { approvalExpiry: "2026-06-14" } });
+    const bodies: unknown[] = [];
+    server.use(
+      handlerFor("updateJob", async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({ ...job, approvalExpiry: "2026-07-01", version: 2 });
+      }),
+    );
+    const { queryClient } = renderTracker(<ApprovalDates job={job} />);
+    queryClient.setQueryData(queryKeys.jobs.detail(job.id), job);
+    const input = screen.getByLabelText("Approval expiry");
+    await userEvent.click(input);
+    await userEvent.tab();
+    expect(bodies).toEqual([]);
+    await userEvent.click(input);
+    fireEvent.keyDown(input, { key: "1" });
+    fireEvent.change(input, { target: { value: "2026-07-01" } });
+    expect(bodies).toEqual([]);
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => {
+      expect(bodies).toEqual([{ approvalExpiry: "2026-07-01" }]);
     });
   });
 

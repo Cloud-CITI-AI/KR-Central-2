@@ -1,5 +1,5 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { cx } from "@/lib/cx";
 import styles from "./DateField.module.css";
 
@@ -18,9 +18,14 @@ export interface DateFieldProps {
   readonly children?: ReactNode;
 }
 
+/** Keys that edit the value one segment at a time: while they are in use the browser reports a date after each digit. */
+const EDITING_KEYS = /^(\d|Backspace|Delete|ArrowUp|ArrowDown)$/;
+
 /**
- * A labelled date input that shows what was picked at once and saves it. The draft lasts until the save settles, after
- * which the job's own value (the saved one, or the old one after a failure) is shown again.
+ * A labelled date input that shows what was entered at once and saves it. Typing by keyboard saves when the person leaves the
+ * field or presses Enter (the browser reports 0002-06-14, 0020-06-14, 0202-06-14 on the way to 2026-06-14); picking from the
+ * calendar or clearing saves at once. Only a changed value is saved. The draft lasts until the latest save settles, after which
+ * the job's own value (the saved one, or the old one after a failure) is shown again.
  */
 export function DateField({
   label,
@@ -33,6 +38,33 @@ export function DateField({
   children,
 }: DateFieldProps) {
   const [draft, setDraft] = useState<string | null>(null);
+  const typing = useRef(false);
+  const pending = useRef(0);
+  const latest = useRef(0);
+
+  const commit = (input: HTMLInputElement) => {
+    typing.current = false;
+    const next = input.value;
+    // An unfinished entry (a cleared segment) reads as "" with badInput: neither a save nor a clear.
+    if (input.validity.badInput || next === (value ?? "")) {
+      if (pending.current === 0) setDraft(null);
+      return;
+    }
+    const id = ++latest.current;
+    pending.current += 1;
+    setDraft(next);
+    onCommit(next === "" ? null : next)
+      .catch(() => undefined)
+      .finally(() => {
+        pending.current -= 1;
+        if (latest.current === id) setDraft(null);
+      });
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") commit(event.currentTarget);
+    else if (EDITING_KEYS.test(event.key)) typing.current = true;
+  };
+
   return (
     <div className={cx(styles.field, className)}>
       <label className={styles.control}>
@@ -43,15 +75,13 @@ export function DateField({
           disabled={disabled}
           aria-describedby={describedBy}
           value={draft ?? value ?? ""}
+          onKeyDown={onKeyDown}
           onChange={(event) => {
-            const next = event.target.value;
-            if (next === (value ?? "")) return;
-            setDraft(next);
-            onCommit(next === "" ? null : next)
-              .catch(() => undefined)
-              .finally(() => {
-                setDraft(null);
-              });
+            setDraft(event.target.value);
+            if (!typing.current) commit(event.target);
+          }}
+          onBlur={(event) => {
+            commit(event.currentTarget);
           }}
         />
       </label>
