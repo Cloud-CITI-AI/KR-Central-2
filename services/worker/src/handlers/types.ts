@@ -4,12 +4,14 @@ import type { OperationRow, OperationTypeValue } from "@kr/db";
 
 export interface HandlerContext {
   readonly operation: OperationRow;
-  /** Aborted when the work must stop: stop and throw. */
+  /** Aborted when the handler's time limit passes or its lease is lost: stop work and throw. */
   readonly signal: AbortSignal;
   readonly log: Logger;
 }
 
 export interface Handler {
+  /** Hard limit for one run; the poller records a `timeout` failure when it passes. */
+  readonly timeoutMs: number;
   /** Resolves to the value stored as operations.result; throws TaskError to fail with a code and a user-safe message. */
   run(context: HandlerContext): Promise<unknown>;
 }

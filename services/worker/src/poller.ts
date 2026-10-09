@@ -1,6 +1,7 @@
 /**
  * The operations poller (ADR-0006): `concurrency` loops claim due operations (FOR UPDATE SKIP LOCKED, under a lease), run
- * the handler of their type and record the outcome. Idle loops back off; expired leases are re-queued on a timer.
+ * the handler of their type with a time limit, keep the lease alive with a heartbeat and record the outcome. Idle loops
+ * back off; expired leases are re-queued on a timer.
  */
 import {
   claimNextOperation,
@@ -14,6 +15,7 @@ import {
 import type { Logger } from "@kr/logger";
 import type { KrMetrics } from "@kr/telemetry";
 import { systemClock, type Clock } from "./clock.js";
+import { extendLease, releaseLease } from "./data/operations.js";
 import { TaskError, describeError, toFailure } from "./errors.js";
 import type { Handlers } from "./handlers/types.js";
 import { sleep } from "./timing.js";
@@ -40,6 +42,7 @@ export class Poller {
   private readonly clock: Clock;
   private readonly types: OperationTypeValue[];
   private readonly stopSignal = new AbortController();
+  private readonly active = new Map<string, OperationRow>();
   private loops: Promise<void>[] = [];
   private requeueTimer: NodeJS.Timeout | undefined;
 
@@ -60,7 +63,8 @@ export class Poller {
   }
 
   /**
-   * Stop claiming and wait for in-flight operations: true when they all finished within `timeoutMs`.
+   * Stop claiming and wait for in-flight operations. True when they all finished within `timeoutMs`; otherwise their
+   * leases are released so another worker re-runs them at its next requeue, and false is returned.
    */
   async stop(timeoutMs: number): Promise<boolean> {
     this.stopSignal.abort();
@@ -69,6 +73,10 @@ export class Poller {
     const finished = Promise.all(this.loops).then(() => true);
     const drained = await Promise.race([finished, sleep(timeoutMs, timeout.signal).then(() => false)]);
     timeout.abort();
+    if (!drained) {
+      for (const op of this.active.values())
+        await releaseLease(this.o.db, op.id, this.o.workerId).catch(() => undefined);
+    }
     return drained;
   }
 
@@ -105,13 +113,51 @@ export class Poller {
   private async process(op: OperationRow): Promise<void> {
     const handler = this.o.handlers[op.type];
     const log = this.o.log.child({ operationId: op.id, type: op.type, jobId: op.job_id, attempt: op.attempts });
+    const work = new AbortController();
+    const lease = { lost: false };
+    this.active.set(op.id, op);
+    const heartbeat = setInterval(
+      () => {
+        extendLease(this.o.db, op.id, this.o.workerId, this.o.leaseSeconds)
+          .then((held) => {
+            if (held || lease.lost) return;
+            lease.lost = true;
+            log.warn({ event: "lease_lost" }, "The lease was lost; the result will be discarded");
+            work.abort(new TaskError("lease_lost", "The task lost its lease.", { retryable: true }));
+          })
+          .catch((err: unknown) => {
+            log.warn({ event: "heartbeat_failed", ...describeError(err) }, "Could not extend the lease");
+          });
+      },
+      (this.o.leaseSeconds * 1000) / 3,
+    );
+    let timer: NodeJS.Timeout | undefined;
     let outcome: { readonly ok: true; readonly result: unknown } | { readonly ok: false; readonly error: unknown };
     try {
       if (!handler) throw new TaskError("unsupported_operation", "This kind of task is not available.");
-      outcome = { ok: true, result: await handler.run({ operation: op, signal: this.stopSignal.signal, log }) };
+      const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          const error = new TaskError("timeout", "Reading the document took too long. Try again.", { retryable: true });
+          reject(error);
+          work.abort(error);
+        }, handler.timeoutMs);
+      });
+      const running = handler.run({ operation: op, signal: work.signal, log });
+      running.catch((err: unknown) => {
+        log.debug(
+          { event: "handler_ended_late", ...describeError(err) },
+          "A handler ended after its operation was settled",
+        );
+      });
+      outcome = { ok: true, result: await Promise.race([running, timeout]) };
     } catch (error) {
-      outcome = { ok: false, error };
+      outcome = { ok: false, error: work.signal.reason instanceof TaskError ? work.signal.reason : error };
+    } finally {
+      clearInterval(heartbeat);
+      clearTimeout(timer);
+      this.active.delete(op.id);
     }
+    if (lease.lost) return;
     try {
       await this.record(op, outcome, log);
     } catch (err) {

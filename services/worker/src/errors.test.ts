@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TaskError, UNEXPECTED_FAILURE, toFailure } from "./errors.js";
+import { TaskError, UNEXPECTED_FAILURE, describeError, toFailure } from "./errors.js";
 
 describe("toFailure", () => {
   it("keeps the code, message and retry flag of a TaskError", () => {
@@ -20,5 +20,22 @@ describe("toFailure", () => {
   it("keeps the cause for logging", () => {
     const cause = new Error("root");
     expect(new TaskError("x", "y", { cause }).cause).toBe(cause);
+  });
+});
+
+describe("describeError", () => {
+  it("names the error and its code but never repeats the message of a foreign error", () => {
+    const pgError = Object.assign(new Error("duplicate key value (job_number)=(SECRET-1)"), { code: "23505" });
+    const fields = describeError(pgError);
+    expect(fields).toMatchObject({ errorName: "Error", errorCode: "23505" });
+    expect(JSON.stringify(fields)).not.toContain("SECRET-1");
+  });
+
+  it("keeps the message of a TaskError, which is written for people", () => {
+    expect(describeError(new TaskError("x", "Nothing to read."))).toMatchObject({ errorMessage: "Nothing to read." });
+  });
+
+  it("copes with a thrown non-error", () => {
+    expect(describeError("text")).toEqual({ errorName: "string" });
   });
 });
