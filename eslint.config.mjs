@@ -127,6 +127,18 @@ export default tseslint.config(
     files: ["packages/db/src/migrate.ts"],
     rules: { "security/detect-non-literal-fs-filename": "off" },
   },
+  // openid-client's plain-HTTP switch is marked deprecated only "to stand out". The OIDC adapter uses it solely for the
+  // local mock IdP over http; config refuses http outside APP_ENV=local and pins login.microsoftonline.com in staging and
+  // production (ADR-0002). Only that one export is allowed, only in that one file; every other deprecation still fails.
+  {
+    files: ["services/api/src/modules/auth/http/oidc.ts"],
+    rules: {
+      "@typescript-eslint/no-deprecated": [
+        "error",
+        { allow: [{ from: "package", package: "openid-client", name: "allowInsecureRequests" }] },
+      ],
+    },
+  },
   // Build/dev scripts run in Node with trusted, repo-relative paths.
   {
     files: ["**/scripts/**/*.ts"],

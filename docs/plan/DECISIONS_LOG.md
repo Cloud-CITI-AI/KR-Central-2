@@ -94,3 +94,8 @@ One line per orchestrator answer to a coding agent, newest last.
 - WP-05: Fastify spans via `@fastify/otel` 0.21.1 (MIT, Fastify org) in `@kr/telemetry` deps, not the deprecated `@opentelemetry/instrumentation-fastify`; 0.21.2 is younger than `minimumReleaseAge`. `fastify` 5.12.5 added as a telemetry devDependency for tests.
 - WP-05: add `kr.operations.duration{type,status}` (s, enqueue → finish), a closed `type` attribute on `kr.operations.queue_depth` and `kr.operations.queue_age{type}` (oldest queued, s), so SLO-4 and the ADR-0009 queue-age alert are measurable from OTLP alone.
 - WP-05: no telemetry SDK without an endpoint (brief wins over ADR-0009); ADR-0009 amended: `requestId` is the correlation key until export is on.
+- WP-07: openid-client `allowInsecureRequests` (deprecated only "to stand out") is allowed via `no-deprecated`'s `allow` option for that one export in `services/api/src/modules/auth/http/oidc.ts` only; the rule stays on for every other deprecation.
+- WP-07: `xms_edov=false` refuses sign-in (`unverified_email`, transaction rolled back, grant stays pending) only when a pending grant on a non-archived job waits for the address; otherwise the user signs in normally (spec §3.4 clarified).
+- WP-07: members with `xms_edov=false` use the UPN, not the `email` claim, for email, staff-domain rule and first-admin eligibility (spec §3.1 step 4).
+- WP-07: missing or unreadable `acct`, `oid` or `tid` fails closed with `reason=failed`; an unknown account type is never treated as a member (relies on the deploy guide's `acct` optional claim).
+- WP-07: `promote-admin` also claims `system_bootstrap` (ON CONFLICT DO NOTHING) so a later eligible first sign-in cannot become a second admin after an operator names one.

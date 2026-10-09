@@ -105,8 +105,11 @@ role or status changes revoke the user's sessions (session rotation on privilege
 4. User upsert keyed by (`tid`, `oid`). Display name from `name`; `isGuest` from the `acct` claim (1 = guest) — the app
    registration must emit optional claims `email`, `acct` and `xms_edov` (deploy guide). Email (lower-cased): for
    **members** `email`, else `preferred_username` (the UPN, controlled by KR's tenant admins — used for the staff-domain
-   rule); for **guests** only the `email` claim, never `preferred_username`/UPN. Email is never an identity key
-   (Microsoft guidance: email claims are mutable); it is used only to match pending grants once (§3.4).
+   rule; when the token says `xms_edov=false` the member's `email` claim is ignored and the UPN is used, so an
+   unverified address never decides the staff role or first-admin eligibility); for **guests** only the `email` claim,
+   never `preferred_username`/UPN. A missing or unreadable `acct`, `oid` or `tid` fails closed (`failed`). Email is
+   never an identity key (Microsoft guidance: email claims are mutable); it is used only to match pending grants once
+   (§3.4).
 5. New session: 256-bit random id in cookie `__Host-kr_session` (HttpOnly, Secure, SameSite=Lax, Path=/), SHA-256
    stored in `sessions`; idle timeout 120 min (sliding), absolute 12 h (configurable); CSRF token per session.
 6. Pending grants whose email equals the user's email are activated (bound to the user id) — §3.4.
@@ -160,6 +163,8 @@ Railway one-off shell (audited). The API refuses to demote or disable the last a
 - Matching is case-insensitive on the full email, using only the guest's `email` claim (members: §3.1 step 4). If
   the token carries `xms_edov=false` (email domain not verified) grants are **not** activated and the sign-in error
   page shows `reason=unverified_email` ("We couldn't confirm your email address – ask your KR Surveys contact.").
+  The refusal applies only when a pending grant on a non-archived job is waiting for that address (the sign-in rolls
+  back and the grant stays pending); with nothing waiting the user signs in normally and sees the empty dashboard.
   Only grants whose job is not archived activate. The access manager shows the bound account's name next to an
   active grant so staff can spot a wrong match; every activation is audited.
 
