@@ -1,5 +1,6 @@
 "use client";
 import { useSession } from "@/lib/session";
+import { AccessForm } from "./AccessForm";
 import { ACCESS_MESSAGES } from "./messages";
 import styles from "./AccessManager.module.css";
 
@@ -21,6 +22,7 @@ export function AccessManager() {
           {features.guestInvites ? ACCESS_MESSAGES.invitationOn : ACCESS_MESSAGES.invitationOff}
         </p>
       </div>
+      <AccessForm />
     </section>
   );
 }

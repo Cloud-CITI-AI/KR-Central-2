@@ -1,0 +1,35 @@
+/* prototype .acc-form, .acc-scope and the .msg lines */
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.input,
+.select,
+.job {
+  flex: 1 1 180px;
+  width: auto;
+  background: var(--field);
+  font-size: 14px;
+}
+.select {
+  flex-basis: 230px;
+}
+.job {
+  flex: 2 1 300px;
+}
+.scope {
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+.error,
+.ok {
+  margin: 0;
+  font-size: 12px;
+}
+.error {
+  color: var(--red-ink);
+}
+.ok {
+  color: var(--ink-3);
+}
