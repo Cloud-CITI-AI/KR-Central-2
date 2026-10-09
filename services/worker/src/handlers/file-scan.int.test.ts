@@ -210,6 +210,44 @@ describe("file.scan: failures", () => {
     expect(ctx.captured.events()).toContain("scan_retries_exhausted");
   });
 
+  it("with the clamd circuit open, fails fast, keeps the file pending and has the queue try again later", async () => {
+    const file = await insertFile(db, storage, jobId);
+    await clamd.stop();
+    const client = createClamdClient({
+      host: "127.0.0.1",
+      port: clamd.port,
+      timeoutMs: 5000,
+      maxBytes: 1024 * 1024,
+      breaker: { failureThreshold: 1, coolDownMs: 60_000 },
+    });
+    const scan = fileScanHandler({
+      db,
+      storage,
+      clamd: client,
+      config: { MALWARE_SCAN_MODE: "required", CLAMAV_TIMEOUT_MS: 1000, SCAN_ERROR_MAX_RETRIES: 3 },
+      metrics,
+    });
+    const attempt = async (n: number) => {
+      const op = await enqueue(db, jobId, "file.scan", { fileId: file.id });
+      return scan.run(handlerContext(op, { attempt: n })).catch((error: unknown) => error as TaskError);
+    };
+    expect(await attempt(1)).toMatchObject({ code: "scan_unavailable", retryable: true });
+    expect(client.circuit).toBe("open");
+    const fast = Date.now();
+    expect(await attempt(2)).toMatchObject({ code: "scan_unavailable", retryable: true });
+    expect(Date.now() - fast).toBeLessThan(500);
+    let row = await fileRow(db, file.id);
+    expect([row.scan_status, row.scan_attempts]).toEqual(["pending", 0]);
+    // on the last attempt the open circuit is a scanner that could not be reached: the file is recorded as error
+    expect(await attempt(3)).toMatchObject({ code: "scan_error", retryable: false });
+    row = await fileRow(db, file.id);
+    expect([row.scan_status, row.scan_attempts, row.scan_detail]).toEqual([
+      "error",
+      1,
+      "The virus scanner could not be reached.",
+    ]);
+  });
+
   it("does not turn an aborted scan into an error on the file", async () => {
     const file = await insertFile(db, storage, jobId);
     const controller = new AbortController();

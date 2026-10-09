@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Readable } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { FAKE_VIRUS, startFakeClamd, type FakeBehaviour, type FakeClamd } from "../../test/fake-clamd.js";
+import type { BreakerTuning } from "./circuit-breaker.js";
 import { CHUNK_BYTES, ClamdError, createClamdClient, type ClamdClient } from "./clamd.js";
 
 let fake: FakeClamd | undefined;
@@ -12,7 +13,7 @@ afterEach(async () => {
 
 async function clientFor(
   behaviour: FakeBehaviour = {},
-  overrides: { timeoutMs?: number; maxBytes?: number } = {},
+  overrides: { timeoutMs?: number; maxBytes?: number; breaker?: BreakerTuning } = {},
 ): Promise<ClamdClient> {
   fake = await startFakeClamd(behaviour);
   return createClamdClient({
@@ -136,5 +137,110 @@ describe("ping", () => {
     expect(await client.ping()).toBe(true);
     await fake?.stop();
     expect(await client.ping()).toBe(false);
+  });
+});
+
+describe("the circuit breaker", () => {
+  async function closedPort(): Promise<number> {
+    const closed = await startFakeClamd();
+    await closed.stop();
+    return closed.port;
+  }
+
+  function clocked() {
+    let now = new Date("2026-10-09T08:00:00.000Z");
+    const changes: string[] = [];
+    return {
+      changes,
+      advance: (ms: number) => {
+        now = new Date(now.getTime() + ms);
+      },
+      breaker: {
+        failureThreshold: 2,
+        coolDownMs: 1000,
+        clock: { now: () => now },
+        onStateChange: ({ from, to }: { from: string; to: string }) => changes.push(`${from}>${to}`),
+      },
+    };
+  }
+
+  it("opens after consecutive connection failures and then fails fast as a connection error, without connecting", async () => {
+    const c = clocked();
+    const client = createClamdClient({
+      host: "127.0.0.1",
+      port: await closedPort(),
+      timeoutMs: 500,
+      maxBytes: 1024,
+      breaker: c.breaker,
+    });
+    expect((await failure(client.scan(body("x")))).detail).toBe("ECONNREFUSED");
+    expect((await failure(client.scan(body("x")))).detail).toBe("ECONNREFUSED");
+    expect(client.circuit).toBe("open");
+    const source = body("x");
+    const error = await failure(client.scan(source));
+    expect(error).toMatchObject({ code: "connection", detail: "circuit_open" });
+    expect(source.destroyed).toBe(true);
+    expect(c.changes).toEqual(["closed>open"]);
+  });
+
+  it("opens after consecutive timeouts", async () => {
+    const c = clocked();
+    const client = await clientFor({ reply: "silent" }, { timeoutMs: 100, breaker: c.breaker });
+    expect((await failure(client.scan(body("x")))).code).toBe("timeout");
+    expect((await failure(client.scan(body("x")))).code).toBe("timeout");
+    expect((await failure(client.scan(body("x")))).detail).toBe("circuit_open");
+    expect(client.circuit).toBe("open");
+  });
+
+  it("does not count verdicts, clamd's own errors, aborts or a failing source stream", async () => {
+    const c = clocked();
+    const client = await clientFor({ reply: "scanner-error" }, { breaker: c.breaker });
+    for (let i = 0; i < 4; i += 1) expect((await failure(client.scan(body("x")))).code).toBe("scanner_error");
+    const broken = () =>
+      new Readable({
+        read() {
+          this.destroy(new Error("storage went away"));
+        },
+      });
+    for (let i = 0; i < 4; i += 1) await expect(client.scan(broken())).rejects.toThrow("storage went away");
+    for (let i = 0; i < 4; i += 1)
+      expect((await failure(client.scan(body("x"), AbortSignal.abort()))).code).toBe("aborted");
+    expect(client.circuit).toBe("closed");
+    expect(c.changes).toEqual([]);
+  });
+
+  it("scans again after the cool-down: a successful trial closes the circuit, a failed one opens it again", async () => {
+    const c = clocked();
+    const gone = await startFakeClamd();
+    const port = gone.port;
+    await gone.stop();
+    const client = createClamdClient({ host: "127.0.0.1", port, timeoutMs: 500, maxBytes: 1024, breaker: c.breaker });
+    await failure(client.scan(body("x")));
+    await failure(client.scan(body("x")));
+    c.advance(1000);
+    expect((await failure(client.scan(body("x")))).detail).toBe("ECONNREFUSED"); // the trial went out and failed
+    expect((await failure(client.scan(body("x")))).detail).toBe("circuit_open");
+    expect(c.changes).toEqual(["closed>open", "open>half_open", "half_open>open"]);
+
+    // clamd comes back where it was: after the next cool-down the trial scan succeeds and the circuit closes
+    fake = await startFakeClamd({ port });
+    c.advance(1000);
+    expect(await client.scan(body("fine"))).toEqual({ status: "clean" });
+    expect(client.circuit).toBe("closed");
+    expect(await client.scan(body("fine again"))).toEqual({ status: "clean" });
+    expect(c.changes.slice(3)).toEqual(["open>half_open", "half_open>closed"]);
+  });
+
+  it("leaves the PING probe alone", async () => {
+    const c = clocked();
+    const client = createClamdClient({
+      host: "127.0.0.1",
+      port: await closedPort(),
+      timeoutMs: 500,
+      maxBytes: 1024,
+      breaker: c.breaker,
+    });
+    for (let i = 0; i < 3; i += 1) expect(await client.ping()).toBe(false);
+    expect(client.circuit).toBe("closed");
   });
 });

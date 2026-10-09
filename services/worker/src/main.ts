@@ -60,11 +60,22 @@ const metrics = createMetrics({
   operationStatuses: ["succeeded", "failed"] as const,
 });
 
+/** Circuit breaker transitions of an outbound dependency (BE-10): open is a warning, the rest is information. */
+const circuitLogger =
+  (dependency: string) =>
+  ({ from, to }: { from: string; to: string }): void => {
+    log[to === "open" ? "warn" : "info"](
+      { event: "circuit_state_changed", dependency, from, to },
+      `The ${dependency} circuit is now ${to}`,
+    );
+  };
+
 const clamd = createClamdClient({
   host: config.CLAMAV_HOST,
   port: config.CLAMAV_PORT,
   timeoutMs: config.CLAMAV_TIMEOUT_MS,
   maxBytes: config.CLAMAV_STREAM_MAX_BYTES,
+  breaker: { onStateChange: circuitLogger("clamd") },
 });
 
 // Flags go through OpenFeature, resolved once here (CF-4, ADR-0013).

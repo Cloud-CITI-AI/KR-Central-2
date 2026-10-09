@@ -15,6 +15,8 @@ export interface FakeBehaviour {
   readonly streamLimit?: number;
   /** Pause reading for this long after each chunk, to exercise backpressure. */
   readonly slowMs?: number;
+  /** Listen on this port instead of a free one (a scanner that comes back where it was). */
+  readonly port?: number;
 }
 
 /** The marker a test body includes to be reported infected (stands in for a signature; no real malware string needed). */
@@ -73,7 +75,7 @@ export function startFakeClamd(behaviour: FakeBehaviour = {}): Promise<FakeClamd
     });
   });
   return new Promise((resolve) => {
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(behaviour.port ?? 0, "127.0.0.1", () => {
       resolve({
         port: (server.address() as net.AddressInfo).port,
         frames,

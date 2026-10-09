@@ -3,9 +3,13 @@
  * Every call has a socket idle timeout (CLAMAV_TIMEOUT_MS), and a stream larger than CLAMAV_STREAM_MAX_BYTES is refused
  * before clamd would cut it off (clamd's own StreamMaxLength is set at least as high, infra/clamav/clamd.conf).
  * Uses the null-terminated `z` command form, so replies are unambiguous.
+ * A circuit breaker (BE-10) opens after CLAMD_FAILURE_THRESHOLD connection or timeout failures in a row: scans then fail at once
+ * with a `connection` ClamdError (retryable: the file stays pending and its operation goes back on the queue) until a trial scan
+ * after the cool-down succeeds. Answers of any kind from clamd (including its errors) count as clamd being up.
  */
 import net from "node:net";
 import type { Readable } from "node:stream";
+import { CircuitOpenError, createCircuitBreaker, type BreakerTuning, type CircuitState } from "./circuit-breaker.js";
 
 /** One INSTREAM frame carries at most this many bytes. */
 export const CHUNK_BYTES = 64 * 1024;
@@ -27,11 +31,17 @@ export class ClamdError extends Error {
 
 export type ScanVerdict = { readonly status: "clean" } | { readonly status: "infected"; readonly signature: string };
 
+/** Consecutive connection/timeout failures that open the circuit, and how long it stays open before a trial scan. */
+export const CLAMD_FAILURE_THRESHOLD = 5;
+export const CLAMD_COOL_DOWN_MS = 30_000;
+
 export interface ClamdOptions {
   readonly host: string;
   readonly port: number;
   readonly timeoutMs: number;
   readonly maxBytes: number;
+  /** Overrides of the circuit breaker (defaults above); tests inject a clock, main a state-change logger. */
+  readonly breaker?: BreakerTuning | undefined;
 }
 
 export interface ClamdClient {
@@ -39,6 +49,8 @@ export interface ClamdClient {
   ping(): Promise<boolean>;
   /** Streams `body` to clamd. Rejects with ClamdError (or the body stream's own error) when there is no verdict. */
   scan(body: Readable, signal?: AbortSignal): Promise<ScanVerdict>;
+  /** The circuit breaker's state ("open" means scans fail fast). */
+  readonly circuit: CircuitState;
 }
 
 const frame = (data: Uint8Array): Buffer => {
@@ -132,8 +144,30 @@ export function createClamdClient(options: ClamdOptions): ClamdClient {
     });
   }
 
+  const breaker = createCircuitBreaker({
+    name: "clamd",
+    failureThreshold: CLAMD_FAILURE_THRESHOLD,
+    coolDownMs: CLAMD_COOL_DOWN_MS,
+    ...options.breaker,
+    // only "could not reach it" and "it did not answer" say clamd is down
+    isFailure: (error) => error instanceof ClamdError && (error.code === "connection" || error.code === "timeout"),
+    // a cancelled scan, or a failing source stream (storage), says nothing about clamd
+    isCancel: (error) => !(error instanceof ClamdError) || error.code === "aborted",
+  });
+
   return {
+    get circuit() {
+      return breaker.state;
+    },
     ping: async () => (await exchange("PING").catch(() => "")) === "PONG",
-    scan: async (body, signal) => verdictFrom(await exchange("INSTREAM", body, signal)),
+    scan: async (body, signal) => {
+      try {
+        return await breaker.run(async () => verdictFrom(await exchange("INSTREAM", body, signal)));
+      } catch (error) {
+        if (!(error instanceof CircuitOpenError)) throw error;
+        body.destroy();
+        throw new ClamdError("connection", "clamd is unavailable; scans are paused for a moment.", "circuit_open");
+      }
+    },
   };
 }
