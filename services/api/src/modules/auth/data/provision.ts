@@ -6,6 +6,7 @@
 import type { Database, Db, UserRow } from "@kr/db";
 import { sql, type Transaction } from "kysely";
 import { audit, type AuditContext } from "../../../platform/audit.js";
+import { revokeAllForUser } from "../../../platform/session.js";
 import type { Identity } from "../domain/claims.js";
 import { assignRole, isFirstAdminEligible } from "../domain/roles.js";
 import { claimFirstAdmin } from "./bootstrap.js";
@@ -35,10 +36,13 @@ class SignInRefused extends Error {
 }
 
 /**
- * Upsert the user by (tid, oid) with the current name, guest flag and email; only a new user gets a role. A disabled
- * user matches the conflict but the `status = 'active'` guard makes the statement touch nothing, so it returns no row.
+ * Upsert the user by (tid, oid) with the current name, guest flag and email; only a new user gets a role from the
+ * token. A disabled user matches the conflict but the `status = 'active'` guard makes the statement touch nothing, so it
+ * returns no row. `demote` is set for a stored member whose token now says guest: the same statement moves them to
+ * `external` (ADR-0014: guests always have the global role external), so no state exists where is_guest and a staff or
+ * admin role coexist.
  */
-async function upsertUser(trx: Transaction<Database>, id: Identity, policy: SignInPolicy) {
+async function upsertUser(trx: Transaction<Database>, id: Identity, policy: SignInPolicy, demote: boolean) {
   const role = assignRole({ isGuest: id.isGuest, email: id.email, staffDomains: policy.staffDomains });
   const row = await trx
     .insertInto("users")
@@ -59,6 +63,7 @@ async function upsertUser(trx: Transaction<Database>, id: Identity, policy: Sign
           display_name: id.displayName,
           is_guest: id.isGuest,
           last_sign_in_at: policy.now,
+          ...(demote ? { role: "external" as const, version: sql<number>`users.version + 1` } : {}),
         })
         .where("users.status", "=", "active"),
     )
@@ -70,8 +75,22 @@ async function upsertUser(trx: Transaction<Database>, id: Identity, policy: Sign
   return { user, created };
 }
 
+/** Lock the stored row (if any) so a concurrent sign-in cannot read the same "before" state. */
+async function lockStoredUser(trx: Transaction<Database>, id: Identity) {
+  return trx
+    .selectFrom("users")
+    .select(["role", "is_guest", "status"])
+    .where("entra_tenant_id", "=", id.tid)
+    .where("entra_object_id", "=", id.oid)
+    .forUpdate()
+    .executeTakeFirst();
+}
+
 async function provision(trx: Transaction<Database>, id: Identity, policy: SignInPolicy): Promise<Provisioned> {
-  const upserted = await upsertUser(trx, id, policy);
+  const stored = await lockStoredUser(trx, id);
+  const demotedFrom = stored?.status === "active" && !stored.is_guest && id.isGuest ? stored.role : undefined;
+  const demoted = demotedFrom !== undefined;
+  const upserted = await upsertUser(trx, id, policy, demoted);
   if (upserted === undefined) return { ok: false, reason: "disabled" };
   let user = upserted.user;
   const ctx: AuditContext = { actorUserId: user.id, requestId: policy.requestId };
@@ -83,6 +102,17 @@ async function provision(trx: Transaction<Database>, id: Identity, policy: SignI
       entityId: user.id,
       changes: { role: { from: null, to: user.role }, is_guest: { from: null, to: user.is_guest } },
     });
+  }
+
+  if (demoted) {
+    await audit(trx, ctx, {
+      action: "user.role_changed",
+      entityType: "user",
+      entityId: user.id,
+      changes: { role: { from: demotedFrom, to: user.role }, is_guest: { from: false, to: true } },
+    });
+    // Sessions opened while this was a member still carry its capabilities; the new session is created after commit.
+    await revokeAllForUser(trx, user.id, "role_changed", { now: () => policy.now });
   }
 
   const firstAdmin =
