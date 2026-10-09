@@ -17,16 +17,17 @@ jobs:
         with: { fetch-depth: 0, persist-credentials: false }
       - name: gitleaks (commit range for PRs, full history otherwise)
         env:
-          GITLEAKS_VERSION: "8.30.1"
+          # Container image pinned by digest (no unauthenticated tarball download without a checksum).
+          GITLEAKS_IMAGE: "ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f"
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
+          gl() { docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/repo" -w /repo "$GITLEAKS_IMAGE" "$@"; }
           if [ "$EVENT" = "pull_request" ]; then
-            ./gitleaks git --redact --log-opts="${BASE}..${HEAD}"
+            gl git --redact --log-opts="${BASE}..${HEAD}" /repo
           else
-            ./gitleaks git --redact
+            gl git --redact /repo
           fi
 
   dependency-review:
@@ -63,7 +64,7 @@ jobs:
         with: { persist-credentials: false }
       - name: zizmor (GitHub Actions security lint)
         run: |
-          pipx install zizmor >/dev/null
+          pipx install "zizmor==1.29.0" >/dev/null
           zizmor --min-severity medium --format github .github/workflows
 
   migrations:
@@ -88,5 +89,5 @@ jobs:
       - name: Hadolint (ST-5)
         run: |
           for f in $(git ls-files '**/Dockerfile' 'Dockerfile'); do
-            docker run --rm -i hadolint/hadolint:v2.12.0 hadolint --failure-threshold warning - < "$f"
+            docker run --rm -i ghcr.io/hadolint/hadolint:v2.12.0@sha256:30a8fd2e785ab6176eed53f74769e04f125afb2f74a6c52aef7d463583b6d45e hadolint --failure-threshold warning - < "$f"
           done

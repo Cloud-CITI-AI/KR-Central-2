@@ -1,7 +1,8 @@
 # Playbook templates/project/.github/workflows/release.yml, adapted for three deployables.
 # Releases are PR-based (release-please): a human approves the release PR. Each image gets an SPDX SBOM, a Grype
 # scan (fixable high/critical fail) and GitHub build-provenance + SBOM attestations. Railway deploys these exact
-# digests (ADR-0008) — Railway never builds from source in staging/production.
+# digests (ADR-0008) — Railway never builds from source in staging/production. The deploy workflow is CALLED from here
+# after every digest is on the release (a GITHUB_TOKEN-created release would not trigger `on: release`).
 name: release
 on:
   push:
@@ -41,6 +42,8 @@ jobs:
             dockerfile: apps/web/Dockerfile
           - service: clamav
             dockerfile: infra/clamav/Dockerfile
+          - service: ops # runs as the Railway `migrate` and `backup` services (ADR-0007/0008)
+            dockerfile: services/ops/Dockerfile
     permissions:
       contents: write # upload digests to the release
       packages: write
@@ -98,3 +101,11 @@ jobs:
         run: |
           echo "${IMAGE}@${DIGEST}" > "image-${SERVICE}.txt"
           gh release upload "$TAG" "image-${SERVICE}.txt" --clobber -R "${{ github.repository }}"
+
+  deploy:
+    needs: [release-please, build-and-attest]
+    if: needs.release-please.outputs.releases_created == 'true'
+    uses: ./.github/workflows/deploy.yml
+    permissions: { contents: read, attestations: read, packages: read, deployments: write }
+    with:
+      tag: ${{ needs.release-please.outputs.tag }}

@@ -53,10 +53,14 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
           MIN: ${{ inputs.diff-coverage-min }}
+          DIFF_COVER_VERSION: "10.5.1"
         run: |
-          pipx install diff-cover >/dev/null
-          reports=$(find . -name 'cobertura-coverage.xml' -not -path './node_modules/*')
-          if [ -z "$reports" ]; then echo "No coverage report (package has no unit tests yet)"; exit 0; fi
+          pipx install "diff-cover==${DIFF_COVER_VERSION}" >/dev/null
+          # Unit, integration and contract runs each write coverage/<layer>/cobertura-coverage.xml. diff-cover treats a
+          # line as covered when ANY report covers it, so handlers/repositories tested only by integration tests count.
+          reports=$(find coverage -name 'cobertura-coverage.xml' 2>/dev/null || true)
+          if [ -z "$reports" ]; then echo "No coverage report (package has no tests yet)"; exit 0; fi
+          echo "Coverage reports: $reports"
           diff-cover $reports --compare-branch="origin/$BASE_REF" --fail-under="$MIN"
       - name: Restore Stryker incremental cache
         if: github.event_name == 'pull_request'
@@ -73,12 +77,18 @@ jobs:
           BREAK: ${{ inputs.mutation-break }}
         run: |
           changed=$(git diff --name-only "origin/$BASE_REF"...HEAD -- . | grep -E '\.(ts|tsx)$' | grep -vE '\.(test|spec|stories|int\.test|contract\.test)\.' | sed "s#^$PKG/##" || true)
-          if [ -z "$changed" ]; then echo "No changed source files; skipping mutation."; exit 0; fi
-          files=$(echo "$changed" | paste -sd, -)
+          # --mutate replaces the config's globs, so keep only files the package's stryker.config.mjs would mutate.
+          # shellcheck disable=SC2086
+          files=$(node "$GITHUB_WORKSPACE/scripts/ci/mutation-targets.mjs" . $changed)
+          if [ -z "$files" ]; then echo "No changed files in this package's mutate globs; skipping mutation."; exit 0; fi
+          echo "Mutating: $files"
           pnpm exec stryker run --incremental --mutate "$files" --thresholds.break "$BREAK"
       - name: Build
         working-directory: ${{ matrix.pkg }}
         run: pnpm build
+      - name: Performance budgets (if the package defines them)
+        working-directory: ${{ matrix.pkg }}
+        run: pnpm run --if-present perf:check
 
   e2e:
     if: inputs.e2e-packages != '[]'

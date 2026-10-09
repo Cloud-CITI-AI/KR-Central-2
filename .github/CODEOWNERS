@@ -11,6 +11,17 @@
 /infra/**                               @cloudcitiwa/kr-tracker-platform
 /apps/web/src/proxy.ts                  @cloudcitiwa/kr-tracker-security
 /apps/web/next.config.ts                @cloudcitiwa/kr-tracker-security
+/apps/web/src/app/api/**                @cloudcitiwa/kr-tracker-security
+/services/api/src/modules/users/**      @cloudcitiwa/kr-tracker-security
+/services/api/src/modules/files/**      @cloudcitiwa/kr-tracker-security
+/services/api/src/config.ts             @cloudcitiwa/kr-tracker-security
+/services/worker/**                     @cloudcitiwa/kr-tracker-security
+/services/ops/**                        @cloudcitiwa/kr-tracker-data @cloudcitiwa/kr-tracker-platform
+/packages/db/src/bootstrap*.ts          @cloudcitiwa/kr-tracker-data @cloudcitiwa/kr-tracker-security
+/packages/storage/**                    @cloudcitiwa/kr-tracker-security
+/packages/document-parsing/**           @cloudcitiwa/kr-tracker-security
+/.env.example                           @cloudcitiwa/kr-tracker-security
+/docs/adr/**                            @cloudcitiwa/kr-tracker-maintainers @cloudcitiwa/kr-tracker-security
 
 # Protected paths (rule X1): agents cannot change these; humans need platform + security approval
 /AGENTS.md                              @cloudcitiwa/kr-tracker-platform

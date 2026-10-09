@@ -17,7 +17,8 @@ jobs:
     permissions:
       contents: read
     with:
-      packages: '["packages/workflow","packages/contracts","packages/design-tokens","packages/config","packages/logger","packages/telemetry","packages/db","packages/document-parsing","services/api","services/worker","apps/web"]'
+      # Every workspace package must be listed (scripts/ci/check-ci-matrix.mjs fails `pnpm lint` otherwise).
+      packages: '["packages/workflow","packages/contracts","packages/design-tokens","packages/config","packages/logger","packages/telemetry","packages/db","packages/document-parsing","packages/storage","packages/mock-idp","services/api","services/worker","services/ops","apps/web"]'
       e2e-packages: '["apps/web"]'
       node-version: "24"
       diff-coverage-min: 80
@@ -41,7 +42,22 @@ jobs:
         env: { BASE_REF: "${{ github.base_ref }}" }
         run: |
           git show "origin/${BASE_REF}:packages/contracts/openapi.yaml" > /tmp/base-openapi.yaml 2>/dev/null || { echo "No base spec yet"; exit 0; }
-          docker run --rm -v /tmp:/base -v "$PWD/packages/contracts:/head" tufin/oasdiff:v1.32.1 breaking /base/base-openapi.yaml /head/openapi.yaml --fail-on ERR
+          docker run --rm -v /tmp:/base -v "$PWD/packages/contracts:/head" tufin/oasdiff:v1.32.1@sha256:3b14fe0112e5d1bf862f91ab234a4bcd161a3f399e98f8b0b665ce70857694ac breaking /base/base-openapi.yaml /head/openapi.yaml --fail-on ERR
+
+  format:
+    # Prettier over the whole repo (docs, workflows, JSON included) — package lint does not cover these files.
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: "24", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - name: Work package plan is consistent (owned paths, waves, required brief sections)
+        run: node scripts/plan/check-work-packages.mjs
 
   pr-size:
     if: github.event_name == 'pull_request'
@@ -61,7 +77,7 @@ jobs:
 
   verify:
     if: always()
-    needs: [node, api-contract, pr-size]
+    needs: [node, api-contract, format, pr-size]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
