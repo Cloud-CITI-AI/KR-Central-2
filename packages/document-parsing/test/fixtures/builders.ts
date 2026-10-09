@@ -3,6 +3,7 @@
  * from a seeded faker, so names and addresses are fake and stable between runs.
  */
 import { Faker, en, en_AU } from "@faker-js/faker";
+import * as CFB from "cfb";
 import type { Agency } from "@kr/workflow";
 import { PDFDocument, PDFHexString, PDFName, PDFString, StandardFonts } from "pdf-lib";
 
@@ -140,4 +141,64 @@ export async function buildEncryptedPdf(): Promise<Uint8Array> {
   doc.context.trailerInfo.Encrypt = doc.context.register(encrypt);
   doc.context.trailerInfo.ID = doc.context.obj([PDFHexString.of("11".repeat(16)), PDFHexString.of("11".repeat(16))]);
   return doc.save({ useObjectStreams: false });
+}
+
+export interface SyntheticEmail {
+  readonly subject: string;
+  readonly fromName: string;
+  readonly fromEmail: string;
+  readonly to: string;
+  readonly cc: string;
+  readonly body: string;
+  /** Submit time as an ISO instant (UTC, whole seconds). */
+  readonly sentAt: string;
+}
+
+export function syntheticEmail(f: Faker = syntheticFaker()): SyntheticEmail {
+  return {
+    subject: `Subdivision ${f.location.street()}`,
+    fromName: f.person.fullName(),
+    fromEmail: f.internet.email({ provider: "example.test" }),
+    to: f.internet.email({ provider: "example.test" }),
+    cc: f.internet.email({ provider: "example.test" }),
+    body: f.lorem.paragraphs(2, "\n\n"),
+    sentAt: "2026-03-16T01:30:00.000Z",
+  };
+}
+
+export interface MsgOptions {
+  /** Store strings as 8-bit windows-1252 (001E) instead of UTF-16 (001F). */
+  readonly ansi?: boolean;
+  /** Put the body in the HTML property only. */
+  readonly html?: string;
+  /** Which time property holds `sentAt`: submit time (0x0039, default) or delivery time (0x0e06). */
+  readonly timeProperty?: "submit" | "delivery";
+  readonly omitTime?: boolean;
+}
+
+/** An Outlook .msg (compound file) with the properties parseMsg reads. */
+export function buildMsg(email: SyntheticEmail, options: MsgOptions = {}): Uint8Array {
+  const container = CFB.utils.cfb_new();
+  const strings: Record<string, string> = {
+    "0037": email.subject,
+    "0C1A": email.fromName,
+    "5D01": email.fromEmail,
+    "0E04": email.to,
+    "0E03": email.cc,
+    ...(options.html === undefined ? { "1000": email.body } : {}),
+  };
+  for (const [id, value] of Object.entries(strings)) {
+    const data = options.ansi ? Buffer.from(`${value}\0`, "latin1") : Buffer.from(`${value}\0`, "utf16le");
+    CFB.utils.cfb_add(container, `/__substg1.0_${id}${options.ansi ? "001E" : "001F"}`, data);
+  }
+  if (options.html !== undefined)
+    CFB.utils.cfb_add(container, "/__substg1.0_10130102", Buffer.from(options.html, "utf8"));
+  const properties = Buffer.alloc(32 + 16);
+  if (!options.omitTime) {
+    const view = new DataView(properties.buffer, properties.byteOffset, properties.byteLength);
+    view.setUint32(32, ((options.timeProperty === "delivery" ? 0x0e06 : 0x0039) << 16) | 0x40, true);
+    view.setBigUint64(40, BigInt(Date.parse(email.sentAt) + 11_644_473_600_000) * 10_000n, true);
+  }
+  CFB.utils.cfb_add(container, "/__properties_version1.0", properties);
+  return Uint8Array.from(CFB.write(container, { type: "buffer" }) as Buffer);
 }
