@@ -50,9 +50,10 @@ Objective: SLO-2, SLO-3. Runbook: [api-latency](../runbooks/api-latency.md).
 
 Objective: SLO-4, SLO-5. Runbook: [worker-queue-backlog](../runbooks/worker-queue-backlog.md).
 
-- Signal: `kr.operations.queue_depth` and the rate of `kr.operations.processed`.
-- Fires when queue depth is above 0 and nothing was processed for 10 min (worker stalled or down), or when queue depth
-  stays above 25 for 10 min (the queue is not draining; ADR-0009 "queue age over 10 min").
+- Signal: `kr.operations.queue_age` per `type` (seconds the oldest queued operation has waited), with the rate of
+  `kr.operations.processed` as a second signal.
+- Fires when `kr.operations.queue_age` is above 600 s (ADR-0009 "queue age over 10 min") for 5 min, for any `type`.
+- Also fires when `kr.operations.queue_depth` is above 0 and nothing was processed for 10 min (worker stalled or down).
 
 ## operation-failures
 

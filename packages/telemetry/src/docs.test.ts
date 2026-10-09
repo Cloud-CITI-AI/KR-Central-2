@@ -59,6 +59,14 @@ describe("docs/slo.md", () => {
     expect(slo).toMatch(/Scan backlog/);
   });
 
+  it("measures SLO-4 and SLO-5 from the duration histogram and the queue age gauge", () => {
+    expect(slo).toMatch(/SLO-4 \| `kr\.operations\.duration/);
+    expect(slo).toMatch(/SLO-5 \| `kr\.operations\.queue_age/);
+    const backlog = alerts.slice(alerts.indexOf("## worker-queue-backlog"), alerts.indexOf("## operation-failures"));
+    expect(backlog).toContain("`kr.operations.queue_age` is above 600 s");
+    expect(backlog).toContain("`kr.operations.processed`");
+  });
+
   it("is referenced by the alert and dashboard docs", () => {
     expect(alerts).toContain("../slo.md");
     expect(dashboards).toContain("../slo.md");

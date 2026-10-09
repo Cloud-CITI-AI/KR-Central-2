@@ -29,23 +29,24 @@ SLO-1 leaves an error budget of 0.5 %: about 3 h 36 min of full outage in a 30-d
 - Operations (SLO-4) are the asynchronous tasks of ADR-0006: `conditions.extract`, `conformance.read`, `email.parse`
   and `file.scan`. The time runs from enqueue to a final state (`succeeded` or `failed`), so retries and queue wait
   count. Documents over the page cap that fail fast with a clear message still count as completed.
-- Scan backlog (SLO-5) is the oldest queued scan. Uploads normally show "Scanning…" for a few seconds (ADR-0011).
+- Scan backlog (SLO-5) is the age of the oldest queued scan (`kr.operations.queue_age`). Uploads normally show "Scanning…" for a few seconds (ADR-0011).
 - Planned maintenance is not excluded: deploys are zero-downtime and migrations are expand-only (ADR-0008), so a
   deploy that causes errors consumes budget like any other incident.
 
 ## How each objective is measured
 
-| ID    | Signal (names in [alerts.md](observability/alerts.md))                                               | Interim source until a backend is approved                   |
-| ----- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| SLO-1 | `http.server.request.duration` count by `http.response.status_code`                                  | Railway logs and the 10-minute post-deploy smoke watch       |
-| SLO-2 | `http.server.request.duration` p95/p99 for GET and HEAD                                              | k6 smoke (`perf:check`) and the smoke watch latency probe    |
-| SLO-3 | `http.server.request.duration` p95 for POST, PUT, PATCH, DELETE                                      | k6 smoke                                                     |
-| SLO-4 | `kr.operations.processed{status}` rate, plus enqueue-to-final-state time from the `operations` table | A scheduled SQL query against the `operations` table         |
-| SLO-5 | `kr.operations.queue_depth` and the `kr.operations.processed{type="file.scan"}` rate                 | The `operations` table (oldest queued `file.scan` row)       |
-| SLO-6 | `kr.backup.runs{result}`                                                                             | The `backup` service's run log and the backup bucket listing |
+| ID    | Signal (names in [alerts.md](observability/alerts.md))                                        | Interim source until a backend is approved                   |
+| ----- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| SLO-1 | `http.server.request.duration` count by `http.response.status_code`                           | Railway logs and the 10-minute post-deploy smoke watch       |
+| SLO-2 | `http.server.request.duration` p95/p99 for GET and HEAD                                       | k6 smoke (`perf:check`) and the smoke watch latency probe    |
+| SLO-3 | `http.server.request.duration` p95 for POST, PUT, PATCH, DELETE                               | k6 smoke                                                     |
+| SLO-4 | `kr.operations.duration{type,status}` p95 (seconds from enqueue to final state), target 120 s | A scheduled SQL query against the `operations` table         |
+| SLO-5 | `kr.operations.queue_age{type="file.scan"}` (seconds), target 600 s                           | The `operations` table (oldest queued `file.scan` row)       |
+| SLO-6 | `kr.backup.runs{result}`                                                                      | The `backup` service's run log and the backup bucket listing |
 
-The telemetry package exports no operation-duration histogram, so SLO-4 is computed from the `operations` table until a
-duration metric is added (follow-up, not required for go-live).
+The worker records `kr.operations.duration` when an operation reaches a final state, from its `created_at`; the buckets
+bracket the 120 s target (0.5 s to 600 s). `kr.operations.queue_depth` and `kr.operations.queue_age` are gauges read from
+the `operations` table at each export, per `type`, so both objectives are measurable from OTLP alone.
 
 ## Error budget policy
 

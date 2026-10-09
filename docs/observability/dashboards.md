@@ -29,11 +29,12 @@ Audience: engineers investigating api-latency.
 
 Audience: engineers investigating worker-queue-backlog and operation-failures.
 
-- `kr.operations.queue_depth` over time with the 25-operation line.
+- `kr.operations.queue_depth` over time, per `type`.
+- `kr.operations.queue_age` per `type`, with the 600 s line (the worker-queue-backlog threshold).
 - `kr.operations.processed` rate split by `status` and by `type`.
 - Failure ratio by `type` (the operation-failures condition).
 - `kr.ai.stamp_reading` by `result` (read, disabled, refused, timeout, unparseable, error).
-- Operations finishing in under 2 min (SLO-4), from the `operations` table until a duration metric exists.
+- `kr.operations.duration` p50, p95 and p99 per `type`, with the 120 s line (SLO-4).
 
 ## 4. Files and malware scanning
 
