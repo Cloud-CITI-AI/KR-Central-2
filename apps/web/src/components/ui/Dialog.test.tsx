@@ -74,4 +74,27 @@ describe("Dialog", () => {
     await userEvent.tab({ shift: true });
     expect(save).toHaveFocus();
   });
+
+  it("puts header controls around the title and can focus Close first", async () => {
+    render(
+      <Dialog
+        open
+        onClose={() => undefined}
+        title="Plan"
+        size="viewer"
+        autoFocusClose
+        headerStart={<button>Back</button>}
+        headerEnd={<span>1 of 2</span>}
+      >
+        <button>Save</button>
+      </Dialog>,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Plan" });
+    const order = [...dialog.querySelectorAll("button, h2, span")].map((node) => node.textContent);
+    expect(order).toEqual(["Back", "Plan", "1 of 2", "Close", "Save"]);
+    expect(screen.getByRole("button", { name: "Close" })).toHaveFocus();
+    screen.getByRole("button", { name: "Back" }).focus();
+    await userEvent.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "Save" })).toHaveFocus();
+  });
 });

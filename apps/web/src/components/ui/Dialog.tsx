@@ -13,17 +13,33 @@ export interface DialogProps {
   /** `viewer` is the fixed-height body of the document viewer. */
   readonly size?: "default" | "small" | "viewer";
   readonly closeLabel?: string;
+  /** Controls in the header before the title (the viewer's ‹ ›). */
+  readonly headerStart?: ReactNode;
+  /** Controls in the header between the title and Close (the viewer's "1 of 2" and "Open in new tab"). */
+  readonly headerEnd?: ReactNode;
+  /** Focus Close first instead of the first control in the header (the viewer, where ‹ comes first). */
+  readonly autoFocusClose?: boolean;
 }
 
 const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), video[controls], [tabindex]:not([tabindex="-1"])';
 
 /**
  * Modal built on the native `<dialog>` (§11.1): `showModal()` makes the page inert and Esc closes it. On top of that
  * Tab wraps inside the dialog, the element marked `data-autofocus` (else the first control) gets focus, and focus returns
  * to the control that opened it. Children are mounted only while open so their state resets.
  */
-export function Dialog({ open, onClose, title, children, size = "default", closeLabel = "Close" }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+  size = "default",
+  closeLabel = "Close",
+  headerStart,
+  headerEnd,
+  autoFocusClose = false,
+}: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -77,10 +93,12 @@ export function Dialog({ open, onClose, title, children, size = "default", close
       }}
     >
       <div className={styles.head}>
+        {headerStart}
         <h2 id={titleId} className={styles.title}>
           {title}
         </h2>
-        <Button small onClick={onClose}>
+        {headerEnd}
+        <Button small data-autofocus={autoFocusClose ? "" : undefined} onClick={onClose}>
           {closeLabel}
         </Button>
       </div>
