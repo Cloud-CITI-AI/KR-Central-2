@@ -28,9 +28,13 @@ export interface World {
 }
 
 /** The callers of section 2.1. `disabled` signed in, then an admin disabled the account (its session must die). */
-export async function createWorld(overrides: Readonly<Record<string, string>> = {}): Promise<World> {
+export async function createWorld(
+  overrides: Readonly<Record<string, string>> = {},
+  /** Factory seed: a file that builds two worlds must give them different seeds (users are unique per seed). */
+  seed?: number,
+): Promise<World> {
   const t = await createTestApp({ config: testConfig({ ...NO_LIMITS, ...overrides }) });
-  const f = createFactories(t.db);
+  const f = createFactories(t.db, seed);
   const as = async (role: "admin" | "kr_admin" | "staff" | "external") =>
     signIn(t, await f.makeUser({ role }), { amr: ["pwd", "mfa"] });
   const disabled = await as("staff");
