@@ -1,5 +1,50 @@
-# Local development dependencies (not used in Railway). `pnpm db:up`, then bootstrap + migrate:
-#   pnpm --filter @kr/db build && node packages/db/dist/bootstrap-cli.js && node packages/db/dist/migrate-cli.js
+# Local development stack (not used in Railway).
+#
+# Dependencies only (what `pnpm db:up` starts), then bootstrap and migrate from the workspace:
+#   pnpm db:up && pnpm --filter @kr/db build && node packages/db/dist/bootstrap-cli.js && node packages/db/dist/migrate-cli.js
+#
+# The whole stack from the production images, built from this checkout (api, worker, web and the ops image that
+# bootstraps the database roles and migrates, exactly as the Railway `migrate` service does):
+#   docker compose --profile stack up --build        # web on http://localhost:3000, api on :8080
+#   docker compose --profile stack down              # add -v to drop the database and signature volumes
+# Values come from .env.example (fake). Only the host names change (localhost becomes the service name) and NODE_ENV,
+# PORT and HOST are set per service. Sign-in needs a real Entra tenant or the workspace mock IdP running on the host
+# (no mock IdP is baked into any image); the stack proves the images start, migrate and talk to each other.
+# Docker hosts whose kernel has no IPv6 cannot bind `::`: start with KR_STACK_HOST=0.0.0.0 in that case.
+#
+# api and worker read .env.example whole; the variables only the ops jobs may hold (DDL and superuser credentials, backup
+# bucket) and the blank ones are removed from them below (a `null` value removes a variable from the container). The
+# ops and web services get just their own variables, with the values of .env.example.
+
+x-app-service: &app-service
+  env_file: .env.example
+  restart: "no"
+
+x-app-environment: &app-environment
+  NODE_ENV: production
+  HOST: ${KR_STACK_HOST:-::}
+  DATABASE_URL: postgres://tracker_app:local-app-password@postgres:5432/tracker
+  S3_ENDPOINT: http://s3:9090
+  CLAMAV_HOST: clamav
+  # Only the migrate and backup services hold these (ADR-0007): never the api or the worker.
+  MIGRATION_DATABASE_URL:
+  SUPERUSER_DATABASE_URL:
+  TRACKER_MIGRATOR_PASSWORD:
+  TRACKER_APP_PASSWORD:
+  BACKUP_S3_ENDPOINT:
+  BACKUP_S3_REGION:
+  BACKUP_S3_BUCKET:
+  BACKUP_S3_ACCESS_KEY_ID:
+  BACKUP_S3_SECRET_ACCESS_KEY:
+  BACKUP_RETENTION_DAYS:
+  PG_DUMP_PATH:
+  # Blank in .env.example (unset); the config schemas reject an empty string for URLs and keys.
+  OTEL_EXPORTER_OTLP_ENDPOINT:
+  OTEL_EXPORTER_OTLP_HEADERS:
+  ENTRA_ADMIN_AUTH_CONTEXT_ID:
+  ANTHROPIC_API_KEY:
+  FEEDBACK_URL:
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -8,14 +53,110 @@ services:
       POSTGRES_PASSWORD: local-superuser-password
     ports: ["5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tracker"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
   s3:
-    # S3-compatible stand-in for Railway Buckets (adobe/s3mock: no auth, path-style; bucket auto-created).
+    # S3-compatible stand-in for Railway Buckets (adobe/s3mock: no auth, path-style): the files bucket and the backup bucket.
     image: adobe/s3mock:latest
     environment:
-      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: tracker-files-local
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: tracker-files-local,tracker-backups-local
     ports: ["9090:9090"]
   clamav:
-    image: clamav/clamav:stable
+    # The production ClamAV image (infra/clamav): limits above UPLOAD_MAX_BYTES. Loading signatures takes a minute or two.
+    build: infra/clamav
+    image: kr-clamav:local
     ports: ["3310:3310"]
+    volumes: ["clamav-signatures:/var/lib/clamav"]
+
+  # ---------------------------------------------------------------- profile `stack`: the application images
+  bootstrap:
+    profiles: [stack]
+    build: { context: ., dockerfile: services/ops/Dockerfile }
+    image: kr-ops:local
+    restart: "no"
+    # One-off: creates the tracker_migrator and tracker_app roles and the schema (the operator step of ADR-0007).
+    command: ["node", "node_modules/@kr/db/dist/bootstrap-cli.js"]
+    environment:
+      SUPERUSER_DATABASE_URL: postgres://postgres:local-superuser-password@postgres:5432/tracker
+      TRACKER_MIGRATOR_PASSWORD: local-migrator-password
+      TRACKER_APP_PASSWORD: local-app-password
+    depends_on:
+      postgres: { condition: service_healthy }
+  migrate:
+    profiles: [stack]
+    build: { context: ., dockerfile: services/ops/Dockerfile }
+    image: kr-ops:local
+    restart: "no"
+    environment:
+      APP_ENV: local
+      LOG_LEVEL: debug
+      HOST: ${KR_STACK_HOST:-::}
+      PORT: "8082"
+      MIGRATION_DATABASE_URL: postgres://tracker_migrator:local-migrator-password@postgres:5432/tracker
+      BACKUP_S3_ENDPOINT: http://s3:9090
+      BACKUP_S3_REGION: auto
+      BACKUP_S3_BUCKET: tracker-backups-local
+      BACKUP_S3_ACCESS_KEY_ID: fake-backup-access-key
+      BACKUP_S3_SECRET_ACCESS_KEY: fake-backup-secret-access-key
+      S3_FORCE_PATH_STYLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8082/healthz"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    depends_on:
+      bootstrap: { condition: service_completed_successfully }
+      s3: { condition: service_started }
+  api:
+    <<: *app-service
+    profiles: [stack]
+    build: { context: ., dockerfile: services/api/Dockerfile }
+    image: kr-api:local
+    environment:
+      <<: *app-environment
+      PORT: "8080"
+    ports: ["8080:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    depends_on:
+      migrate: { condition: service_healthy }
+  worker:
+    <<: *app-service
+    profiles: [stack]
+    build: { context: ., dockerfile: services/worker/Dockerfile }
+    image: kr-worker:local
+    environment:
+      <<: *app-environment
+      PORT: "8081"
+    depends_on:
+      migrate: { condition: service_healthy }
+      clamav: { condition: service_started }
+  web:
+    profiles: [stack]
+    restart: "no"
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    image: kr-web:local
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      HOSTNAME: ${KR_STACK_HOST:-::}
+      PORT: "3000"
+      API_INTERNAL_URL: http://api:8080
+    ports: ["3000:3000"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/healthz"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    depends_on:
+      api: { condition: service_healthy }
+
 volumes:
   pgdata: {}
+  clamav-signatures: {}
