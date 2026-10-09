@@ -4,6 +4,7 @@
  * pieces are unit-testable.
  */
 import type { Logger } from "@kr/logger";
+import { describeError } from "../errors.js";
 
 export const SHUTDOWN_TIMEOUT_MS = 25_000;
 
@@ -38,7 +39,7 @@ export function createShutdown(d: ShutdownDeps): (signal: string) => Promise<voi
         for (const close of d.closers) await close();
       } catch (err) {
         code = 1;
-        d.log.error({ event: "shutdown_failed", err }, "Shutdown failed");
+        d.log.error({ event: "shutdown_failed", ...describeError(err) }, "Shutdown failed");
       }
       clearTimeout(timer);
       d.exit(code);
@@ -54,11 +55,11 @@ export function installCrashGuards(
   proc: NodeJS.EventEmitter = process,
 ): void {
   proc.on("unhandledRejection", (reason) => {
-    log.fatal({ event: "unhandled_rejection", err: reason }, "Unhandled promise rejection");
+    log.fatal({ event: "unhandled_rejection", ...describeError(reason) }, "Unhandled promise rejection");
     exit(1);
   });
   proc.on("uncaughtException", (err) => {
-    log.fatal({ event: "uncaught_exception", err }, "Uncaught exception");
+    log.fatal({ event: "uncaught_exception", ...describeError(err) }, "Uncaught exception");
     exit(1);
   });
 }

@@ -48,25 +48,41 @@ describe("createShutdown", () => {
     expect(events()).toContain("shutdown_work_abandoned");
   });
 
-  it("exits 1 and logs when a closer fails", async () => {
-    const { shutdown, exit, events } = setup(() => Promise.resolve(true), [() => Promise.reject(new Error("pool"))]);
+  it("exits 1 and logs when a closer fails, with the error's name and frames but not its message", async () => {
+    const { log, lines, events } = captureLog();
+    const exit = vi.fn<(code: number) => void>();
+    const shutdown = createShutdown({
+      drain: () => Promise.resolve(true),
+      closers: [() => Promise.reject(new Error("pool password=hunter2"))],
+      log,
+      exit,
+    });
     await shutdown("SIGTERM");
     expect(exit).toHaveBeenCalledExactlyOnceWith(1);
     expect(events()).toContain("shutdown_failed");
+    const line = lines.find((l) => l.event === "shutdown_failed");
+    expect(line).toMatchObject({ errorName: "Error" });
+    expect(line).not.toHaveProperty("err");
+    expect(JSON.stringify(lines)).not.toContain("hunter2");
   });
 });
 
 describe("installCrashGuards", () => {
   it("logs fatally and exits 1 on an unhandled rejection or uncaught exception", () => {
-    const { log, events } = captureLog();
+    const { log, lines, events } = captureLog();
     const exit = vi.fn<(code: number) => void>();
     const proc = new EventEmitter();
     installCrashGuards(log, exit, proc);
-    proc.emit("unhandledRejection", new Error("a"));
-    proc.emit("uncaughtException", new Error("b"));
-    expect(exit).toHaveBeenCalledTimes(2);
+    proc.emit("unhandledRejection", new Error("a secret=1"));
+    proc.emit("uncaughtException", new Error("b secret=2"));
+    proc.emit("unhandledRejection", "a bare string with secret=3");
+    expect(exit).toHaveBeenCalledTimes(3);
     expect(exit).toHaveBeenCalledWith(1);
-    expect(events()).toEqual(["unhandled_rejection", "uncaught_exception"]);
+    expect(events()).toEqual(["unhandled_rejection", "uncaught_exception", "unhandled_rejection"]);
+    // never the raw error: its message can carry row values, addresses or tokens (A6)
+    expect(lines.every((l) => !("err" in l))).toBe(true);
+    expect(lines.map((l) => l.errorName)).toEqual(["Error", "Error", "string"]);
+    expect(JSON.stringify(lines)).not.toContain("secret");
   });
 });
 
