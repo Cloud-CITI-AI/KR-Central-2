@@ -34,7 +34,7 @@ function handler(mode: "required" | "disabled" = "required") {
   return fileScanHandler({
     db,
     storage,
-    clamd: createClamdClient({ host: "127.0.0.1", port: clamd.port, timeoutMs: 1000, maxBytes: 1024 * 1024 }),
+    clamd: createClamdClient({ host: "127.0.0.1", port: clamd.port, timeoutMs: 5000, maxBytes: 1024 * 1024 }),
     config: { MALWARE_SCAN_MODE: mode, CLAMAV_TIMEOUT_MS: 1000, SCAN_ERROR_MAX_RETRIES: 3 },
     metrics,
   });

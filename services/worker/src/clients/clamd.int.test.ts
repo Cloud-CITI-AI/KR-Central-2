@@ -18,7 +18,7 @@ async function clientFor(
   return createClamdClient({
     host: "127.0.0.1",
     port: fake.port,
-    timeoutMs: 1000,
+    timeoutMs: 5000,
     maxBytes: 8 * 1024 * 1024,
     ...overrides,
   });

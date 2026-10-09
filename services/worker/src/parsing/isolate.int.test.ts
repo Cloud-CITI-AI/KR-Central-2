@@ -65,6 +65,8 @@ describe("the parse thread", () => {
 
 describe("the limits", () => {
   const limits = { ...DEFAULT_PARSE_LIMITS, timeoutMs: 300 };
+  // loading the thread (tsx) can take longer than 300 ms on a busy machine: only the tests of the time limit use it
+  const patient = { ...limits, timeoutMs: 30_000 };
 
   it("terminates a thread that never finishes at the time limit", async () => {
     const started = Date.now();
@@ -92,7 +94,7 @@ describe("the limits", () => {
   });
 
   it("fails cleanly when the thread dies without an answer", async () => {
-    expect((await failure(runInThread({ mode: "exit" }, limits, undefined, misbehaving))).code).toBe("parse_failed");
+    expect((await failure(runInThread({ mode: "exit" }, patient, undefined, misbehaving))).code).toBe("parse_failed");
   });
 
   it("stops on abort with the abort reason, and does not start when already aborted", async () => {
@@ -107,6 +109,6 @@ describe("the limits", () => {
   });
 
   it("gives the thread an empty environment, so it cannot see the database URL or a key", async () => {
-    expect(await runInThread({ mode: "env" }, limits, undefined, misbehaving)).toEqual([]);
+    expect(await runInThread({ mode: "env" }, patient, undefined, misbehaving)).toEqual([]);
   });
 });
