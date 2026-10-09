@@ -34,3 +34,12 @@ export function getEnv(): Env {
   if (typeof window !== "undefined") throw new EnvError(["server-only"]);
   return parseEnv(process.env);
 }
+
+/**
+ * Only the optional feedback link: public pages and the footer must render even when the API URL is missing
+ * (the web tier starts and answers /api/healthz regardless). Invalid or empty means no link.
+ */
+export function getFeedbackUrl(): string | undefined {
+  const parsed = EnvSchema.shape.FEEDBACK_URL.safeParse(process.env.FEEDBACK_URL);
+  return parsed.success ? parsed.data : undefined;
+}

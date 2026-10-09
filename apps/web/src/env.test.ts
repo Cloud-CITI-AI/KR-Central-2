@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { EnvError, parseEnv } from "./env";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { EnvError, getFeedbackUrl, parseEnv } from "./env";
 
 describe("parseEnv", () => {
   it("parses the API URL (trailing slash removed) and an optional feedback URL", () => {
@@ -25,5 +25,20 @@ describe("parseEnv", () => {
       expect((error as EnvError).message).not.toContain("javascript");
     }
     expect(() => parseEnv({})).toThrow(/API_INTERNAL_URL/);
+  });
+});
+
+describe("getFeedbackUrl", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("returns the URL, or undefined when unset, empty or invalid (never throws)", () => {
+    vi.stubEnv("FEEDBACK_URL", "https://forms.example.com/f");
+    expect(getFeedbackUrl()).toBe("https://forms.example.com/f");
+    vi.stubEnv("FEEDBACK_URL", "");
+    expect(getFeedbackUrl()).toBeUndefined();
+    vi.stubEnv("FEEDBACK_URL", "javascript:alert(1)");
+    expect(getFeedbackUrl()).toBeUndefined();
   });
 });
