@@ -1,3 +1,5 @@
+# Build context for every Dockerfile in this repo (context = repository root). Keep secrets, VCS data, CI/agent
+# configuration, docs and local build output out of the context so none of it can reach an image layer.
 **/node_modules
 **/dist
 **/.next
@@ -5,7 +7,18 @@
 **/.stryker-tmp
 **/test-results
 **/playwright-report
+**/*.log
+**/.DS_Store
 .git
-.env
-.env.*
-!.env.example
+.github
+.claude
+.cursor
+docs
+
+# Secrets: environment files (only the fake-valued example is allowed), keys and certificates.
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/*.p12
