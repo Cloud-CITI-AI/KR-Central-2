@@ -12,6 +12,7 @@ import { registerErrorHandling } from "./platform/errors.js";
 import { registerHealthRoutes } from "./platform/health.js";
 import type { ApiModule, ModuleDeps } from "./platform/module.js";
 import { trackOperations } from "./platform/routes.js";
+import { registerRateLimits } from "./platform/rate-limit.js";
 import { registerSessionAuth } from "./platform/session-auth.js";
 
 export { registeredOperations, unregisteredOperations } from "./platform/routes.js";
@@ -29,6 +30,11 @@ export interface BuildAppOptions {
   readonly modules?: readonly ApiModule[];
 }
 
+/** proxy-addr semantics of a hop count: trust the N nearest hops, 0 trusts nobody. */
+export function trustHops(hops: number): boolean | ((address: string, hop: number) => boolean) {
+  return hops === 0 ? false : (_address, hop) => hop < hops;
+}
+
 export async function buildApp(deps: ModuleDeps, opts: BuildAppOptions = {}): Promise<FastifyInstance> {
   const loggerInstance: FastifyBaseLogger = deps.log;
   const app: FastifyInstance = Fastify({
@@ -36,6 +42,8 @@ export async function buildApp(deps: ModuleDeps, opts: BuildAppOptions = {}): Pr
     // Our own request_completed line (below) replaces Fastify's: it must not log the query string (OIDC code/state).
     logController: new LogController({ disableRequestLogging: true, requestIdLogLabel: "requestId" }),
     genReqId: requestIdFor,
+    // One trusted hop: the web BFF, which forwards the edge's X-Forwarded-For unchanged (ADR-0005).
+    trustProxy: trustHops(deps.config.TRUST_PROXY_HOPS),
   });
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -65,6 +73,7 @@ export async function buildApp(deps: ModuleDeps, opts: BuildAppOptions = {}): Pr
   });
 
   await registerSessionAuth(app, deps);
+  registerRateLimits(app, deps);
   registerCsrf(app, deps);
   registerHealthRoutes(app, deps);
   for (const mod of opts.modules ?? MODULES) {

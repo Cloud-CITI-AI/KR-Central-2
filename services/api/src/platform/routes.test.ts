@@ -71,6 +71,15 @@ describe("defineRoute", () => {
     await t.close();
   });
 
+  it("defaults to the contract's redirect status on routes that only redirect (302)", async () => {
+    const t = await appWith((app) => {
+      defineRoute(app, "startLogin", async ({ reply }) => reply.header("location", "/idp").send());
+    }, false);
+    const res = await t.app.inject({ url: "/v1/auth/login" });
+    expect([res.statusCode, res.headers.location]).toEqual([302, "/idp"]);
+    await t.close();
+  });
+
   it("answers 500 without internals when a handler breaks its response contract", async () => {
     const t = await appWith((app) => {
       defineRoute(app, "logout", ({ auth }) => {

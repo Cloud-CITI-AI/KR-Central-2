@@ -74,10 +74,12 @@ export function defineRoute<Id extends OperationId>(
   const def = getRoute(operationId);
   const request = def.request;
   const headers = remainingHeaderSchema(request?.headers);
-  const successStatuses = Object.keys(def.responses)
-    .map(Number)
-    .filter((s) => s >= 200 && s < 300);
-  const defaultStatus = Math.min(...successStatuses);
+  // The lowest non-error status: 200/201/202 for JSON routes, 302 for the redirecting auth routes.
+  const defaultStatus = Math.min(
+    ...Object.keys(def.responses)
+      .map(Number)
+      .filter((s) => s >= 200 && s < 400),
+  );
   const wantsIfMatch = request?.headers instanceof z.ZodObject && "if-match" in request.headers.shape;
   const schema = {
     ...(request?.params ? { params: request.params } : {}),

@@ -3,7 +3,7 @@ import { parseConfig } from "@kr/config";
 import { ROUTES } from "@kr/contracts";
 import { describe, expect, it } from "vitest";
 import { createTestApp, dummyDb } from "../test/helpers/index.js";
-import { registeredOperations, requestIdFor, unregisteredOperations } from "./app.js";
+import { registeredOperations, requestIdFor, trustHops, unregisteredOperations } from "./app.js";
 import { ApiConfigSchema } from "./config.js";
 import { MODULES } from "./modules/index.js";
 
@@ -39,6 +39,14 @@ describe("platform behaviour", () => {
       expect(res.json()).toMatchObject({ type: "urn:kr:problem:unauthenticated", status: 401 });
     }
     await t.close();
+  });
+});
+
+describe("trustHops", () => {
+  it("trusts the N nearest hops (proxy-addr semantics) and nobody for 0", () => {
+    expect(trustHops(0)).toBe(false);
+    const one = trustHops(1) as (address: string, hop: number) => boolean;
+    expect([one("10.0.0.1", 0), one("203.0.113.5", 1)]).toEqual([true, false]);
   });
 });
 
