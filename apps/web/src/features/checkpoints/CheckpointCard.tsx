@@ -3,6 +3,7 @@ import type { CheckpointState, JobDetail } from "@kr/contracts";
 import { STATUS_LABELS, type CheckpointDefinition, type Panel } from "@kr/workflow";
 import { useId } from "react";
 import { ConditionsPanel } from "@/features/conditions";
+import { ApprovalPanel } from "./ApprovalPanel";
 import { assertNever } from "./assertNever";
 import { CheckpointControls } from "./CheckpointControls";
 import { CheckpointTags } from "./CheckpointTags";
@@ -42,6 +43,7 @@ function PanelView({ panel, job, checkpoint }: PanelViewProps) {
     case "survey":
       return <SurveyPanel job={job} checkpoint={checkpoint} panel={panel} />;
     case "approval":
+      return <ApprovalPanel job={job} checkpoint={checkpoint} panel={panel} />;
     case "paid":
     case "kr_note":
     case "conformance":

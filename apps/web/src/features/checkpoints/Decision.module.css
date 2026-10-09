@@ -1,0 +1,14 @@
+/* prototype .dec, .dec-form */
+.dec {
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.form {
+  display: grid;
+  gap: 6px;
+}
+.formTitle {
+  font-weight: 700;
+}

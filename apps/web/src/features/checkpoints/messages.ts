@@ -13,3 +13,8 @@ export function uploadedText(count: number): string {
 export function fileCountText(count: number, empty: string, noun = "file"): string {
   return count === 0 ? empty : `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
+
+/** The decline form's error when the reason is missing: "…why the fee proposal is declined." (the prototype always said "quote"). */
+export function declineNeedsCommentText(noun: string): string {
+  return `Add a comment explaining why the ${noun} is declined.`;
+}

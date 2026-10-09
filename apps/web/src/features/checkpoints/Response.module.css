@@ -1,0 +1,65 @@
+/* prototype .dec-label, .dec .row, .dec-btn.acc/.dcl, .dec-result, .dec-c, .msg: the client response and decision boxes */
+.label {
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+button.accept,
+button.decline {
+  font-weight: 600;
+}
+button.accept {
+  border-color: var(--green-line);
+  color: var(--green-ink);
+}
+button.accept:hover:not(:disabled) {
+  background: var(--green-bg);
+}
+button.decline {
+  border-color: var(--red-line);
+  color: var(--red-ink);
+}
+button.decline:hover:not(:disabled) {
+  background: var(--red-bg);
+}
+.result {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--green-line);
+  border-radius: var(--radius);
+  background: var(--green-bg);
+}
+.result[data-v="declined"] {
+  border-color: var(--red-line);
+  background: var(--red-bg);
+}
+.result b {
+  color: var(--green-ink);
+}
+.result[data-v="declined"] b {
+  color: var(--red-ink);
+}
+.date {
+  color: var(--ink-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.change {
+  margin-left: auto;
+}
+.comment {
+  color: var(--ink-2);
+  font-style: italic;
+}
+.msg {
+  color: var(--red-ink);
+  font-size: 12px;
+}
