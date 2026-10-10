@@ -217,7 +217,7 @@ describe("updateJob (real Postgres)", () => {
     });
   });
 
-  it("keeps an outcome date sent with the conformed date, edits it alone, and clears the conformed date", async () => {
+  it("keeps an outcome date sent with the conformed date, edits it alone, and clearing the conformed date clears the outcome date too", async () => {
     const job = await fresh();
     const both = await patch(staff, job, { conformedDate: "2026-02-10", outcomeDate: "2026-06-01" });
     expect(both.json<Detail>()).toMatchObject({ conformedDate: "2026-02-10", outcomeDate: "2026-06-01", version: 2 });
@@ -227,8 +227,13 @@ describe("updateJob (real Postgres)", () => {
     expect(cleared.json<Detail>()).toMatchObject({
       conformedDate: null,
       conformedSource: null,
-      outcomeDate: "2026-07-01",
+      outcomeDate: null,
     });
+    expect(await row(job.id)).toMatchObject({ conformed_date: null, outcome_date: null });
+    const again = await patch(staff, job, { conformedDate: "2026-09-01" }, 4);
+    expect(again.json<Detail>()).toMatchObject({ conformedDate: "2026-09-01", outcomeDate: "2026-11-30" });
+    const clearedWithDeferral = await patch(staff, job, { conformedDate: null, outcomeDate: "2026-12-25" }, 5);
+    expect(clearedWithDeferral.json<Detail>()).toMatchObject({ conformedDate: null, outcomeDate: "2026-12-25" });
   });
 
   it("rejects an empty body, unknown fields, bad dates and bad numbers with 400", async () => {

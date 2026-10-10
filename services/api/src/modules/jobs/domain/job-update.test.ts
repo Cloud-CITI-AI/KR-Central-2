@@ -96,15 +96,29 @@ describe("planJobUpdate", () => {
     expect(planJobUpdate(read, { conformedDate: "2026-03-01", outcomeDate: null }).set.outcome_date).toBeNull();
   });
 
-  it("clears the conformed date and its provenance but leaves the outcome date alone", () => {
+  it("clears the conformed date, its provenance and the outcome date that was tied to it (R10)", () => {
     const plan = planJobUpdate(read, { conformedDate: null });
     expect(plan.set).toEqual({
       conformed_date: null,
       conformed_method: null,
       conformed_file_id: null,
       conformed_stamp_text: null,
+      outcome_date: null,
     });
-    expect(plan.set).not.toHaveProperty("outcome_date");
+    expect(plan.changes).toMatchObject({ outcomeDate: { from: "2026-05-11", to: null } });
+  });
+
+  it("keeps an outcome date sent together with a cleared conformed date", () => {
+    const plan = planJobUpdate(read, { conformedDate: null, outcomeDate: "2026-07-01" });
+    expect(plan.set).toMatchObject({ conformed_date: null, outcome_date: "2026-07-01" });
+  });
+
+  it("clearing a conformed date with no outcome date stored changes only the conformed columns", () => {
+    const manual: CurrentJob = { ...current, conformed_date: "2026-02-10", conformed_method: "manual" };
+    expect(planJobUpdate(manual, { conformedDate: null }).set).toEqual({
+      conformed_date: null,
+      conformed_method: null,
+    });
   });
 
   it("does not turn a read conformed date into a manual one when the same date is sent again", () => {

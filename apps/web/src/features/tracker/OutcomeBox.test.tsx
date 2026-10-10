@@ -2,7 +2,7 @@ import type { JobDetail } from "@kr/contracts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fireEvent } from "@testing-library/react";
-import { HttpResponse } from "msw";
+import { delay, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { queryKeys } from "@/lib/api";
 import { expectNoAxeViolations } from "@/test/axe";
@@ -181,5 +181,41 @@ describe("OutcomeBox", () => {
     expect(
       await within(timer()).findByText("Outcome date passed – Sun, 14 Jun 2026", {}, { timeout: 3000 }),
     ).toBeInTheDocument();
+  });
+
+  it("clearing the conformed date stops the countdown at once: the outcome date goes and the prompt returns", async () => {
+    const job = syntheticJob({
+      fields: {
+        conformedDate: "2027-12-01",
+        outcomeDate: "2028-02-29",
+        conformedSource: { method: "manual", fileName: null, stampText: null },
+      },
+    });
+    function Live() {
+      const { data } = useJob(job.id);
+      return data ? <OutcomeBox job={data} /> : null;
+    }
+    const bodies: unknown[] = [];
+    server.use(
+      mockApi("getJob", job),
+      handlerFor("updateJob", async ({ request }) => {
+        bodies.push(await request.json());
+        await delay("infinite");
+        return HttpResponse.json(job);
+      }),
+    );
+    renderTracker(<Live />);
+    await screen.findByRole("group", { name: "WAPC outcome" });
+    expect(timer()).toHaveTextContent("Tue, 29 Feb 2028");
+    fireEvent.change(screen.getByLabelText("Conformed date"), { target: { value: "" } });
+    await waitFor(() => {
+      expect(bodies).toEqual([{ conformedDate: null }]);
+    });
+    expect(screen.getByLabelText("WAPC outcome date")).toHaveValue("");
+    expect(timer()).toHaveTextContent(
+      "Drop the Conformance Notification in 4.2, or enter the conformed date, to start the countdown",
+    );
+    expect(box()).toHaveTextContent("90 days after the conformed date");
+    expect(box()).not.toHaveTextContent("Changed by hand");
   });
 });

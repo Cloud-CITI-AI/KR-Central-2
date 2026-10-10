@@ -33,15 +33,23 @@ describe("applyJobEdit", () => {
     expect(edited.conformedSource?.method).toBe("manual");
   });
 
-  it("keeps an outcome date sent with the conformed date, and an outcome date when the conformed date is cleared", () => {
+  it("keeps an outcome date sent with the conformed date, also when the conformed date is cleared", () => {
     expect(applyJobEdit(job, { conformedDate: "2026-03-16", outcomeDate: "2026-07-01" }).outcomeDate).toBe(
       "2026-07-01",
     );
     const withDates = { ...job, conformedDate: "2026-03-16", outcomeDate: "2026-06-14" };
+    expect(applyJobEdit(withDates, { conformedDate: null, outcomeDate: "2026-07-01" })).toMatchObject({
+      conformedDate: null,
+      outcomeDate: "2026-07-01",
+    });
+  });
+
+  it("clears the outcome date with the conformed date, like the API (R10), so the countdown stops", () => {
+    const withDates = { ...job, conformedDate: "2026-03-16", outcomeDate: "2026-07-01" };
     expect(applyJobEdit(withDates, { conformedDate: null })).toMatchObject({
       conformedDate: null,
       conformedSource: null,
-      outcomeDate: "2026-06-14",
+      outcomeDate: null,
     });
   });
 

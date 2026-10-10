@@ -9,7 +9,7 @@ import { MESSAGES, saveFailedText } from "@/lib/messages";
 
 export type UpdateJobBody = z.output<typeof UpdateJobRequest>;
 
-/** Show an edit at once, the way the API will answer it: a manual conformed date resets the outcome date to +90 days (R10). */
+/** Show an edit at once, the way the API will answer it: a manual conformed date resets the outcome date to +90 days and clearing it clears the outcome date (R10). */
 export function applyJobEdit(job: JobDetail, body: UpdateJobBody): JobDetail {
   const { conformedDate, ...rest } = body;
   const sent = Object.entries(rest).filter(([, value]) => value !== undefined);
@@ -20,7 +20,11 @@ export function applyJobEdit(job: JobDetail, body: UpdateJobBody): JobDetail {
     conformedDate,
     conformedSource: conformedDate === null ? null : { method: "manual", fileName: null, stampText: null },
     outcomeDate:
-      body.outcomeDate === undefined && conformedDate !== null ? outcomeDateFor(conformedDate) : edited.outcomeDate,
+      body.outcomeDate !== undefined
+        ? edited.outcomeDate
+        : conformedDate === null
+          ? null
+          : outcomeDateFor(conformedDate),
   };
 }
 

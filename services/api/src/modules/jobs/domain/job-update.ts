@@ -3,7 +3,8 @@
  * current row and returns only the columns that change, plus the audit diff (API field names, {from, to}).
  *
  * Manual conformed date: setting `conformedDate` records method "manual", forgets the file and stamp text of an earlier
- * reading, and sets the outcome date to conformed + 90 days (R10) unless the request also sends `outcomeDate`.
+ * reading, and sets the outcome date to conformed + 90 days (R10) unless the request also sends `outcomeDate`. Clearing
+ * `conformedDate` clears the outcome date the same way (a deferral typed meanwhile goes with it; send `outcomeDate` to keep one).
  */
 import type { UpdateJobRequest } from "@kr/contracts";
 import type { AuditChanges, JobRow } from "@kr/db";
@@ -59,8 +60,9 @@ export function planJobUpdate(current: CurrentJob, body: UpdateBody): JobUpdateP
     apply("conformedMethod", "conformed_method", body.conformedDate === null ? null : "manual");
     apply("conformedFileId", "conformed_file_id", null);
     apply("conformedStampText", "conformed_stamp_text", null);
-    if (body.outcomeDate === undefined && body.conformedDate !== null) {
-      apply("outcomeDate", "outcome_date", outcomeDateFor(body.conformedDate));
+    // R10 ties the outcome date to the conformed date: set it to +90 days, and clear it with the conformed date.
+    if (body.outcomeDate === undefined) {
+      apply("outcomeDate", "outcome_date", body.conformedDate === null ? null : outcomeDateFor(body.conformedDate));
     }
   }
   apply("outcomeDate", "outcome_date", body.outcomeDate);
