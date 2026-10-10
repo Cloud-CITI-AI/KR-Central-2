@@ -21,7 +21,10 @@ kinds come from `@kr/workflow` (`findSlot`), permissions from `@kr/contracts`, s
 - Multipart, fields first (`checkpointKey` + `slot`, or `conditionId`), then one `file` part. The file is never
   buffered: it is capped at `UPLOAD_MAX_BYTES` (413 with "<name> is larger than N MB."), the first `SNIFF_BYTES` are
   sniffed (`classifyContent`; the name and the declared type are never trusted), the slot's accept list is enforced
-  (415 with a reason), then the stream goes to storage while the sha256 is computed.
+  (415 with a reason), then the stream goes to storage while the sha256 is computed. Text is TXT, CSV or MD only (an
+  allow-list on the name; an .eml must be an RFC 822 message, 8-bit charsets included), and the multipart file name is
+  decoded for the %22, %0D and %0A a browser applies before it is sanitised. A body that is not valid multipart is a
+  400 "The request could not be parsed."; an unreachable bucket is a 503 (`urn:kr:problem:storage-unavailable`).
 - Order of checks: job visibility (404) -> fields (400) -> capability (403) -> condition is current on this job (404)
   -> bytes. Nothing is stored for a request that fails a check; an object written for a request that later fails
   (a trailing part, a failing transaction, an `Idempotency-Key` replay) is deleted again.
@@ -61,8 +64,10 @@ kinds come from `@kr/workflow` (`findSlot`), permissions from `@kr/contracts`, s
 ## downloadJobPackage
 
 - Streamed with archiver, no temp files: entries are added one at a time and each storage object is opened only after
-  the previous entry was written. A storage failure destroys the response (the download fails, no short zip); a
-  disconnect stops the reads.
+  the previous entry was written. Before any byte is sent the job's objects are listed once: an unlistable store is a
+  503, and a file whose object is gone is left out and named under "FILES NOT INCLUDED" in `Job summary.txt` (logged as
+  `file_object_missing`). A storage failure after that destroys the response (no silently short zip); a disconnect
+  stops the reads.
 - Name `<job number> – subdivision files.zip`, top folder `<job number> – <address>`, a folder per stage, a sub-folder
   per checkpoint (emails in `/Query emails`), condition evidence under the stage of its agency, duplicates suffixed
   ` (2)`, and `Job summary.txt` first (job line, download time, conformed and outcome dates, every stage and checkpoint
@@ -81,7 +86,7 @@ free text are never copied into the audit trail.
 | `file.uploaded`          | `file` / file id            | `name`, `kind`, `sizeBytes` (all `{from: null, to}`), plus `checkpointKey` + `slot` or `conditionId` |
 | `file.deleted`           | `file` / file id            | `deleted: {from: false, to: true}`, `name: {from: <name>, to: null}`                                 |
 | `email.pasted`           | `file` / file id            | `textLength: {from: null, to}`                                                                       |
-| `job.package_downloaded` | `job` / job id              | `fileCount: {from: null, to}`                                                                        |
+| `job.package_downloaded` | `job` / job id              | `fileCount: {from: null, to}`, plus `missingCount` when objects were skipped                         |
 
 ## Contract notes
 

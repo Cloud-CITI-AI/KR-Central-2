@@ -45,3 +45,8 @@ Releases are prepared by release-please from Conventional Commits.
 - Page titles name the page: "Dashboard", "<job number> – <address>" and "Page not found".
 - The audit trail's Job column shows the job number (`AuditEvent.jobNumber`, also for archived jobs) in the accent link colour instead of a UUID prefix.
 - Admin pages have a Dashboard button, the header logo links to the dashboard, and the Users and Audit trail tabs use the ink colour.
+- API: a NUL character (U+0000) in any text field, query or path parameter is refused with a 400 naming the field instead of a 500 (Postgres 22021); dates outside 1900-01-01..2199-12-31 and malformed multipart uploads are 400s too.
+- API: when object storage is unreachable, uploads, downloads and the job package answer 503 with `Retry-After` and the new problem type `urn:kr:problem:storage-unavailable` ("File storage is temporarily unavailable. Try again shortly.") instead of a 500.
+- Files: text is accepted only under a `.txt`, `.csv` or `.md` name (415 otherwise) and files already stored with another extension are downloaded and zipped as `.txt`; an 8-bit `.eml` in a non-UTF-8 charset is accepted; browser-escaped quotes and line breaks in upload names are decoded.
+- Job package: a file whose object is missing from the bucket is skipped and listed under "FILES NOT INCLUDED" in Job summary.txt instead of cutting the zip short, and a package that cannot be produced is no longer audited.
+- Alerts: "expires in 1 day", "due in 1 day" and "1 condition needs its agency checked" (singular wording); `isIsoDate` handles years below 100.
