@@ -60,7 +60,7 @@ describe("file.scan", () => {
   it("marks a clean file clean and leaves the object in place", async () => {
     const file = await insertFile(db, storage, jobId);
     const { outcome } = await run(file.id);
-    expect(outcome).toEqual({ result: { scanStatus: "clean" } });
+    expect(outcome).toEqual({ result: { scanStatus: "clean", followUpOperationId: null } });
     const row = await fileRow(db, file.id);
     expect(row.scan_status).toBe("clean");
     expect(row.scanned_at).toBeInstanceOf(Date);
@@ -71,7 +71,7 @@ describe("file.scan", () => {
   it("deletes an infected object, records the signature, audits as the system and alerts through the log and a metric", async () => {
     const file = await insertFile(db, storage, jobId, { bytes: `a ${FAKE_VIRUS} b` });
     const { ctx, outcome } = await run(file.id);
-    expect(outcome).toEqual({ result: { scanStatus: "infected" } });
+    expect(outcome).toEqual({ result: { scanStatus: "infected", followUpOperationId: null } });
     const row = await fileRow(db, file.id);
     expect([row.scan_status, row.scan_detail]).toEqual(["infected", "Fake.Virus-1"]);
     expect(await storage.exists(file.key)).toBe(false);
@@ -90,7 +90,7 @@ describe("file.scan", () => {
   it("leaves a verdict that is already recorded alone when it is re-run", async () => {
     const file = await insertFile(db, storage, jobId, { scanStatus: "clean" });
     const before = await fileRow(db, file.id);
-    expect((await run(file.id)).outcome).toEqual({ result: { scanStatus: "clean" } });
+    expect((await run(file.id)).outcome).toEqual({ result: { scanStatus: "clean", followUpOperationId: null } });
     expect(await fileRow(db, file.id)).toEqual(before);
   });
 
@@ -103,14 +103,16 @@ describe("file.scan", () => {
   it("skips scanning when it is switched off", async () => {
     const file = await insertFile(db, storage, jobId);
     await clamd.stop();
-    expect((await run(file.id, { mode: "disabled" })).outcome).toEqual({ result: { scanStatus: "skipped" } });
+    expect((await run(file.id, { mode: "disabled" })).outcome).toEqual({
+      result: { scanStatus: "skipped", followUpOperationId: null },
+    });
     expect((await fileRow(db, file.id)).scan_status).toBe("skipped");
   });
 
   it("ignores a file that was deleted meanwhile", async () => {
     const file = await insertFile(db, storage, jobId);
     await db.updateTable("files").set({ deleted_at: new Date() }).where("id", "=", file.id).execute();
-    expect((await run(file.id)).outcome).toEqual({ result: { scanStatus: "gone" } });
+    expect((await run(file.id)).outcome).toEqual({ result: { scanStatus: "gone", followUpOperationId: null } });
     expect((await fileRow(db, file.id)).scan_status).toBe("pending");
   });
 
@@ -152,16 +154,20 @@ describe("file.scan: email follow-up", () => {
 
   it("queues email.parse once for a clean uploaded email, even when the scan is re-run", async () => {
     const file = await emailFile();
-    await run(file.id);
-    await run(file.id);
+    const first = await run(file.id);
+    const second = await run(file.id);
     const ops = await queued(file.id);
     expect(ops).toHaveLength(1);
     expect(ops[0]).toMatchObject({ status: "queued", created_by: null });
+    // The scan's result names the parse, and a re-run names the one already queued.
+    const expected = { result: { scanStatus: "clean", followUpOperationId: ops[0]?.id } };
+    expect(first.outcome).toEqual(expected);
+    expect(second.outcome).toEqual(expected);
   });
 
   it("does not queue it for a pasted or already parsed email, or for infected content", async () => {
     const pasted = await emailFile({ pasted: true, status: "parsed" });
-    await run(pasted.id);
+    expect((await run(pasted.id)).outcome).toEqual({ result: { scanStatus: "clean", followUpOperationId: null } });
     expect(await queued(pasted.id)).toHaveLength(0);
     const bad = await insertFile(db, storage, jobId, {
       kind: "email",
@@ -197,10 +203,14 @@ describe("file.scan: conformance read follow-up (PRODUCT_SPEC §5.5 conformance)
 
   it("queues one conformance.read for a clean PDF in 4.2 / conformance, even when the scan is re-run", async () => {
     const file = await notice();
-    await run(file.id);
-    await run(file.id);
+    const first = await run(file.id);
+    const second = await run(file.id);
     const ops = await reads(file.id);
     expect(ops).toHaveLength(1);
+    // The scan's result names the read, and a re-run names the one already queued instead of queuing another.
+    const expected = { result: { scanStatus: "clean", followUpOperationId: ops[0]?.id } };
+    expect(first.outcome).toEqual(expected);
+    expect(second.outcome).toEqual(expected);
     expect(ops[0]).toMatchObject({
       status: "queued",
       created_by: null,
@@ -211,17 +221,23 @@ describe("file.scan: conformance read follow-up (PRODUCT_SPEC §5.5 conformance)
   it("queues it for a skipped scan (scanning disabled) and passes the AI flag as it stands", async () => {
     const file = await notice();
     const op = await enqueue(db, jobId, "file.scan", { fileId: file.id });
-    await handler("disabled", true).run(handlerContext(op));
+    const result = await handler("disabled", true).run(handlerContext(op));
     expect((await fileRow(db, file.id)).scan_status).toBe("skipped");
-    expect(await reads(file.id)).toMatchObject([{ payload: { fileId: file.id, allowAi: true } }]);
+    const ops = await reads(file.id);
+    expect(ops).toMatchObject([{ payload: { fileId: file.id, allowAi: true } }]);
+    expect(result).toEqual({ scanStatus: "skipped", followUpOperationId: ops[0]?.id });
   });
 
   it("queues a new one when the earlier read failed, but not while one is queued or running", async () => {
     const file = await notice();
     await run(file.id);
     await db.updateTable("operations").set({ status: "failed" }).where("type", "=", "conformance.read").execute();
-    await run(file.id);
-    expect((await reads(file.id)).map((o) => o.status).sort()).toEqual(["failed", "queued"]);
+    const again = await run(file.id);
+    const ops = await reads(file.id);
+    expect(ops.map((o) => o.status).sort()).toEqual(["failed", "queued"]);
+    expect(again.outcome).toEqual({
+      result: { scanStatus: "clean", followUpOperationId: ops.find((o) => o.status === "queued")?.id },
+    });
   });
 
   it("queues none for another slot or checkpoint, a non-PDF, or infected content", async () => {
@@ -230,7 +246,7 @@ describe("file.scan: conformance read follow-up (PRODUCT_SPEC §5.5 conformance)
       await notice({ kind: "image", name: "scan.png" }),
       await notice({ bytes: FAKE_VIRUS }),
     ]) {
-      await run(file.id);
+      expect((await run(file.id)).outcome).toMatchObject({ result: { followUpOperationId: null } });
     }
     expect(await reads()).toHaveLength(0);
   });

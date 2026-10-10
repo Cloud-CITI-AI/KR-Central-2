@@ -225,6 +225,33 @@ describe("uploadFile (real Postgres, in-memory storage)", () => {
     await local.close();
   });
 
+  it("with scanning disabled the read it starts carries allowAi from the ai-stamp-reading flag as it stands", async () => {
+    const local = await createTestApp({
+      config: testConfig({ MALWARE_SCAN_MODE: "disabled" }),
+      flags: { "ai-stamp-reading": true },
+    });
+    const lf = createFactories(local.db, 191);
+    const user = await signIn(local, await lf.makeUser({ role: "staff" }));
+    const job = await lf.makeJob();
+    const res = await uploadFile(local, {
+      jobId: job.id,
+      as: user,
+      fields: { checkpointKey: "i4_2", slot: "conformance" },
+      file: { name: "Conformance Notification 2026-07-20.pdf", data: pdfBytes() },
+    });
+    expect(res.statusCode).toBe(201);
+    const op = await local.db
+      .selectFrom("operations")
+      .selectAll()
+      .where("job_id", "=", job.id)
+      .executeTakeFirstOrThrow();
+    expect(op).toMatchObject({
+      type: "conformance.read",
+      payload: { fileId: res.json<UploadBody>().file.id, allowAi: true },
+    });
+    await local.close();
+  });
+
   it("refuses executables, empty files and files of a kind the slot does not take", async () => {
     const job = await fresh();
     const exe = Buffer.concat([Buffer.from("MZ"), Buffer.alloc(100)]);

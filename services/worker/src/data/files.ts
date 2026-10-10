@@ -76,16 +76,17 @@ export function auditInfected(trx: Transaction<Database>, file: ScanFile, signat
 
 /**
  * After a file passes the scan: an uploaded email (not a pasted one, which is already parsed) gets its email.parse, unless
- * one was queued, ran or is running (a re-run after a lease expiry must not queue a second).
+ * one was queued, ran or is running (a re-run after a lease expiry must not queue a second). Returns the id of the task queued
+ * or already queued, or null when there is none to follow.
  */
-export async function queueEmailParse(trx: Transaction<Database>, file: ScanFile): Promise<boolean> {
-  if (file.kind !== "email") return false;
+export async function queueEmailParse(trx: Transaction<Database>, file: ScanFile): Promise<string | null> {
+  if (file.kind !== "email") return null;
   const email = await trx
     .selectFrom("email_messages")
     .select(["parse_status", "is_pasted"])
     .where("file_id", "=", file.id)
     .executeTakeFirst();
-  if (email?.parse_status !== "pending" || email.is_pasted) return false;
+  if (email?.parse_status !== "pending" || email.is_pasted) return null;
   const existing = await trx
     .selectFrom("operations")
     .select("id")
@@ -93,28 +94,28 @@ export async function queueEmailParse(trx: Transaction<Database>, file: ScanFile
     .where(sql<string>`payload->>'fileId'`, "=", file.id)
     .where("status", "<>", "failed")
     .executeTakeFirst();
-  if (existing) return false;
-  await enqueueOperation(trx, {
+  if (existing) return existing.id;
+  const queued = await enqueueOperation(trx, {
     jobId: file.job_id,
     type: "email.parse",
     payload: { fileId: file.id },
     createdBy: null,
   });
-  return true;
+  return queued.id;
 }
 
 /**
  * After a PDF passes the scan in the Conformance Notification slot (4.2): queues the conformance.read that PRODUCT_SPEC §5.5
  * says an upload starts, unless one was queued, ran or is running for this file (a re-run after a lease expiry must not queue a
- * second; a failed one does not count). `allowAi` is the `ai-stamp-reading` flag as it stands now, like the manual request.
+ * second; a failed one does not count). Returns the id of the read queued or already queued, or null. `allowAi` is the `ai-stamp-reading` flag as it stands now, like the manual request.
  */
 export async function queueConformanceRead(
   trx: Transaction<Database>,
   file: ScanFile,
   allowAi: boolean,
-): Promise<boolean> {
+): Promise<string | null> {
   if (file.kind !== "pdf" || file.checkpoint_key !== CONFORMANCE_CHECKPOINT_KEY || file.slot !== CONFORMANCE_SLOT) {
-    return false;
+    return null;
   }
   const existing = await trx
     .selectFrom("operations")
@@ -123,14 +124,14 @@ export async function queueConformanceRead(
     .where(sql<string>`payload->>'fileId'`, "=", file.id)
     .where("status", "<>", "failed")
     .executeTakeFirst();
-  if (existing) return false;
-  await enqueueOperation(trx, {
+  if (existing) return existing.id;
+  const queued = await enqueueOperation(trx, {
     jobId: file.job_id,
     type: "conformance.read",
     payload: { jobId: file.job_id, fileId: file.id, allowAi },
     createdBy: null,
   });
-  return true;
+  return queued.id;
 }
 
 export type DocumentFile = FileRow;
