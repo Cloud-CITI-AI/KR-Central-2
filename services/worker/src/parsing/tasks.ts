@@ -12,10 +12,13 @@ export interface TaskInputs {
   "decision-letter": { readonly data: Uint8Array; readonly maxPages: number };
   /** Page 1 text lines and annotation texts. */
   "pdf-first-page": { readonly data: Uint8Array; readonly maxPages: number };
-  /** The conformed date offered by a stamp annotation and by the text of page 1 (the two readers that need no AI). */
-  "conformance-page": { readonly data: Uint8Array; readonly maxPages: number };
-  /** Page 1 as a PNG for the stamp reader. */
-  "pdf-render": { readonly data: Uint8Array; readonly maxPages: number };
+  /**
+   * The conformed date offered by a stamp annotation and by the text of page 1 (the two readers that need no AI). Reads page 1
+   * of a document of any length unless a `maxPages` cap is given (PRODUCT_SPEC §10.1; the cap is for full-text reads).
+   */
+  "conformance-page": { readonly data: Uint8Array; readonly maxPages?: number };
+  /** Page 1 as a PNG for the stamp reader (any length of document unless a `maxPages` cap is given). */
+  "pdf-render": { readonly data: Uint8Array; readonly maxPages?: number };
   /** An Outlook .msg or an .eml, told apart by its first bytes. */
   email: { readonly data: Uint8Array };
 }

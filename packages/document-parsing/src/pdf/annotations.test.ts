@@ -29,6 +29,20 @@ describe("pdfStampAnnotations", () => {
   });
 });
 
+describe("first-page readers on a long PDF (PRODUCT_SPEC §10.1 reads page 1 only; the page cap protects full-text reads)", () => {
+  const longWithStamp = () =>
+    buildPdf({
+      pages: [["Conformed", "16 March 2026"], ...Array.from({ length: 79 }, (_, i) => [`Page ${i + 2}`])],
+      stamp: STAMP,
+    });
+
+  it("reads page 1 of an 80-page PDF by default", async () => {
+    const bytes = await longWithStamp();
+    expect(await pdfFirstPage(bytes)).toEqual({ lines: ["Conformed", "16 March 2026"], annotations: [STAMP] });
+    expect(await pdfStampAnnotations(bytes)).toEqual([STAMP]);
+  });
+});
+
 describe("pdfFirstPage", () => {
   it("returns page-1 lines and annotations from one open", async () => {
     const bytes = await buildPdf({ pages: [["Conformed", "16 March 2026"], ["Second page"]], stamp: STAMP });

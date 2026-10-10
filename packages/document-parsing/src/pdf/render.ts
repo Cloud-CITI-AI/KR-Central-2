@@ -6,7 +6,7 @@
 import { createCanvas } from "@napi-rs/canvas";
 import { DocumentParseError } from "../errors.js";
 import type { PdfLimits } from "../types.js";
-import { withPdf } from "./open.js";
+import { FIRST_PAGE_LIMITS, withPdf } from "./open.js";
 
 export interface RenderOptions {
   /** Widest image in pixels (default 1600). */
@@ -20,7 +20,7 @@ export interface RenderOptions {
 
 export function renderFirstPagePng(data: Uint8Array, options: RenderOptions = {}): Promise<Uint8Array> {
   const { maxWidth = 1600, maxHeight = 2400, scale = 3, limits = {} } = options;
-  return withPdf(data, limits, async (pdf) => {
+  return withPdf(data, { ...FIRST_PAGE_LIMITS, ...limits }, async (pdf) => {
     if (pdf.numPages === 0) throw new DocumentParseError("render_failed", "The PDF has no pages to render.");
     const page = await pdf.getPage(1);
     const unit = page.getViewport({ scale: 1 });

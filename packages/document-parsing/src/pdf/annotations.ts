@@ -1,7 +1,7 @@
 /** Text of page-1 annotations: a digital stamp is usually a Stamp or FreeText annotation (PRODUCT_SPEC §10.1 step 2). */
 import type { PDFPageProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { PdfFirstPage, PdfLimits } from "../types.js";
-import { withPdf } from "./open.js";
+import { FIRST_PAGE_LIMITS, withPdf } from "./open.js";
 import { pageTextLines } from "./text.js";
 
 /** The annotation fields pdf.js fills with text (its `getAnnotations` is typed `any[]`). */
@@ -28,12 +28,14 @@ export async function pageAnnotationTexts(page: PDFPageProxy): Promise<string[]>
 
 /** Annotation texts on page 1 (empty for a PDF without pages). Feed them to `fromStampAnnotation`. */
 export function pdfStampAnnotations(data: Uint8Array, limits: Partial<PdfLimits> = {}): Promise<string[]> {
-  return withPdf(data, limits, async (pdf) => (pdf.numPages > 0 ? pageAnnotationTexts(await pdf.getPage(1)) : []));
+  return withPdf(data, { ...FIRST_PAGE_LIMITS, ...limits }, async (pdf) =>
+    pdf.numPages > 0 ? pageAnnotationTexts(await pdf.getPage(1)) : [],
+  );
 }
 
 /** Page 1 text lines and annotation texts from one open of the file (what the conformed-date readers need). */
 export function pdfFirstPage(data: Uint8Array, limits: Partial<PdfLimits> = {}): Promise<PdfFirstPage> {
-  return withPdf(data, limits, async (pdf) => {
+  return withPdf(data, { ...FIRST_PAGE_LIMITS, ...limits }, async (pdf) => {
     if (pdf.numPages === 0) return { lines: [], annotations: [] };
     const page = await pdf.getPage(1);
     return { lines: await pageTextLines(page), annotations: await pageAnnotationTexts(page) };

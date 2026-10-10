@@ -40,7 +40,7 @@ export interface ConformanceReadDeps {
   /** Present only when the worker could build one (the flag is on and there is a key). */
   readonly stampReader?: StampReader | undefined;
   readonly metrics: Pick<KrMetrics, "recordStampReading">;
-  readonly config: Pick<WorkerConfig, "UPLOAD_MAX_BYTES" | "PDF_MAX_PAGES" | "ANTHROPIC_API_KEY">;
+  readonly config: Pick<WorkerConfig, "UPLOAD_MAX_BYTES" | "ANTHROPIC_API_KEY">;
 }
 
 /** Runs `make` once; every later call gets the same promise. */
@@ -78,9 +78,7 @@ export function conformanceReadHandler(deps: ConformanceReadDeps): Handler {
         Boolean(config.ANTHROPIC_API_KEY) &&
         stampReader !== undefined;
       const bytes = once(() => readObject(storage, file.storage_key, config.UPLOAD_MAX_BYTES));
-      const page = once(async () =>
-        parser.run("conformance-page", { data: await bytes(), maxPages: config.PDF_MAX_PAGES }, ctx.signal),
-      );
+      const page = once(async () => parser.run("conformance-page", { data: await bytes() }, ctx.signal));
       const asFound = (candidate: { date: string; method: Found["method"] } | null): Found | null =>
         candidate && { ...candidate, stampText: null };
 
@@ -91,11 +89,7 @@ export function conformanceReadHandler(deps: ConformanceReadDeps): Handler {
           return null;
         }
         try {
-          const png = await parser.run(
-            "pdf-render",
-            { data: await bytes(), maxPages: config.PDF_MAX_PAGES },
-            ctx.signal,
-          );
+          const png = await parser.run("pdf-render", { data: await bytes() }, ctx.signal);
           const reading = await stampReader.read(png, ctx.signal);
           metrics.recordStampReading("read");
           return reading.found && reading.date

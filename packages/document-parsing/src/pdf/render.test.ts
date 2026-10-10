@@ -18,6 +18,11 @@ async function inkedPixels(png: Uint8Array): Promise<number> {
 }
 
 describe("renderFirstPagePng", () => {
+  it("renders page 1 of an 80-page PDF by default (the page cap is for full-text reads)", async () => {
+    const png = await renderFirstPagePng(await buildBlankPdf(80));
+    expect([...png.slice(0, 4)]).toEqual(PNG_SIGNATURE.slice(0, 4));
+  });
+
   it("renders page 1 as a PNG no wider than 1600 px, with the page text visible", async () => {
     const png = await renderFirstPagePng(await buildPdf({ pages: [["Conformed 16 March 2026"], ["second"]] }));
     expect([...png.subarray(0, 8)]).toEqual(PNG_SIGNATURE);

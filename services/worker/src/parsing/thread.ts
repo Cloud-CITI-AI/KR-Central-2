@@ -19,6 +19,9 @@ import type { TaskRequest, ThreadReply } from "./tasks.js";
 
 const CFB_MAGIC = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 
+/** The first-page tasks are uncapped unless the caller asks for a cap. */
+const capOf = (maxPages: number | undefined): { maxPages?: number } => (maxPages === undefined ? {} : { maxPages });
+
 async function run(request: TaskRequest): Promise<unknown> {
   switch (request.task) {
     case "decision-letter": {
@@ -26,13 +29,13 @@ async function run(request: TaskRequest): Promise<unknown> {
       return { conditions: parseConditions(lines), dates: findApprovalDates(lines) };
     }
     case "conformance-page": {
-      const page = await pdfFirstPage(request.data, { maxPages: request.maxPages });
+      const page = await pdfFirstPage(request.data, capOf(request.maxPages));
       return { annotation: fromStampAnnotation(page.annotations), text: fromText(page.lines) };
     }
     case "pdf-first-page":
       return pdfFirstPage(request.data, { maxPages: request.maxPages });
     case "pdf-render":
-      return renderFirstPagePng(request.data, { limits: { maxPages: request.maxPages } });
+      return renderFirstPagePng(request.data, { limits: capOf(request.maxPages) });
     case "email":
       return CFB_MAGIC.every((byte, i) => request.data[i] === byte) ? parseMsg(request.data) : parseEml(request.data);
   }

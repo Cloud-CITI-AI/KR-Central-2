@@ -64,7 +64,6 @@ async function read(o: Options = {}) {
     metrics,
     config: {
       UPLOAD_MAX_BYTES: 10 * 1024 * 1024,
-      PDF_MAX_PAGES: 60,
       ANTHROPIC_API_KEY: "key" in o ? o.key : "test-key",
     },
   });
@@ -99,6 +98,17 @@ const readerOf = (outcome: StampReading | Error): StampReader & { calls: Uint8Ar
     },
   };
 };
+
+describe("conformance.read: long documents", () => {
+  it("reads page 1 of an 80-page PDF with no date in its name (the page cap is for Decision Letters)", async () => {
+    const { result } = await read({
+      name: "conformance big.pdf",
+      pages: [CONFORMED_LINE, ...Array.from({ length: 79 }, (_, i) => [`Page ${i + 2}`])],
+    });
+    expect(result).toMatchObject({ found: true, date: "2026-03-16", method: "text" });
+    expect(await job()).toMatchObject({ conformed_date: "2026-03-16", outcome_date: "2026-06-14" });
+  });
+});
 
 describe("conformance.read: the order of the attempts", () => {
   it("takes the date from the file name without opening the PDF or calling the AI, and sets the outcome date to +90 days", async () => {
@@ -282,7 +292,6 @@ describe("conformance.read: nothing found, and files that cannot be read", () =>
       metrics: { recordStampReading: vi.fn() },
       config: {
         UPLOAD_MAX_BYTES: 1024,
-        PDF_MAX_PAGES: 60,
         ANTHROPIC_API_KEY: undefined,
       },
     });

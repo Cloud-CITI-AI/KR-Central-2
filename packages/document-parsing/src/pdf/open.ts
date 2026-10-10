@@ -11,6 +11,13 @@ import type { PdfLimits } from "../types.js";
 
 export const DEFAULT_PDF_LIMITS: PdfLimits = { maxPages: 60 };
 
+/**
+ * The limits of the readers that only ever look at page 1 (stamp annotations, first-page text, the stamp render): the page
+ * cap protects full-text reads (Decision Letters, PRODUCT_SPEC §10.2/§15), so those readers open any length of document.
+ * Their time, heap and image-size guards still apply; a caller may still pass `maxPages` to cap them.
+ */
+export const FIRST_PAGE_LIMITS: PdfLimits = { maxPages: Number.POSITIVE_INFINITY };
+
 /** Bundled Helvetica/Times/... substitutes so text renders the same on every machine. */
 const STANDARD_FONTS = `${join(dirname(createRequire(import.meta.url).resolve("pdfjs-dist/package.json")), "standard_fonts")}/`;
 
