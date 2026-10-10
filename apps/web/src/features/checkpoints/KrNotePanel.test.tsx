@@ -1,8 +1,11 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
-import { queryKeys } from "@/lib/api";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { draftKey, queryKeys } from "@/lib/api";
+import { navigation } from "@/lib/navigation";
+import { MESSAGES } from "@/lib/messages";
+import { syntheticMe } from "@/test/fixtures";
 import { syntheticJob } from "@/features/tracker/test-fixtures";
 import { expectNoAxeViolations } from "@/test/axe";
 import { handlerFor, mockProblem } from "@/test/msw/handlers";
@@ -108,5 +111,99 @@ describe("KR note panel", () => {
       queryClient.setQueryData(queryKeys.jobs.detail(job.id), withCheckpoint(job, "i8_3", { krNote: "Theirs" }));
     });
     expect(field).toHaveValue("Mine");
+  });
+});
+
+describe("KR note panel when the session ends", () => {
+  const SAVED = "Synthetic partial comment";
+  const TYPED_AFTER = " plus more typed after expiry…";
+  const me = syntheticMe("staff");
+  const expired = () => mockProblem("updateCheckpoint", 401, "urn:kr:problem:unauthenticated");
+
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  /**
+   * The repro: type, let it save (the field keeps focus), then the session ends and typing goes on: the autosave answers
+   * 401 and the app goes to sign-in. Returns the job as the server holds it afterwards.
+   */
+  async function typeUntilSignedOut() {
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
+    const start = syntheticJob();
+    const view = renderCard(start, "i8_3", { me });
+    const { served } = view;
+    const seen = recordSaves(start, served);
+    const field = screen.getByLabelText(LABEL);
+    await userEvent.type(field, SAVED);
+    await waitFor(() => {
+      expect(seen).toEqual([{ ifMatch: '"1"', body: { krNote: SAVED } }]);
+    });
+    server.use(expired());
+    await userEvent.type(field, TYPED_AFTER);
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledTimes(1);
+    });
+    view.unmount();
+    return served.job;
+  }
+
+  it("keeps the typed text in session storage when a 401 sends the person to sign-in", async () => {
+    const job = await typeUntilSignedOut();
+    expect(window.sessionStorage).toHaveLength(1);
+    const key = window.sessionStorage.key(0) ?? "";
+    expect(key).toBe(draftKey(me.user.id, job.id, "i8_3", "krNote"));
+    expect(JSON.parse(window.sessionStorage.getItem(key) ?? "null")).toMatchObject({
+      text: SAVED + TYPED_AFTER,
+      base: SAVED,
+    });
+  });
+
+  it("puts the text back after sign-in and saves it, when the saved text is still the one it was typed over", async () => {
+    const job = await typeUntilSignedOut();
+    const { served } = renderCard(job, "i8_3", { me });
+    const seen = recordSaves(job, served);
+    expect(screen.getByLabelText(LABEL)).toHaveValue(SAVED + TYPED_AFTER);
+    expect(screen.getByText(MESSAGES.draftRestored)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(seen).toEqual([{ ifMatch: '"2"', body: { krNote: SAVED + TYPED_AFTER } }]);
+    });
+    expect(window.sessionStorage.length).toBe(0);
+    expect(screen.getByLabelText(LABEL)).toHaveValue(SAVED + TYPED_AFTER);
+  });
+
+  it("puts the text back but does not save it when someone else changed the note meanwhile", async () => {
+    const job = await typeUntilSignedOut();
+    const changed = withCheckpoint(job, "i8_3", { krNote: "Theirs", version: 3 });
+    const { served } = renderCard(changed, "i8_3", { me });
+    const seen = recordSaves(changed, served);
+    expect(screen.getByLabelText(LABEL)).toHaveValue(SAVED + TYPED_AFTER);
+    expect(screen.getByText(MESSAGES.draftRestoredChanged)).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    expect(seen).toEqual([]);
+    expect(screen.getByLabelText(LABEL)).toHaveValue(SAVED + TYPED_AFTER);
+  });
+
+  it("does not restore another person's draft, or into a field the person can no longer edit", async () => {
+    const job = await typeUntilSignedOut();
+    const other = renderCard(job, "i8_3", { me: syntheticMe("staff") });
+    expect(screen.getByLabelText(LABEL)).toHaveValue(SAVED);
+    other.unmount();
+    const readOnly = withCheckpoint(syntheticJob({ role: "external", grantRole: "client" }), "i8_3", { krNote: SAVED });
+    renderCard({ ...readOnly, id: job.id }, "i8_3", { me });
+    expect(screen.getByLabelText(LABEL)).toHaveValue(SAVED);
+    expect(window.sessionStorage.length).toBe(1);
+  });
+
+  it("keeps nothing for a field the person only focused and left alone, or that is saved", async () => {
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
+    const job = syntheticJob();
+    const { queryClient } = renderCard(job, "i8_3", { me });
+    await userEvent.click(screen.getByLabelText(LABEL));
+    await userEvent.tab();
+    server.use(mockProblem("getJob", 401, "urn:kr:problem:unauthenticated"));
+    await queryClient.refetchQueries({ queryKey: queryKeys.jobs.detail(job.id) });
+    expect(assign).toHaveBeenCalled();
+    expect(window.sessionStorage.length).toBe(0);
   });
 });

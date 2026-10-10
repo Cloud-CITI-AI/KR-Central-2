@@ -2,6 +2,8 @@
 import type { CheckpointState, JobDetail } from "@kr/contracts";
 import type { KrNotePanel as KrNotePanelDefinition } from "@kr/workflow";
 import { Textarea } from "@/components/ui/Textarea";
+import { draftKey } from "@/lib/api";
+import { useSession } from "@/lib/session";
 import { PanelBox } from "./PanelBox";
 import { useAutosaveText } from "./useAutosaveText";
 import { useUpdateCheckpoint } from "./useUpdateCheckpoint";
@@ -20,8 +22,11 @@ export interface KrNotePanelProps {
  */
 export function KrNotePanel({ job, checkpoint, panel }: KrNotePanelProps) {
   const update = useUpdateCheckpoint(job.id, checkpoint.key);
+  const { user } = useSession();
+  const canEdit = job.capabilities.includes("checkpoint.kr_note.edit");
   const field = useAutosaveText({
     value: checkpoint.krNote,
+    ...(canEdit ? { draftKey: draftKey(user.id, job.id, checkpoint.key, "krNote") } : {}),
     onSave: (krNote) => {
       return update.mutateAsync({ krNote }).catch(() => undefined);
     },
@@ -35,7 +40,7 @@ export function KrNotePanel({ job, checkpoint, panel }: KrNotePanelProps) {
           rows={3}
           maxLength={2000}
           placeholder={panel.placeholder}
-          readOnly={!job.capabilities.includes("checkpoint.kr_note.edit")}
+          readOnly={!canEdit}
           value={field.text}
           onChange={field.onChange}
           onFocus={field.onFocus}

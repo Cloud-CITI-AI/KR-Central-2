@@ -1,9 +1,11 @@
 import { PROBLEM_TYPES } from "@kr/contracts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderCard } from "@/features/checkpoints/test-utils";
-import { queryKeys } from "@/lib/api";
+import { draftKey, queryKeys } from "@/lib/api";
+import { navigation } from "@/lib/navigation";
+import { syntheticMe } from "@/test/fixtures";
 import { expectNoAxeViolations } from "@/test/axe";
 import { MESSAGES } from "@/lib/messages";
 import { mockProblem } from "@/test/msw/handlers";
@@ -169,5 +171,57 @@ describe("who may change what on a condition (§2.1)", () => {
       expect(kr(1)).toHaveValue("KR: power design lodged");
     });
     expect(client(1)).toHaveValue("Client: thanks, will pay");
+  });
+});
+
+describe("condition comments when the session ends", () => {
+  const me = syntheticMe("staff");
+  const SAVED = "Stat dec needed";
+  const TYPED = " – and a plan of the easement, typed after expiry";
+
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  async function typeUntilSignedOut(field: (number: number) => HTMLElement, name: "krComment" | "clientComment") {
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
+    const base = threeConditions();
+    const job = withCondition(base, conditionAt(base, 0).id, { [name]: SAVED });
+    const view = renderCard(job, "i5_0", { me });
+    server.use(mockProblem("updateCondition", 401, PROBLEM_TYPES.unauthenticated));
+    await userEvent.type(field(1), TYPED);
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledTimes(1);
+    });
+    view.unmount();
+    return job;
+  }
+
+  it.each([
+    ["KR Surveys comment", kr, "krComment"],
+    ["client comment", client, "clientComment"],
+  ] as const)("keeps the %s typed after expiry and saves it again after sign-in", async (_label, field, name) => {
+    const job = await typeUntilSignedOut(field, name);
+    const stored = window.sessionStorage.getItem(draftKey(me.user.id, "condition", conditionAt(job, 0).id, name));
+    expect(JSON.parse(stored ?? "null")).toMatchObject({ text: SAVED + TYPED, base: SAVED });
+
+    const { served } = renderCard(job, "i5_0", { me });
+    const calls = serveUpdates(served);
+    expect(field(1)).toHaveValue(SAVED + TYPED);
+    expect(screen.getByText(MESSAGES.draftRestored)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(calls).toHaveLength(1);
+    });
+    expect(calls[0]).toMatchObject({ conditionId: conditionAt(job, 0).id, body: { [name]: SAVED + TYPED } });
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("does not put the draft into the session of someone else who signs in on the same tab", async () => {
+    const job = await typeUntilSignedOut(kr, "krComment");
+    const { served } = renderCard(job, "i5_0", { me: syntheticMe("staff") });
+    const calls = serveUpdates(served);
+    expect(kr(1)).toHaveValue(SAVED);
+    await pause(900);
+    expect(calls).toHaveLength(0);
   });
 });

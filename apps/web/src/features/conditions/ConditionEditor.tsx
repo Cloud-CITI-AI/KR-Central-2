@@ -3,6 +3,8 @@ import type { Condition } from "@kr/contracts";
 import { CONDITION_RESPONSIBILITIES, RESPONSIBILITY_LABELS } from "@kr/workflow";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
+import { draftKey } from "@/lib/api";
+import { useSession } from "@/lib/session";
 import { VisuallyHidden } from "@/components/ui/VisuallyHidden";
 import type { ConditionPermissions } from "./capabilities";
 import { useAutosaveText } from "@/features/checkpoints";
@@ -18,6 +20,8 @@ export interface ConditionEditorProps {
 
 interface CommentFieldProps {
   readonly label: string;
+  /** Names the field in the draft kept across a sign-in: the condition and which comment. */
+  readonly draft: readonly [conditionId: string, field: "krComment" | "clientComment"];
   readonly number: number;
   readonly value: string;
   readonly editable: boolean;
@@ -25,8 +29,13 @@ interface CommentFieldProps {
 }
 
 /** One comment: autosaves 700 ms after typing and on blur, and is never replaced under the cursor (§5.6, §15). */
-function CommentField({ label, number, value, editable, onSave }: CommentFieldProps) {
-  const field = useAutosaveText({ value, onSave });
+function CommentField({ label, draft, number, value, editable, onSave }: CommentFieldProps) {
+  const { user } = useSession();
+  const field = useAutosaveText({
+    value,
+    onSave,
+    ...(editable ? { draftKey: draftKey(user.id, "condition", ...draft) } : {}),
+  });
   return (
     <label className={styles.field}>
       <span className={styles.label}>{label}</span>
@@ -89,6 +98,7 @@ export function ConditionEditor({ condition, permissions, save }: ConditionEdito
       <div className={styles.fields}>
         <CommentField
           label="KR Surveys comment"
+          draft={[condition.id, "krComment"]}
           number={number}
           value={condition.krComment}
           editable={permissions.edit}
@@ -96,6 +106,7 @@ export function ConditionEditor({ condition, permissions, save }: ConditionEdito
         />
         <CommentField
           label="Client comment"
+          draft={[condition.id, "clientComment"]}
           number={number}
           value={condition.clientComment}
           editable={permissions.comment}
