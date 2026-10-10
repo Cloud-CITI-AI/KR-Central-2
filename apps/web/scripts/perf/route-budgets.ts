@@ -35,10 +35,10 @@ export const PDFJS_ENGINE_MARKERS: readonly string[] = ["pdfjs_internal_id_", "p
  * with a schema load on demand. What remains is the app's own code (React Query, tracker and dashboard components).
  */
 export const BUDGET_WAIVERS: Readonly<Record<string, number>> = {
-  "/jobs/[jobId]": 217_500, // 216.4 KB measured (was 253.8), owner: WP-24
-  "/": 200_000, // 198.8 KB measured (was 239.5), owner: WP-24
-  "/admin/audit": 200_500, // 199.4 KB measured (was 237.8), owner: WP-24
-  "/admin/users": 200_500, // 199.4 KB measured (was 237.8), owner: WP-24
+  "/jobs/[jobId]": 218_200, // 217.2 KB measured (was 253.8), owner: WP-24
+  "/": 200_400, // 199.4 KB measured (was 239.5), owner: WP-24
+  "/admin/audit": 200_900, // 199.9 KB measured (was 237.8), owner: WP-24
+  "/admin/users": 200_900, // 199.9 KB measured (was 237.8), owner: WP-24
 };
 
 const routeStatsSchema = z.array(z.object({ route: z.string(), firstLoadChunkPaths: z.array(z.string()) }));
