@@ -11,6 +11,7 @@ import { conformanceNotStartedText, conformanceUnreadableText, fileCountText } f
 import { PanelBox } from "./PanelBox";
 import { SlotZone, type SlotZoneProps } from "./SlotZone";
 import { filesInSlot, isReadable } from "./slotFiles";
+import { useAwaitedConformanceRead } from "./useAwaitedConformanceRead";
 import { useFollowedOperation } from "./useFollowedOperation";
 import { useStartConformanceReading } from "./useStartConformanceReading";
 import styles from "./Conformance.module.css";
@@ -34,8 +35,8 @@ interface Notice {
 
 /**
  * 4.2 WAPC Application Conformed (§5.5 `conformance`, §10.1): the "Conformance Notification" folder and its PDF-only zone.
- * Uploading a PDF starts a read on the server (the zone says "Reading the conformed date…" while it runs); "Read conformed
- * date again" / "Read date from <file>" start one by hand. The result message shows under the zone and the job is refreshed.
+ * Uploading a PDF starts a read on the server (the zone says "Reading the conformed date…" while it runs, scan included);
+ * "Read conformed date again" / "Read date from <file>" start one by hand. The result message shows under the zone and the job is refreshed.
  */
 export function ConformancePanel({ job, checkpoint, panel }: ConformancePanelProps) {
   const { slot } = panel;
@@ -45,8 +46,11 @@ export function ConformancePanel({ job, checkpoint, panel }: ConformancePanelPro
   const [reading, setReading] = useState<Reading | null>(null);
   const [problem, setProblem] = useState<Notice | null>(null);
   const operation = useFollowedOperation(reading?.operationId ?? null);
+  const awaited = useAwaitedConformanceRead(job);
   const running =
-    start.isPending || (reading !== null && operation?.status !== "succeeded" && operation?.status !== "failed");
+    start.isPending ||
+    awaited.waiting ||
+    (reading !== null && operation?.status !== "succeeded" && operation?.status !== "failed");
   const canRead = job.capabilities.includes("conformance.read");
 
   const notice = ((): Notice | null => {
@@ -65,8 +69,17 @@ export function ConformancePanel({ job, checkpoint, panel }: ConformancePanelPro
 
   const onUploaded: NonNullable<SlotZoneProps["onUploaded"]> = (stored) => {
     const started = stored.findLast((result) => result.operation?.type === "conformance.read");
-    if (started?.operation) follow(started.operation, started.file.name);
-    else setReading(null);
+    if (started?.operation) {
+      follow(started.operation, started.file.name);
+      return;
+    }
+    setReading(null);
+    // The worker queues the read once the scan has passed: wait for it to show in the job.
+    const scanning = stored.findLast((result) => result.operation?.type === "file.scan" && result.file.kind === "pdf");
+    if (scanning?.operation) {
+      setProblem(null);
+      awaited.begin(scanning.operation.id, scanning.file.id);
+    }
   };
 
   function read(file: FileMeta) {

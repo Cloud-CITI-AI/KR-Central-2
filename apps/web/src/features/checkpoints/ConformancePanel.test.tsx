@@ -129,6 +129,103 @@ describe("conformance panel", () => {
     expect(screen.getByText("1 file")).toBeInTheDocument();
   });
 
+  describe("with scanning on (the upload answers with its file.scan operation)", () => {
+    const SCAN_ID = "7a2e4c1f-6d2b-4c75-8e5f-1e9c2b3d4e5f";
+    const scanOperation = (jobId: string, status: "queued" | "succeeded" | "failed") =>
+      Operation.parse({
+        id: SCAN_ID,
+        jobId,
+        type: "file.scan",
+        status,
+        createdAt: AT,
+        completedAt: status === "queued" ? null : AT,
+        result: null,
+        error:
+          status === "failed" ? { code: "scan_error", message: "The file could not be checked for viruses." } : null,
+      });
+
+    async function drop(jobId: string) {
+      const requests = stubUploads();
+      await userEvent.upload(
+        screen.getByLabelText(/Drag and drop the Conformance Notification here/),
+        new File([new Uint8Array(4)], "Conformance Notification 2026-07-20.pdf", { type: "application/pdf" }),
+      );
+      await waitFor(() => {
+        expect(requests).toHaveLength(1);
+      });
+      return {
+        finish: (stored: ReturnType<typeof pdf>) => {
+          requests[0]?.finish(201, uploadResult(stored, scanOperation(jobId, "queued")));
+        },
+      };
+    }
+
+    it("says 'Reading the conformed date…' from the upload until the read has changed the job, without waiting for the periodic refetch", async () => {
+      const job = syntheticJob();
+      const { served } = renderCard(job, "i4_2");
+      const name = "Conformance Notification 2026-07-20.pdf";
+      const pending = pdf(job.id, name, { scanStatus: "pending" });
+      let scanPolls = 0;
+      server.use(
+        handlerFor("getOperation", () => {
+          scanPolls += 1;
+          if (scanPolls < 2) return HttpResponse.json(scanOperation(job.id, "queued"));
+          // The scan has passed and the worker has queued the read: the file is clean, the job not yet changed.
+          served.job = withCheckpoint(job, "i4_2", { files: [{ ...pending, scanStatus: "clean" }] });
+          return HttpResponse.json(scanOperation(job.id, "succeeded"));
+        }),
+      );
+      served.job = withCheckpoint(job, "i4_2", { files: [pending] });
+      const upload = await drop(job.id);
+      upload.finish(pending);
+      expect(await screen.findByText("Reading the conformed date…")).toBeInTheDocument();
+      await waitFor(
+        () => {
+          expect(scanPolls).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 4000 },
+      );
+      // The scan is over but the read is not: still reading.
+      expect(await screen.findByRole("button", READ_AGAIN, { timeout: 4000 })).toBeDisabled();
+      expect(screen.getByText("Reading the conformed date…")).toBeInTheDocument();
+      // The worker applies the date: the next refetch of the job shows a new version and the zone is free again.
+      served.job = {
+        ...withCheckpoint(job, "i4_2", { files: [{ ...pending, scanStatus: "clean" }] }),
+        version: job.version + 1,
+        conformedDate: "2026-07-20",
+        outcomeDate: "2026-10-18",
+      };
+      await waitFor(
+        () => {
+          expect(screen.queryByText("Reading the conformed date…")).not.toBeInTheDocument();
+        },
+        { timeout: 5000 },
+      );
+      expect(screen.getByRole("button", READ_AGAIN)).toBeEnabled();
+    }, 15_000);
+
+    it("stops saying it is reading when the scan fails", async () => {
+      const job = syntheticJob();
+      const { served } = renderCard(job, "i4_2");
+      const pending = pdf(job.id, "Conformance Notification 2026-07-20.pdf", { scanStatus: "pending" });
+      server.use(
+        handlerFor("getOperation", () => {
+          served.job = withCheckpoint(job, "i4_2", { files: [{ ...pending, scanStatus: "error" }] });
+          return HttpResponse.json(scanOperation(job.id, "failed"));
+        }),
+      );
+      served.job = withCheckpoint(job, "i4_2", { files: [pending] });
+      const upload = await drop(job.id);
+      upload.finish(pending);
+      await waitFor(() => {
+        expect(screen.queryByText("Reading the conformed date…")).not.toBeInTheDocument();
+      });
+      expect(
+        await screen.findByText("Couldn't be checked for viruses – remove it and upload it again"),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("shows a read that found nothing as a problem to act on", async () => {
     const job = withFiles(["Notice.pdf"]);
     renderCard(job, "i4_2");

@@ -10,7 +10,11 @@ import { describeAccept } from "./accept";
 import { mapCheckpoint } from "./cache";
 import { uploadedText } from "./messages";
 import { refreshJob } from "./refreshJob";
+import { useFollowedOperations } from "./useFollowedOperation";
 import { uploadErrorText } from "./uploadErrors";
+
+/** How many queued operations of earlier uploads stay followed (settled ones cost nothing; this only bounds the list). */
+const MAX_FOLLOWED = 20;
 
 export interface UploadProgress {
   readonly name: string;
@@ -57,8 +61,8 @@ export type UseUploadFilesOptions = CheckpointUploadTarget | ConditionUploadTarg
 
 /**
  * Upload files into a checkpoint slot or a condition's evidence (§5.5, §5.6): one request per file with progress and its own
- * Idempotency-Key. A stored file shows in the card at once (scanning), the job is refreshed afterwards, and a refused file is
- * listed with its reason (too large, wrong type, …) while the others still go through.
+ * Idempotency-Key. A stored file shows in the card at once (scanning), the job is refreshed afterwards and again when the
+ * operation each upload queued (the scan) settles, and a refused file is listed with its reason (too large, wrong type, …) while the others still go through.
  */
 export function useUploadFiles(options: UseUploadFilesOptions): UseUploadFiles {
   const queryClient = useQueryClient();
@@ -67,6 +71,10 @@ export function useUploadFiles(options: UseUploadFilesOptions): UseUploadFiles {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [errors, setErrors] = useState<readonly string[]>([]);
+  // The operations the uploads queued (the scan, or the read/parse when scanning is off): followed until they settle, then
+  // the job is refreshed, so a scanned file shows as clean at once and not at the next periodic refetch (§10).
+  const [followed, setFollowed] = useState<readonly string[]>([]);
+  useFollowedOperations(followed);
 
   const upload = useCallback(
     async (files: readonly File[]) => {
@@ -105,6 +113,8 @@ export function useUploadFiles(options: UseUploadFilesOptions): UseUploadFiles {
       setProgress(null);
       setErrors(refused);
       if (stored.length > 0) {
+        const queued = stored.flatMap((result) => (result.operation ? [result.operation.id] : []));
+        if (queued.length > 0) setFollowed((previous) => [...previous.slice(-MAX_FOLLOWED), ...queued]);
         toast(uploadedText(stored.length));
         void refreshJob(queryClient);
       }
