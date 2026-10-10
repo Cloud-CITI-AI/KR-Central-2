@@ -29,7 +29,13 @@ describe("read models parse with the @kr/contracts schemas", () => {
       canDelete: true,
       uploadedBy: { id: user.id, displayName: user.display_name },
     });
-    expect(EmailMeta.parse(toEmailMeta(email))).toMatchObject({ parseStatus: "parsed", isPasted: false });
+    expect(EmailMeta.parse(toEmailMeta(email, "clean"))).toMatchObject({
+      parseStatus: "parsed",
+      isPasted: false,
+      bodyText: email.body_text,
+    });
+    expect(toEmailMeta(email, "skipped").bodyText).toBe(email.body_text);
+    for (const scan of ["pending", "infected", "error"] as const) expect(toEmailMeta(email, scan).bodyText).toBeNull();
     expect(toFileMeta(row, { uploader: null, canDelete: false, email: null })).toMatchObject({
       uploadedBy: null,
       email: null,

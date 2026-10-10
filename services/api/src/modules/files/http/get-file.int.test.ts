@@ -83,6 +83,52 @@ describe("getFile (real Postgres)", () => {
     expect(meta.email).toMatchObject({ parseStatus: "parsed", isPasted: false, from: "assessor@example.test" });
   });
 
+  describe("email body (the viewer's text rendering, PRODUCT_SPEC 10.3)", () => {
+    const seedEmail = async (scan: "pending" | "clean" | "infected", body: string | null) => {
+      const file = await seedFile(t, f, {
+        jobId,
+        data: Buffer.from("From: a@example.test\r\n\r\nraw mime"),
+        kind: "email",
+        contentType: "message/rfc822",
+        checkpointKey: "i4_3",
+        slot: "email",
+        scanStatus: scan,
+      });
+      await f.makeEmail(file.id);
+      await t.db.updateTable("email_messages").set({ body_text: body }).where("file_id", "=", file.id).execute();
+      return file;
+    };
+
+    it("carries the parsed body to everyone who may see the file", async () => {
+      const file = await seedEmail("clean", "Plain version café continued");
+      for (const who of [admin, krAdmin, staff, client, architect]) {
+        const meta = (await get(who, file.id)).json<FileMeta>();
+        expect(meta.email?.bodyText).toBe("Plain version café continued");
+      }
+    });
+
+    it("answers 404, with no body, to a user who may not see the file", async () => {
+      const file = await seedEmail("clean", "Private query text");
+      const res = await get(outsider, file.id);
+      expect(res.statusCode).toBe(404);
+      expect(res.body).not.toContain("Private query text");
+    });
+
+    it("withholds the body while the file is unscanned or blocked, as the content route does", async () => {
+      for (const scan of ["pending", "infected"] as const) {
+        const file = await seedEmail(scan, "Not yet safe to show");
+        const res = await get(admin, file.id);
+        expect(res.json<FileMeta>().email).toMatchObject({ parseStatus: "parsed", bodyText: null });
+        expect(res.body).not.toContain("Not yet safe to show");
+      }
+    });
+
+    it("is null when the message has no text", async () => {
+      const file = await seedEmail("clean", null);
+      expect((await get(admin, file.id)).json<FileMeta>().email?.bodyText).toBeNull();
+    });
+  });
+
   it("hides the fee proposal's files from everyone without fee_proposal.view (404, as for no file)", async () => {
     const file = await seed({ checkpointKey: "i1_0p", slot: "documents" });
     for (const who of [admin, krAdmin, client]) expect((await get(who, file.id)).statusCode).toBe(200);

@@ -26,7 +26,16 @@ const email = (jobId: string, subject: string, overrides: Partial<Parameters<typ
     contentType: "message/rfc822",
     checkpointKey: "i4_3",
     slot: "email",
-    email: { parseStatus: "parsed", subject, from: "Alex Planner", to: null, cc: null, sentAt: SENT, isPasted: false },
+    email: {
+      parseStatus: "parsed",
+      subject,
+      from: "Alex Planner",
+      to: null,
+      cc: null,
+      sentAt: SENT,
+      isPasted: false,
+      bodyText: null,
+    },
     ...overrides,
   });
 const zone = () => screen.getByLabelText(/Drop a WAPC query email here/);
@@ -64,12 +73,22 @@ describe("emails panel", () => {
           cc: null,
           sentAt: null,
           isPasted: true,
+          bodyText: null,
         },
         uploadedAt: "2026-09-29T01:05:00.000Z",
       }),
       email(base.id, "x", {
         name: "Unreadable.msg",
-        email: { parseStatus: "parsed", subject: null, from: null, to: null, cc: null, sentAt: SENT, isPasted: false },
+        email: {
+          parseStatus: "parsed",
+          subject: null,
+          from: null,
+          to: null,
+          cc: null,
+          sentAt: SENT,
+          isPasted: false,
+          bodyText: null,
+        },
       }),
     ];
     const { container } = renderCard(withEmails(files), "i4_3");
@@ -104,6 +123,7 @@ describe("emails panel", () => {
             cc: null,
             sentAt: null,
             isPasted: false,
+            bodyText: null,
           },
         }),
       ]),
@@ -195,6 +215,7 @@ describe("emails panel", () => {
             cc: null,
             sentAt: null,
             isPasted: true,
+            bodyText: null,
           },
         });
         served.job = withCheckpoint(job, "i4_3", { files: [file] });

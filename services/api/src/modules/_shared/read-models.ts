@@ -37,7 +37,10 @@ export function toUserRef(user: Named | null): UserRef | null {
   return user ? { id: user.id, displayName: user.display_name } : null;
 }
 
-export function toEmailMeta(row: EmailMessageRow): EmailMetaOut {
+/** Content is readable only once the scan is clean or skipped (PRODUCT_SPEC 5.5); the parsed body follows the same rule. */
+const isReadable = (scan: FileRow["scan_status"]): boolean => scan === "clean" || scan === "skipped";
+
+export function toEmailMeta(row: EmailMessageRow, scan: FileRow["scan_status"]): EmailMetaOut {
   return {
     parseStatus: row.parse_status,
     subject: row.subject,
@@ -46,6 +49,7 @@ export function toEmailMeta(row: EmailMessageRow): EmailMetaOut {
     cc: row.cc_text,
     sentAt: isoOrNull(row.sent_at),
     isPasted: row.is_pasted,
+    bodyText: isReadable(scan) ? row.body_text : null,
   };
 }
 
@@ -70,7 +74,7 @@ export function toFileMeta(file: FileRow, ctx: FileMetaContext): FileMeta {
     uploadedAt: iso(file.uploaded_at),
     uploadedBy: toUserRef(ctx.uploader),
     canDelete: ctx.canDelete,
-    email: ctx.email ? toEmailMeta(ctx.email) : null,
+    email: ctx.email ? toEmailMeta(ctx.email, file.scan_status) : null,
   };
 }
 

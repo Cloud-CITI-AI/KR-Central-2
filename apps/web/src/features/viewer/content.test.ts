@@ -44,6 +44,7 @@ describe("viewFor", () => {
       cc: null,
       sentAt: null,
       isPasted: true,
+      bodyText: null,
     } as const;
     expect(viewFor(syntheticFile({ kind: "email", contentType: "message/rfc822", email }))).toEqual({
       type: "email",

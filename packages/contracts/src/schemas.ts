@@ -107,6 +107,10 @@ export const EmailMeta = z
     cc: z.string().nullable(),
     sentAt: IsoDateTime.nullable(),
     isPasted: z.boolean(),
+    bodyText: z.string().nullable().meta({
+      description:
+        "The parsed message text the viewer shows under the header block. Null until parsed, when the message has no text, and while the file's scan state blocks it (same rule as the content route).",
+    }),
   })
   .meta({ id: "EmailMeta" });
 

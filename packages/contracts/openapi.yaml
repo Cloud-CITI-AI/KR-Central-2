@@ -3817,6 +3817,13 @@ components:
             - type: "null"
         isPasted:
           type: boolean
+        bodyText:
+          description: The parsed message text the viewer shows under the header block.
+            Null until parsed, when the message has no text, and while the
+            file's scan state blocks it (same rule as the content route).
+          type:
+            - string
+            - "null"
       required:
         - parseStatus
         - subject
@@ -3825,6 +3832,7 @@ components:
         - cc
         - sentAt
         - isPasted
+        - bodyText
       additionalProperties: false
     Condition:
       type: object

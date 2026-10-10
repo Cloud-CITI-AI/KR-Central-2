@@ -67,6 +67,7 @@ describe("ViewerBody", () => {
         cc: null,
         sentAt: "2026-09-28T07:50:00.000Z",
         isPasted: false,
+        bodyText: null,
       },
     });
     const { container } = renderViewer(<ViewerBody file={file} />);
@@ -83,7 +84,16 @@ describe("ViewerBody", () => {
       name: "Query.msg",
       kind: "email",
       contentType: "application/vnd.ms-outlook",
-      email: { parseStatus: "parsed", subject: "Query", from: null, to: null, cc: null, sentAt: null, isPasted: false },
+      email: {
+        parseStatus: "parsed",
+        subject: "Query",
+        from: null,
+        to: null,
+        cc: null,
+        sentAt: null,
+        isPasted: false,
+        bodyText: null,
+      },
     });
     renderViewer(<ViewerBody file={file} />);
     expect(screen.getByText("Query")).toBeInTheDocument();
