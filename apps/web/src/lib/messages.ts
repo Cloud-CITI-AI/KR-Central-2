@@ -11,6 +11,10 @@ export const MESSAGES = {
     "Can't reach the server – check your connection. What you see may be out of date, and changes can't be saved.",
   /** 429 on a write (rate limit, `Retry-After`; §14). */
   tooManyChanges: "Too many changes – wait a moment and try again.",
+  /** After sign-in: what was typed when the session ended is back in its field (PRODUCT_SPEC 3.1, 15). */
+  draftRestored: "What you were typing when your session ended has been restored.",
+  draftRestoredChanged:
+    "What you were typing when your session ended has been put back, but someone else changed this meanwhile. Check it, then click out of the box to save.",
   signOutFailed: "Sign-out didn't work – please try again.",
 } as const;
 

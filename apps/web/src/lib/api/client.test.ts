@@ -5,6 +5,7 @@ import { navigation } from "@/lib/navigation";
 import { server } from "@/test/msw/server";
 import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
 import { api, buildQuery, signInHref } from "./client";
+import { draftKey, registerDraft, takeDraft } from "./drafts";
 import { ApiProblem } from "./problem";
 import { setCsrfToken } from "./csrf";
 
@@ -153,6 +154,42 @@ describe("api()", () => {
     server.use(mockProblem("getMe", 401, PROBLEM_TYPES.unauthenticated));
     await expect(api("getMe")).rejects.toMatchObject({ status: 401 });
     expect(assign).toHaveBeenCalledWith("/sign-in");
+  });
+
+  it("keeps the text of a field with unsaved typing when a 401 sends the person to sign-in, before it navigates", async () => {
+    window.sessionStorage.clear();
+    const key = draftKey("user-1", JOB_ID, "i8_3", "krNote");
+    const stop = registerDraft(key, () => ({
+      text: "Synthetic partial comment plus more",
+      base: "Synthetic partial comment",
+    }));
+    const idle = registerDraft(draftKey("user-1", JOB_ID, "note"), () => null);
+    const navigated: { kept: string | null } = { kept: null };
+    vi.spyOn(navigation, "assign").mockImplementation(() => {
+      navigated.kept = window.sessionStorage.getItem(key);
+    });
+    server.use(mockProblem("getMe", 401, PROBLEM_TYPES.unauthenticated));
+    await expect(api("getMe")).rejects.toMatchObject({ status: 401 });
+    expect(JSON.parse(navigated.kept ?? "null")).toMatchObject({
+      text: "Synthetic partial comment plus more",
+      base: "Synthetic partial comment",
+    });
+    expect(takeDraft(key)?.text).toBe("Synthetic partial comment plus more");
+    expect(window.sessionStorage.length).toBe(0);
+    stop();
+    idle();
+  });
+
+  it("still goes to sign-in when the drafts cannot be stored", async () => {
+    const stop = registerDraft(draftKey("user-1", "x"), () => ({ text: "typed", base: "" }));
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
+    server.use(mockProblem("getMe", 401, PROBLEM_TYPES.unauthenticated));
+    await expect(api("getMe")).rejects.toMatchObject({ status: 401 });
+    expect(assign).toHaveBeenCalledWith("/sign-in");
+    stop();
   });
 
   it("rejects a response that breaks the contract (dev and test only)", async () => {

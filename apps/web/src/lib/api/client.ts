@@ -2,6 +2,7 @@ import { buildPath, getRouteEntry, type RouteTableOperationId } from "@kr/contra
 import { navigation } from "@/lib/navigation";
 import { safeReturnTo } from "@/lib/security/return-to";
 import { getCsrfToken } from "./csrf";
+import { persistDrafts } from "./drafts";
 import { networkProblem, problemFromResponse } from "./problem";
 import type { ApiArgs, ApiOperationId, ApiResult } from "./types";
 
@@ -35,8 +36,12 @@ export function signInHref(pathname: string, search = ""): string {
     : "/sign-in";
 }
 
-/** A 401 means the session ended: go to sign-in and come back here afterwards (§3.1). */
+/**
+ * A 401 means the session ended: go to sign-in and come back here afterwards (§3.1). Text typed into a field and not saved
+ * yet is kept first (`persistDrafts`) and put back in the field after `returnTo`, so nothing the person wrote is lost (§15).
+ */
 export function redirectToSignIn(): void {
+  persistDrafts();
   navigation.assign(signInHref(window.location.pathname, window.location.search));
 }
 
