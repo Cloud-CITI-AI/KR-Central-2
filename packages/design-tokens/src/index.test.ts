@@ -27,4 +27,35 @@ describe("design tokens", () => {
     for (const [k, v] of Object.entries(darkColors).filter(([k]) => k !== "brandInk"))
       expect(dark, k).toContain(`${cssVar(k as ColorToken)}: ${v};`);
   });
+
+  describe("WCAG 2.2 AA text contrast (1.4.3, known defect D3)", () => {
+    const channel = (hex: string, at: number): number => {
+      const c = parseInt(hex.slice(at, at + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const luminance = (hex: string): number =>
+      0.2126 * channel(hex, 1) + 0.7152 * channel(hex, 3) + 0.0722 * channel(hex, 5);
+    const ratio = (a: string, b: string): number => {
+      const [light = 0, dark = 0] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (light + 0.05) / (dark + 0.05);
+    };
+    const surfaces = ["surface", "field", "redBg", "greenBg", "greyBg", "accentSoft"] as const;
+
+    it.each([
+      ["light", lightColors],
+      ["dark", darkColors],
+    ] as const)("keeps the secondary text colours at 4.5:1 or more on every %s surface", (_theme, colors) => {
+      for (const text of ["ink", "ink2", "ink3"] as const)
+        for (const surface of surfaces)
+          expect(ratio(colors[text], colors[surface]), `${text} on ${surface}`).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it.each([
+      ["light", lightColors],
+      ["dark", darkColors],
+    ] as const)("keeps the status ink on its own %s tint at 4.5:1 or more", (_theme, colors) => {
+      for (const status of ["red", "green", "grey"] as const)
+        expect(ratio(colors[`${status}Ink`], colors[`${status}Bg`]), status).toBeGreaterThanOrEqual(4.5);
+    });
+  });
 });

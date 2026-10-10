@@ -9,7 +9,7 @@ import { expectFirstPageDrawn } from "../support/viewer";
 import { card, openTracker } from "../support/tracker";
 
 // WCAG 2.2 AA (PRODUCT_SPEC §12) on every page and dialog a person can reach, in both themes, at desktop width and at 390 px.
-// Colour contrast (D3) and the PDF viewer's scroller (D4) are known defects tracked by e2e/a11y/known-defects.spec.ts.
+// The one known defect left in these states is the pressed filter chip and the conditions links (D6, D7), tracked by e2e/a11y/known-defects.spec.ts.
 
 const THEMES = ["light", "dark"] as const;
 const VIEWPORTS = [

@@ -11,27 +11,16 @@ export interface ColourPair {
 }
 
 /** The known product defects that are about colour contrast. Tracking: the ids reported to the orchestrator under WP-19. */
-export type ContrastDefect = "D3" | "D6" | "D7";
+export type ContrastDefect = "D6" | "D7";
 
 /**
  * The exact colour pairs of each known contrast defect (e2e/a11y/known-defects.spec.ts has one expected-to-fail test per defect).
  * Only nodes whose pair is listed here are tolerated; any other low-contrast pair fails the state it appears in.
  *
- * D3: the prototype's secondary greys on the surfaces they sit on (white, the page grey, the red, green and grey status tints, and in
- * the dark theme the dark surfaces). D6: the pressed filter chip's count (axe reports it only on some runs). D7: the orange "up" links on the
+ * D6: the pressed filter chip's count (axe reports it only on some runs). D7: the orange "up" links on the
  * conditions checklist (agency and WAPC approval links) in the light theme.
  */
 export const KNOWN_CONTRAST_PAIRS: Readonly<Record<ContrastDefect, readonly ColourPair[]>> = {
-  D3: [
-    ...["#ffffff", "#f5f5f3", "#fce8e6", "#e3f3e5", "#ebeae8"].flatMap((bg) => [
-      { fg: "#8c8c8c", bg },
-      { fg: "#777777", bg },
-    ]),
-    { fg: "#6d6c69", bg: "#ebeae8" },
-    { fg: "#8a8a8a", bg: "#3a2320" },
-    { fg: "#8a8a8a", bg: "#2c2c2a" },
-    { fg: "#8a8a8a", bg: "#1f3324" },
-  ],
   D6: [
     { fg: "#ffffff", bg: "#d0774c" },
     { fg: "#151514", bg: "#ba5d2e" },

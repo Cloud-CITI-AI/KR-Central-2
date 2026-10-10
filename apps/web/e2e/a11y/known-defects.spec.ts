@@ -9,16 +9,13 @@ import { card, openTracker } from "../support/tracker";
 // Tracking: there are no issues yet, so the defect ids D1 to D7 reported to the orchestrator under WP-19 stand in for them (each
 // `test.fail` reason below carries its id). Every test here asserts what the spec says and is marked as expected to fail, so the
 // run stays green while the defect stands and goes red the day it is fixed ("expected to fail, but passed"): then delete its
-// `test.fail` line (and for D3, D6 and D7 their colour pairs in `KNOWN_CONTRAST_PAIRS`, support/a11y.ts).
+// `test.fail` line (and for D6 and D7 their colour pairs in `KNOWN_CONTRAST_PAIRS`, support/a11y.ts).
 
-// Known product defect D3 (WP-19): the secondary text colours inherited from the prototype (#8c8c8c, #777777 on white and the red
-// tint, #6d6c69 on #ebeae8; #8a8a8a on #3a2320 in dark) are below the 4.5:1 WCAG 2.2 AA contrast ratio: light tracker 141
-// elements, dark tracker 46, light dashboard 3 (the type chips). The dark dashboard passes, so it is an ordinary guard test.
-const D3_REASON = "WP-19 defect D3: secondary text colours are below 4.5:1 (see the comment above)";
+// Colour contrast (formerly known defect D3): the secondary text colours of the tokens meet 4.5:1 (WCAG 2.2 AA, 1.4.3) on every
+// surface they sit on, so axe's colour-contrast rule is held to the whole rule here and in states.spec.ts, in both themes.
 for (const theme of ["light", "dark"] as const) {
   for (const surface of ["dashboard", "tracker"] as const) {
     test(`D3: colour contrast meets WCAG 2.2 AA on the ${theme} ${surface}`, async ({ page, signInAs, apiAs }) => {
-      test.fail(!(theme === "dark" && surface === "dashboard"), D3_REASON);
       await page.addInitScript((value) => {
         localStorage.setItem("kr-theme", value);
       }, theme);
@@ -27,9 +24,7 @@ for (const theme of ["light", "dark"] as const) {
       if (surface === "dashboard") await page.goto("/");
       else await openTracker(page, job.id);
       await page.waitForLoadState("networkidle");
-      // The dark dashboard is the one surface without a D3 node: it is held to the whole rule.
-      const darkDashboard = theme === "dark" && surface === "dashboard";
-      expect(await violationsOn(page, darkDashboard ? { only: ["color-contrast"] } : { onlyKnown: "D3" })).toEqual([]);
+      expect(await violationsOn(page, { only: ["color-contrast"] })).toEqual([]);
     });
   }
 }
