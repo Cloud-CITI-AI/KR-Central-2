@@ -89,13 +89,16 @@ jobs:
       - name: Performance budgets (if the package defines them)
         working-directory: ${{ matrix.pkg }}
         run: pnpm run --if-present perf:check
+      - name: Performance script unit tests (if the package defines them)
+        working-directory: ${{ matrix.pkg }}
+        run: pnpm run --if-present perf:unit
 
   e2e:
     if: inputs.e2e-packages != '[]'
     needs: test
     runs-on: ubuntu-latest
     permissions: { contents: read }
-    timeout-minutes: 30
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -114,6 +117,16 @@ jobs:
       - name: End-to-end, accessibility and visual tests (starts Postgres, S3 mock, API with fake IdP, web)
         working-directory: ${{ matrix.pkg }}
         run: pnpm test:e2e
+      # WP-22: each perf config starts its own synthetic stack (workers=1, retries=0) and runs after the functional suite so
+      # its CPU/network throttling and load never overlap it. Both are no-ops for a package without the scripts.
+      - name: Web vitals on the reference profile (LCP, CLS, INP proxy; if the package defines them)
+        working-directory: ${{ matrix.pkg }}
+        run: pnpm run --if-present perf:vitals
+      - name: k6 API smoke against the e2e stack (if the package defines it)
+        working-directory: ${{ matrix.pkg }}
+        env:
+          K6_IMAGE: "mirror.gcr.io/grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34"
+        run: pnpm run --if-present perf:k6
       - name: Report flaky tests (passed on retry)
         if: always()
         working-directory: ${{ matrix.pkg }}
@@ -137,6 +150,6 @@ jobs:
         with:
           {
             name: "playwright-report-${{ strategy.job-index }}",
-            path: "${{ matrix.pkg }}/playwright-report",
+            path: "${{ matrix.pkg }}/playwright-report\n${{ matrix.pkg }}/test-results/perf\n${{ matrix.pkg }}/test-results/perf-k6",
             retention-days: 14,
           }
