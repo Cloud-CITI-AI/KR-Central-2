@@ -4,6 +4,7 @@
  * that carries the request id and never leaks internals.
  */
 import { PROBLEM_TYPES, type Problem, type ProblemType } from "@kr/contracts";
+import { StorageUnavailableError } from "@kr/storage";
 import type { FastifyError, FastifyInstance, FastifyRequest } from "fastify";
 import { hasZodFastifySchemaValidationErrors, isResponseSerializationError } from "fastify-type-provider-zod";
 
@@ -102,6 +103,9 @@ export class ServiceUnavailableError extends AppError {
   }
 }
 
+/** Seconds a client should wait before retrying after a storage outage. */
+export const STORAGE_RETRY_AFTER_SECONDS = 5;
+
 const INTERNAL_TITLE = "Internal server error";
 const MALFORMED_DETAIL = "The request could not be parsed.";
 
@@ -150,6 +154,17 @@ export function toProblem(error: unknown, requestId: string, instance?: string):
     }));
     return { headers: {}, problem: base(400, PROBLEM_TYPES.validation, "Validation failed", { errors }) };
   }
+  if (error instanceof StorageUnavailableError) {
+    return toProblem(
+      new ServiceUnavailableError({
+        type: PROBLEM_TYPES.storageUnavailable,
+        detail: "File storage is temporarily unavailable. Try again shortly.",
+        headers: { "retry-after": String(STORAGE_RETRY_AFTER_SECONDS) },
+      }),
+      requestId,
+      instance,
+    );
+  }
   if (isUntranslatableText(error)) {
     // Backstop for text Postgres cannot store (U+0000): client input never produces a 5xx. The input guard names the field first.
     return toProblem(new BadRequestError({ detail: MALFORMED_DETAIL }), requestId, instance);
@@ -186,7 +201,10 @@ export function requestInstance(request: FastifyRequest): string {
 export function registerErrorHandling(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     const { problem, headers } = toProblem(error, request.id, requestInstance(request));
-    if (problem.status >= 500) {
+    if (error instanceof StorageUnavailableError) {
+      // Degraded, not a bug: the bucket is unreachable (readiness shows it too); nothing in the request was wrong.
+      request.log.warn({ event: "storage_unavailable", ...describeError(error) }, "Object storage is unavailable");
+    } else if (problem.status >= 500) {
       request.log.error({ event: "request_failed", status: problem.status, ...describeError(error) }, "Request failed");
     }
     void reply.code(problem.status).headers(headers).type("application/problem+json").send(problem);

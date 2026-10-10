@@ -1,4 +1,5 @@
 import { PROBLEM_TYPES } from "@kr/contracts";
+import { StorageUnavailableError } from "@kr/storage";
 import { describe, expect, it } from "vitest";
 import {
   AppError,
@@ -59,6 +60,17 @@ describe("toProblem", () => {
       type: PROBLEM_TYPES.validation,
       detail: "The request could not be parsed.",
     });
+  });
+
+  it("maps a storage outage to 503 with Retry-After and its own problem type", () => {
+    const { problem, headers } = toProblem(new StorageUnavailableError(new Error("ECONNREFUSED")), rid, "/v1/x");
+    expect(headers).toEqual({ "retry-after": "5" });
+    expect(problem).toMatchObject({
+      status: 503,
+      type: PROBLEM_TYPES.storageUnavailable,
+      detail: "File storage is temporarily unavailable. Try again shortly.",
+    });
+    expect(JSON.stringify(problem)).not.toContain("ECONNREFUSED");
   });
 
   it("answers unknown errors with a generic 500 and no internals", () => {

@@ -10,7 +10,13 @@ import {
   type S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
-import { InvalidRangeError, ObjectNotFoundError, assertValidKey } from "./errors.js";
+import {
+  InvalidRangeError,
+  ObjectNotFoundError,
+  StorageUnavailableError,
+  assertValidKey,
+  isStorageUnavailable,
+} from "./errors.js";
 import type { ObjectHead, ObjectListEntry, ObjectStorage, PutObjectResult, S3StorageConfig } from "./index.js";
 
 const CONNECT_TIMEOUT_MS = 10_000;
@@ -30,6 +36,10 @@ const statusOf = (e: unknown): unknown => (e as { $metadata?: { httpStatusCode?:
 /** GET reports NoSuchKey; HEAD has no body and reports NotFound. */
 const isNotFound = (e: unknown): boolean => ["NoSuchKey", "NotFound"].includes(errorName(e));
 const isBadRange = (e: unknown): boolean => errorName(e) === "InvalidRange" || statusOf(e) === 416;
+
+/** Rethrow an outage as StorageUnavailableError; everything else (not found, bad range, bugs) is left as it is. */
+const classified = (error: unknown): unknown =>
+  isStorageUnavailable(error) ? new StorageUnavailableError(error) : error;
 
 /**
  * S3-compatible ObjectStorage for Railway Buckets. Reads, deletes and listings retry (3 attempts); writes do not,
@@ -65,7 +75,7 @@ export function createS3Storage(config: S3StorageConfig): S3Storage {
         lastModified: out.LastModified ?? new Date(0),
       };
     } catch (error) {
-      throw isNotFound(error) ? new ObjectNotFoundError(key) : error;
+      throw isNotFound(error) ? new ObjectNotFoundError(key) : classified(error);
     }
   };
 
@@ -83,6 +93,12 @@ export function createS3Storage(config: S3StorageConfig): S3Storage {
       });
       // pipeline() forwards a source failure to `tap`, which fails the upload and aborts the multipart upload.
       pipeline(body instanceof Uint8Array ? Readable.from([body], { objectMode: false }) : body, tap, () => undefined);
+      // A failure of the caller's own stream (a client that hung up) is not a storage outage, whatever its code.
+      const source = { failed: false };
+      if (!(body instanceof Uint8Array))
+        body.once("error", () => {
+          source.failed = true;
+        });
       try {
         const upload = new Upload({
           client: writer,
@@ -91,6 +107,8 @@ export function createS3Storage(config: S3StorageConfig): S3Storage {
           queueSize: QUEUE_SIZE,
         });
         await upload.done();
+      } catch (error) {
+        throw source.failed ? error : classified(error);
       } finally {
         tap.destroy(); // releases the source when the upload failed first; a no-op after a complete read
       }
@@ -119,7 +137,7 @@ export function createS3Storage(config: S3StorageConfig): S3Storage {
         };
       } catch (error) {
         if (isNotFound(error)) throw new ObjectNotFoundError(key);
-        throw isBadRange(error) ? new InvalidRangeError(key) : error;
+        throw isBadRange(error) ? new InvalidRangeError(key) : classified(error);
       }
     },
 
@@ -137,15 +155,20 @@ export function createS3Storage(config: S3StorageConfig): S3Storage {
 
     async delete(key) {
       assertValidKey(key);
-      await reader.send(new DeleteObjectCommand({ Bucket, Key: key })); // S3 answers 204 for a missing key
+      // S3 answers 204 for a missing key
+      await reader.send(new DeleteObjectCommand({ Bucket, Key: key })).catch((error: unknown) => {
+        throw classified(error);
+      });
     },
 
     async *list(prefix, options): AsyncGenerator<ObjectListEntry> {
       let ContinuationToken: string | undefined;
       do {
-        const page = await reader.send(
-          new ListObjectsV2Command({ Bucket, Prefix: prefix, ContinuationToken, MaxKeys: options?.pageSize }),
-        );
+        const page = await reader
+          .send(new ListObjectsV2Command({ Bucket, Prefix: prefix, ContinuationToken, MaxKeys: options?.pageSize }))
+          .catch((error: unknown) => {
+            throw classified(error);
+          });
         for (const item of page.Contents ?? []) {
           if (item.Key === undefined) continue;
           yield {

@@ -111,6 +111,7 @@ export const PROBLEM_TYPES = {
   fileRejected: "urn:kr:problem:file-rejected",
   rateLimited: "urn:kr:problem:rate-limited",
   featureDisabled: "urn:kr:problem:feature-disabled",
+  storageUnavailable: "urn:kr:problem:storage-unavailable",
   internal: "about:blank",
 } as const;
 export type ProblemType = (typeof PROBLEM_TYPES)[keyof typeof PROBLEM_TYPES];

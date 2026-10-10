@@ -11,7 +11,13 @@ export type { ClassifyResult, ContentRejection } from "./classify.js";
 export { sanitiseFileName } from "./file-name.js";
 export { createS3Storage } from "./s3.js";
 export type { S3Storage } from "./s3.js";
-export { InvalidRangeError, ObjectNotFoundError, assertValidKey } from "./errors.js";
+export {
+  InvalidRangeError,
+  ObjectNotFoundError,
+  StorageUnavailableError,
+  assertValidKey,
+  isStorageUnavailable,
+} from "./errors.js";
 
 export interface PutObjectInput {
   readonly key: string;
