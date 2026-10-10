@@ -27,4 +27,25 @@ describe("findNulFields", () => {
     const many = Object.fromEntries(Array.from({ length: 40 }, (_, i) => [`f${i}`, "\0"]));
     expect(findNulFields({ body: many })).toHaveLength(10);
   });
+
+  it("walks arbitrarily deep input without overflowing the stack", () => {
+    const nest = (depth: number, leaf: unknown): unknown => {
+      let v: unknown = leaf;
+      for (let i = 0; i < depth; i++) v = [v];
+      return v;
+    };
+    expect(findNulFields({ body: nest(200_000, "clean") })).toEqual([]);
+    const found = findNulFields({ body: nest(200_000, "a\0") });
+    expect(found).toHaveLength(1);
+    expect(found[0]?.message).toBe(NUL_MESSAGE);
+    expect(found[0]?.path.split(".")).toHaveLength(200_000);
+  });
+
+  it("reports fields in their original order", () => {
+    expect(findNulFields({ body: { a: { x: "\0" }, b: "\0", c: ["\0"] } }).map((e) => e.path)).toEqual([
+      "a.x",
+      "b",
+      "c.0",
+    ]);
+  });
 });

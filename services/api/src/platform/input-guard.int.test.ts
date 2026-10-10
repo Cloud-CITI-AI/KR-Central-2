@@ -147,6 +147,20 @@ describe("NUL guard (real Postgres)", () => {
     expect(key.statusCode).toBe(400);
   });
 
+  it.each([5_000, 45_000])("answers a body of %i nested arrays with a 400, not a 500", async (depth) => {
+    const nested = "[".repeat(depth) + "]".repeat(depth);
+    expect(nested.length).toBeLessThan(100_000);
+    const res = await apiRequest(t, {
+      method: "POST",
+      url: `/v1/jobs/${jobId}/notes`,
+      as: staff,
+      headers: { "content-type": "application/json" },
+      body: nested,
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.headers["content-type"]).toContain("application/problem+json");
+  });
+
   it("stores nothing for refused input", async () => {
     const before = await t.db.selectFrom("job_notes").select("id").where("job_id", "=", jobId).execute();
     await post(staff, `/v1/jobs/${jobId}/notes`, { body: "a\u0000b" });

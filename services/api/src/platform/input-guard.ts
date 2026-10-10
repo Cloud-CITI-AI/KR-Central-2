@@ -18,17 +18,38 @@ function isStructured(value: object): boolean {
   );
 }
 
-function collect(value: unknown, path: string, out: FieldError[]): void {
-  if (out.length >= MAX_REPORTED) return;
-  if (typeof value === "string") {
-    if (value.includes("\0")) out.push({ path, message: NUL_MESSAGE });
-    return;
-  }
-  if (typeof value !== "object" || value === null || !isStructured(value)) return;
-  for (const [key, child] of Object.entries(value)) {
-    const childPath = path === "" ? key : `${path}.${key}`;
-    if (key.includes("\0")) out.push({ path: childPath, message: NUL_MESSAGE });
-    collect(child, childPath, out);
+interface Frame {
+  readonly value: unknown;
+  readonly key: string;
+  readonly parent: Frame | undefined;
+}
+
+function pathOf(frame: Frame): string {
+  const keys: string[] = [];
+  for (let f = frame; f.parent !== undefined; f = f.parent) keys.push(f.key);
+  return keys.reverse().join(".");
+}
+
+/**
+ * Walks `root` depth-first with an explicit stack, so a deeply nested body (well under the body limit) cannot overflow
+ * the call stack and turn into a 500; the schema, not this guard, decides what shape is acceptable.
+ */
+function collect(root: unknown, out: FieldError[]): void {
+  const stack: Frame[] = [{ value: root, key: "", parent: undefined }];
+  while (stack.length > 0 && out.length < MAX_REPORTED) {
+    const frame = stack.pop();
+    if (frame === undefined) break;
+    const { value } = frame;
+    if (frame.parent !== undefined && frame.key.includes("\0")) out.push({ path: pathOf(frame), message: NUL_MESSAGE });
+    if (typeof value === "string") {
+      if (value.includes("\0")) out.push({ path: pathOf(frame), message: NUL_MESSAGE });
+      continue;
+    }
+    if (typeof value !== "object" || value === null || !isStructured(value)) continue;
+    // Push in reverse so fields are visited, and reported, in their original order.
+    for (const [key, child] of Object.entries(value as Record<string, unknown>).reverse()) {
+      stack.push({ value: child, key, parent: frame });
+    }
   }
 }
 
@@ -38,9 +59,9 @@ export function findNulFields(parts: Readonly<Record<string, unknown>>): FieldEr
   for (const [context, value] of Object.entries(parts)) {
     if (typeof value === "string") {
       if (value.includes("\0")) out.push({ path: context, message: NUL_MESSAGE });
-    } else collect(value, "", out);
+    } else collect(value, out);
   }
-  return out;
+  return out.slice(0, MAX_REPORTED);
 }
 
 export function registerInputGuard(app: FastifyInstance): void {
