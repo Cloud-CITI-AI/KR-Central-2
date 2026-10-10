@@ -3,27 +3,109 @@ import { createJob } from "../harness/jobs";
 import { STAFF } from "../harness/users";
 import { violationsOn } from "../support/a11y";
 import { expectFirstPageDrawn } from "../support/viewer";
-import { pdfFile } from "../support/documents";
+import { decisionLetter, pdfFile } from "../support/documents";
 import { card, openTracker } from "../support/tracker";
 
-// Known product defect D3: the secondary text colours inherited from the prototype (#8c8c8c, #777777, #6d6c69; #8a8a8a in dark) are
-// below the 4.5:1 WCAG 2.2 AA contrast ratio on the tracker (light: 141 elements, dark: 46) and on the dashboard's type chips
-// (light). This test asserts the spec ("zero violations") and is marked as expected to fail, so the run stays green while the
-// defect stands and goes red the day it is fixed: then delete the `test.fail` line and the `color-contrast` exclusion in support/a11y.ts.
-test("D3: colour contrast meets WCAG 2.2 AA on the dashboard and the tracker", async ({ page, signInAs, apiAs }) => {
-  test.fail(true, "D3: secondary text colours are below 4.5:1 (see the comment above)");
-  const job = await createJob(await apiAs(STAFF));
+// Tracking: there are no issues yet, so the defect ids D1 to D7 reported to the orchestrator under WP-19 stand in for them (each
+// `test.fail` reason below carries its id). Every test here asserts what the spec says and is marked as expected to fail, so the
+// run stays green while the defect stands and goes red the day it is fixed ("expected to fail, but passed"): then delete its
+// `test.fail` line (and for D3, D6 and D7 their colour pairs in `KNOWN_CONTRAST_PAIRS`, support/a11y.ts).
+
+// Known product defect D3 (WP-19): the secondary text colours inherited from the prototype (#8c8c8c, #777777 on white and the red
+// tint, #6d6c69 on #ebeae8; #8a8a8a on #3a2320 in dark) are below the 4.5:1 WCAG 2.2 AA contrast ratio: light tracker 141
+// elements, dark tracker 46, light dashboard 3 (the type chips). The dark dashboard passes, so it is an ordinary guard test.
+const D3_REASON = "WP-19 defect D3: secondary text colours are below 4.5:1 (see the comment above)";
+for (const theme of ["light", "dark"] as const) {
+  for (const surface of ["dashboard", "tracker"] as const) {
+    test(`D3: colour contrast meets WCAG 2.2 AA on the ${theme} ${surface}`, async ({ page, signInAs, apiAs }) => {
+      test.fail(!(theme === "dark" && surface === "dashboard"), D3_REASON);
+      await page.addInitScript((value) => {
+        localStorage.setItem("kr-theme", value);
+      }, theme);
+      const job = await createJob(await apiAs(STAFF));
+      await signInAs(STAFF);
+      if (surface === "dashboard") await page.goto("/");
+      else await openTracker(page, job.id);
+      await page.waitForLoadState("networkidle");
+      // The dark dashboard is the one surface without a D3 node: it is held to the whole rule.
+      const darkDashboard = theme === "dark" && surface === "dashboard";
+      expect(await violationsOn(page, darkDashboard ? { only: ["color-contrast"] } : { onlyKnown: "D3" })).toEqual([]);
+    });
+  }
+}
+
+// Known product defect D6 (WP-19, found when the contrast carve-out was narrowed to D3): in the dark theme the pressed filter chip's
+// count is #151514 on #ba5d2e (20% black over the accent), 4.08:1. axe reports this node only some of the time (it is absent
+// from a quiet run), so this test measures the ratio itself from the computed colours instead of asking axe. Expected to fail until fixed.
+test("D6: the pressed dashboard filter chip's count meets 4.5:1 contrast in the dark theme", async ({
+  page,
+  signInAs,
+  apiAs,
+}) => {
+  test.fail(true, "WP-19 defect D6: pressed chip count is #151514 on #ba5d2e, 4.08:1 (see the comment above)");
+  await createJob(await apiAs(STAFF));
+  await page.addInitScript(() => {
+    localStorage.setItem("kr-theme", "dark");
+  });
   await signInAs(STAFF);
   await page.goto("/");
-  expect(await violationsOn(page, { only: ["color-contrast"] }), "dashboard").toEqual([]);
-  await openTracker(page, job.id);
-  expect(await violationsOn(page, { only: ["color-contrast"] }), "tracker").toEqual([]);
+  const chip = page.getByRole("button", { name: /^All types/ });
+  await expect(chip).toHaveAttribute("aria-pressed", "true");
+  await expect(chip.locator("span")).toHaveText(/^\d+$/);
+  const ratio = await chip.locator("span").evaluate((count) => {
+    const parse = (value: string): number[] => (value.match(/[\d.]+/g) ?? []).map(Number);
+    const [br = 0, bg = 0, bb = 0] = parse(getComputedStyle(count.parentElement as Element).backgroundColor);
+    const [or = 0, og = 0, ob = 0, oa = 1] = parse(getComputedStyle(count).backgroundColor);
+    const [fr = 0, fg = 0, fb = 0] = parse(getComputedStyle(count).color);
+    const mix = (under: number, over: number): number => over * oa + under * (1 - oa);
+    const luminance = (rgb: number[]): number => {
+      const [r = 0, g = 0, b = 0] = rgb.map((channel) => {
+        const c = channel / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const back = luminance([mix(br, or), mix(bg, og), mix(bb, ob)]);
+    const front = luminance([fr, fg, fb]);
+    return (Math.max(back, front) + 0.05) / (Math.min(back, front) + 0.05);
+  });
+  expect(ratio).toBeGreaterThanOrEqual(4.5);
 });
 
-// Known product defect D4: the PDF viewer's scrolling page area (`scroller`) has no focusable content and is not itself focusable, so a
+// Known product defect D7 (WP-19, same discovery): on the conditions checklist the orange agency and "WAPC approval" links
+// (#d65614 on white, 4.03:1, and on the red tint #fce8e6, 3.42:1, at 12.5px) fail contrast in the light theme. Expected to fail until fixed.
+test("D7: the orange links on the conditions checklist meet WCAG 2.2 AA contrast", async ({
+  page,
+  signInAs,
+  apiAs,
+}) => {
+  test.fail(
+    true,
+    "WP-19 defect D7: orange links are #d65614 on white or the red tint, 3.4 to 4.0:1 (see the comment above)",
+  );
+  const staff = await apiAs(STAFF);
+  const job = await createJob(staff);
+  const letter = await decisionLetter("Decision Letter.pdf", [
+    { text: "Underground power being provided to every lot.", agency: "Western Power" },
+    { text: "Drainage plans being approved.", agency: "City of Stirling" },
+  ]);
+  await staff.upload(
+    job.id,
+    { checkpointKey: "i5_0", slot: "decision" },
+    { name: letter.name, bytes: letter.buffer, type: letter.mimeType },
+  );
+  await signInAs(STAFF);
+  await openTracker(page, job.id);
+  const approval = card(page, "i5_0");
+  await approval.getByRole("button", { name: "Extract conditions from Decision Letter" }).click();
+  await expect(approval.getByText("2 conditions extracted")).toBeVisible();
+  expect(await violationsOn(page, { onlyKnown: "D7" })).toEqual([]);
+});
+
+// Known product defect D4 (WP-19): the PDF viewer's scrolling page area (`scroller`) has no focusable content and is not itself focusable, so a
 // keyboard user cannot scroll through the pages (axe `scrollable-region-focusable`, WCAG 2.1.1). Expected to fail until fixed.
 test("D4: the PDF viewer's page area can be scrolled with the keyboard", async ({ page, signInAs, apiAs }) => {
-  test.fail(true, "D4: the viewer's scroller is not keyboard focusable (see the comment above)");
+  test.fail(true, "WP-19 defect D4: the viewer's scroller is not keyboard focusable (see the comment above)");
   const staff = await apiAs(STAFF);
   const job = await createJob(staff);
   const file = await pdfFile("feature-survey.pdf", [["Synthetic feature survey"], ["Page 2"]]);
@@ -39,7 +121,7 @@ test("D4: the PDF viewer's page area can be scrolled with the keyboard", async (
   expect(await violationsOn(page, { only: ["scrollable-region-focusable"] })).toEqual([]);
 });
 
-// Known product defect D5: pdf.js 6 needs `Map.prototype.getOrInsertComputed` (ES2026), which browsers before roughly early 2026 lack
+// Known product defect D5 (WP-19): pdf.js 6 needs `Map.prototype.getOrInsertComputed` (ES2026), which browsers before roughly early 2026 lack
 // (the Chromium 141 preinstalled in some sandboxes among them): there the viewer says "Page 1 couldn't be drawn." for every PDF. The
 // product should ship the legacy pdf.js build or a polyfill. This test uses no polyfill; it expects to fail only in a browser that lacks
 // the method, so on a current browser it passes as an ordinary test.
@@ -59,7 +141,10 @@ test("D5: the PDF viewer draws pages in a browser without Map.getOrInsertCompute
   await signInAs(STAFF);
   await openTracker(page, job.id);
   const supported = await page.evaluate(() => "getOrInsertComputed" in Map.prototype);
-  test.fail(!supported, "D5: this browser lacks Map.getOrInsertComputed, which pdf.js 6 needs (see the comment above)");
+  test.fail(
+    !supported,
+    "WP-19 defect D5: this browser lacks Map.getOrInsertComputed, which pdf.js 6 needs (see the comment above)",
+  );
   await card(page, "i2_0").getByRole("button", { name: "feature-survey.pdf", exact: true }).click();
   await expectFirstPageDrawn(page.getByRole("dialog", { name: "feature-survey.pdf" }));
 });
