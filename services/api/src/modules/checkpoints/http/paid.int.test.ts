@@ -70,7 +70,7 @@ describe("markPaid and undoPaid (real Postgres)", () => {
         changes: { status: { from: "not_completed", to: "completed" } },
       });
       expect((await apiRequest(t, { url: `/v1/jobs/${job.id}`, as: who })).json<Detail>()).toMatchObject({
-        version: 2,
+        version: 1,
         summary: { progress: { completed: 1, notCompleted: 45 } },
       });
     }

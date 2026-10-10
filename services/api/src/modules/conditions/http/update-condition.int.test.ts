@@ -50,7 +50,7 @@ describe("updateCondition (real Postgres)", () => {
     await t.close();
   });
 
-  it("staff change the tick, responsibility, agency and KR comment; the version, ETag and job version move", async () => {
+  it("staff change the tick, responsibility, agency and KR comment; the condition version and ETag move, the job version does not", async () => {
     for (const who of [staff, krAdmin, admin]) {
       const { job, condition } = await fresh();
       const res = await patch(who, job, condition, {
@@ -80,7 +80,7 @@ describe("updateCondition (real Postgres)", () => {
         updated_by: who.user.id,
         version: 2,
       });
-      expect(await jobVersion(job.id)).toBe(2);
+      expect(await jobVersion(job.id)).toBe(1);
     }
   });
 

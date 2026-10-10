@@ -9,7 +9,7 @@ import { requireJobCapability, type JobAccess } from "../../../platform/authz.js
 import { assertVersion } from "../../../platform/concurrency.js";
 import { NotFoundError } from "../../../platform/errors.js";
 import type { ModuleDeps } from "../../../platform/module.js";
-import { bumpJobVersion, loadCheckpointView } from "../../jobs/index.js";
+import { touchJob, loadCheckpointView } from "../../jobs/index.js";
 import { lockCheckpointState, writeCheckpointState } from "../data/checkpoint-states.js";
 import type { CheckpointPlan } from "../domain/checkpoint-update.js";
 
@@ -38,7 +38,7 @@ export function applyCheckpointPlan(o: ApplyOptions): Promise<CheckpointState> {
     if (o.expectedVersion !== undefined) assertVersion(row.version, o.expectedVersion);
     const plan = o.plan(row);
     if (!plan.isNoOp) {
-      await bumpJobVersion(trx, jobId);
+      await touchJob(trx, jobId);
       await writeCheckpointState(trx, row, plan.set, o.auth.user.id);
       for (const a of plan.audits) {
         await audit(trx, auditContext(o.request), {

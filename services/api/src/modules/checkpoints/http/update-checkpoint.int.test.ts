@@ -92,18 +92,21 @@ describe("updateCheckpoint (real Postgres)", () => {
     }
   });
 
-  it("bumps the job version so its ETag and dashboard card change, and only when something changed", async () => {
+  it("leaves the job version alone (it versions the job's own fields) but moves the job's updated time, only when something changed", async () => {
     const job = await fresh();
-    expect((await jobRow(job.id)).version).toBe(1);
+    const before = await jobRow(job.id);
+    expect(before.version).toBe(1);
     await patch(staff, job, "i2_0", { status: "completed" });
-    expect((await jobRow(job.id)).version).toBe(2);
+    const after = await jobRow(job.id);
+    expect(after.version).toBe(1);
+    expect(after.updated_at.getTime()).toBeGreaterThan(before.updated_at.getTime());
     const noop = await patch(staff, job, "i2_0", { status: "completed" }, 2);
     expect(noop.statusCode).toBe(200);
     expect(noop.headers.etag).toBe('"2"');
-    expect((await jobRow(job.id)).version).toBe(2);
+    expect((await jobRow(job.id)).updated_at).toEqual(after.updated_at);
     expect(await audits(job.id)).toHaveLength(1);
     const detail = await apiRequest(t, { url: `/v1/jobs/${job.id}`, as: staff });
-    expect(detail.headers.etag).toBe('"2"');
+    expect(detail.headers.etag).toBe('"1"');
   });
 
   it("can unassign a responsibility with null", async () => {

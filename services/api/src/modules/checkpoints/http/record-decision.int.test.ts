@@ -100,7 +100,7 @@ describe("recordDecision (real Postgres)", () => {
       expect(JSON.stringify(event?.changes)).not.toContain("rang");
       expect(
         (await t.db.selectFrom("jobs").select("version").where("id", "=", job.id).executeTakeFirstOrThrow()).version,
-      ).toBe(2);
+      ).toBe(1);
     }
   });
 

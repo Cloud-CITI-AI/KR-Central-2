@@ -17,4 +17,4 @@ export const jobsModule: ApiModule = {
 
 /** For the checkpoints module: one checkpoint as the viewer sees it, and the job version bump every checkpoint write makes. */
 export { loadCheckpointView, type JobViewer } from "./http/job-view.js";
-export { bumpJobVersion } from "./data/job-updates.js";
+export { touchJob } from "./data/job-updates.js";

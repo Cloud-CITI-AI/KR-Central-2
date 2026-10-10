@@ -29,3 +29,4 @@ Releases are prepared by release-please from Conventional Commits.
 ### Fixed
 
 - Local stack (`docker compose --profile stack up`): the S3 mock has a health check and `migrate` waits for it, so a cold start no longer fails with `ECONNREFUSED` on the pre-migration backup.
+- Job edits no longer get a false 412 ("This item was changed by someone else") after another person ticks, decides or marks paid a checkpoint or edits a condition: the job's `version` now versions only the job's own fields, and checkpoint and condition writes only move its updated time.

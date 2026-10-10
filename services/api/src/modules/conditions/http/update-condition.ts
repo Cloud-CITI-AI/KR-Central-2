@@ -8,7 +8,7 @@ import { NotFoundError } from "../../../platform/errors.js";
 import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
 import { toCondition, toFileMeta } from "../../_shared/index.js";
-import { bumpJobVersion } from "../../jobs/index.js";
+import { touchJob } from "../../jobs/index.js";
 import { loadEvidence, lockCurrentCondition, writeCondition } from "../data/conditions.js";
 import { capabilitiesForConditionUpdate, planConditionUpdate } from "../domain/condition-update.js";
 
@@ -25,7 +25,7 @@ export function registerUpdateConditionRoute(app: FastifyInstance, deps: ModuleD
       const plan = planConditionUpdate(row, body, auth.user.id, deps.clock.now());
       let current = row;
       if (plan.changes) {
-        await bumpJobVersion(trx, jobId);
+        await touchJob(trx, jobId);
         current = await writeCondition(trx, row, plan.set, auth.user.id);
         await audit(trx, auditContext(request), {
           action: "condition.updated",

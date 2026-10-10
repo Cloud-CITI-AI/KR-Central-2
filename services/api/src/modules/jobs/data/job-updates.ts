@@ -63,13 +63,15 @@ export async function archiveJobRow(
 }
 
 /**
- * Bump the job's version (and updated_at) for a change made through another module, so the job's ETag and the dashboard
- * card reflect every edit. 404 when the job was archived meanwhile.
+ * Record a change made through another module (a checkpoint or condition write) on the job: only `updated_at` moves (the
+ * trigger sets it), so the dashboard card and its ordering follow every edit. The job's `version` is the version of the
+ * job's OWN fields (PRODUCT_SPEC §14: separate If-Match versions for job, checkpoint and condition edits), so it must not
+ * move here, or one person's checkpoint tick would 412 another person's date edit. 404 when the job was archived meanwhile.
  */
-export async function bumpJobVersion(trx: Transaction<Database>, jobId: string): Promise<void> {
+export async function touchJob(trx: Transaction<Database>, jobId: string): Promise<void> {
   const row = await trx
     .updateTable("jobs")
-    .set((eb) => ({ version: eb("version", "+", 1) }))
+    .set((eb) => ({ updated_at: eb.fn("now") }))
     .where("id", "=", jobId)
     .where("deleted_at", "is", null)
     .returning("id")

@@ -126,6 +126,28 @@ describe("updateJob (real Postgres)", () => {
     expect((await patch(staff, job, { address: "c" }, 1)).statusCode).toBe(412);
   });
 
+  it("keeps the job's own version out of checkpoint and condition writes: a date edit made from an older read still saves", async () => {
+    const job = await fresh();
+    const condition = await f.makeCondition({ jobId: job.id, number: 1, agency: "Western Power" });
+    const read = await apiRequest(t, { url: `/v1/jobs/${job.id}`, as: staff });
+    const version = read.json<Detail>().version;
+    const write = (url: string, method: "PUT" | "PATCH", as: SignedIn, body?: unknown) =>
+      apiRequest(t, { method, url, as, ...(body === undefined ? {} : { body }), headers: { "if-match": '"1"' } });
+    const base = `/v1/jobs/${job.id}`;
+    expect((await write(`${base}/checkpoints/i6_2/paid`, "PUT", client)).statusCode).toBe(200);
+    expect((await write(`${base}/checkpoints/i4_1`, "PATCH", staff, { status: "not_required" })).statusCode).toBe(200);
+    expect((await write(`${base}/checkpoints/i3_0p/decision`, "PUT", client, { value: "accepted" })).statusCode).toBe(
+      200,
+    );
+    expect(
+      (await write(`${base}/conditions/${condition.id}`, "PATCH", staff, { krComment: "Booked" })).statusCode,
+    ).toBe(200);
+    expect((await row(job.id)).version).toBe(version);
+    const edit = await patch(admin, job, { approvalExpiry: "2028-01-01" }, version);
+    expect(edit.statusCode).toBe(200);
+    expect(edit.json<Detail>()).toMatchObject({ approvalExpiry: "2028-01-01", version: version + 1 });
+  });
+
   it("lets exactly one of two concurrent edits with the same version win", async () => {
     const job = await fresh();
     const results = await Promise.all([patch(staff, job, { address: "one" }), patch(admin, job, { address: "two" })]);
