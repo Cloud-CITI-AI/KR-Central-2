@@ -5,7 +5,6 @@ import { REPO_ROOT, WEB_DIR } from "../harness/constants";
 import { createJob } from "../harness/jobs";
 import { KR_ADMIN } from "../harness/users";
 import { diffImages } from "../support/image-diff";
-import { installUpsert } from "../support/polyfills";
 import { renderChecklist, type ParityResult } from "./checklist";
 import { VIEWS } from "./views";
 
@@ -50,7 +49,6 @@ for (const device of ["desktop", "mobile"] as const) {
         await page.addInitScript((value) => {
           localStorage.setItem("kr-theme", value);
         }, view.theme);
-        await installUpsert(page);
         const staff = await signInAs(KR_ADMIN);
         jobId ??= (
           await createJob(staff, {

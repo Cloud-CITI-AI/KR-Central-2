@@ -4,7 +4,6 @@ import { createJob, grantAccess, patchCheckpoint, waitForOperation } from "../ha
 import { ARCHITECT_GUEST, CLIENT_GUEST, FIRST_MEMBER, STAFF } from "../harness/users";
 import { expectAccessible } from "../support/a11y";
 import { decisionLetter, dwgFile, emlFile, pdfFile, pngFile } from "../support/documents";
-import { installUpsert } from "../support/polyfills";
 import { expectFirstPageDrawn } from "../support/viewer";
 import { card, openTracker } from "../support/tracker";
 
@@ -29,7 +28,6 @@ for (const viewport of VIEWPORTS) {
         await page.addInitScript((value) => {
           localStorage.setItem("kr-theme", value);
         }, theme);
-        await installUpsert(page);
       });
       const at = (state: string): string => `${theme} ${viewport.name}: ${state}`;
 

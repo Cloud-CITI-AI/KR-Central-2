@@ -4,7 +4,6 @@ import { createJob } from "../harness/jobs";
 import { STAFF } from "../harness/users";
 import { pdfFile } from "../support/documents";
 import { expectFirstPageDrawn } from "../support/viewer";
-import { installUpsert } from "../support/polyfills";
 import { card } from "../support/tracker";
 
 // Visual regression (PRODUCT_SPEC §12): the dashboard, the tracker and the document viewer in light and dark, at 1280 px and at 390 px.
@@ -58,7 +57,6 @@ for (const viewport of VIEWPORTS) {
         await page.addInitScript((value) => {
           localStorage.setItem("kr-theme", value);
         }, theme);
-        await installUpsert(page);
       });
       const name = (view: string): string => `${view}-${theme}-${viewport.name}.png`;
 

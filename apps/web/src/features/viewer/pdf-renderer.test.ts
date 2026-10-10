@@ -36,7 +36,7 @@ describe("pdfjsDocumentOptions", () => {
       iccUrl: "/pdfjs/iccs/",
       wasmUrl: "/pdfjs/wasm/",
     });
-    expect(PDFJS_WORKER_SRC).toBe("/pdfjs/pdf.worker.min.mjs");
+    expect(PDFJS_WORKER_SRC).toBe("/pdfjs/pdf.worker.polyfilled.mjs");
   });
 });
 
@@ -68,11 +68,29 @@ describe("pdfjsRenderer", () => {
   it("points pdf.js at the same-origin worker and opens the URL with the safe options", async () => {
     pdfjs.getDocument.mockReturnValue(fakeLoading().loading);
     const document = await pdfjsRenderer.open("/api/v1/files/f1/content");
-    expect(pdfjs.GlobalWorkerOptions.workerSrc).toBe("/pdfjs/pdf.worker.min.mjs");
+    expect(pdfjs.GlobalWorkerOptions.workerSrc).toBe("/pdfjs/pdf.worker.polyfilled.mjs");
     expect(pdfjs.getDocument).toHaveBeenCalledWith(
       expect.objectContaining({ url: "/api/v1/files/f1/content", isEvalSupported: false, enableXfa: false }),
     );
     expect(document.pageCount).toBe(3);
+  });
+
+  it("installs the Map upsert polyfill on the page before it loads pdf.js", async () => {
+    const proto = Map.prototype as unknown as Record<string, unknown>;
+    const saved = { getOrInsert: proto.getOrInsert, getOrInsertComputed: proto.getOrInsertComputed };
+    delete proto.getOrInsert;
+    delete proto.getOrInsertComputed;
+    try {
+      pdfjs.getDocument.mockImplementation(() => {
+        // pdf.js is evaluated (and the first document opened) only after the polyfill is there.
+        expect(typeof proto.getOrInsertComputed).toBe("function");
+        return fakeLoading().loading;
+      });
+      await pdfjsRenderer.open("/x");
+      expect(typeof proto.getOrInsertComputed).toBe("function");
+    } finally {
+      Object.assign(proto, saved);
+    }
   });
 
   it("reports the page size and draws a page at the requested width, sharp for the screen", async () => {

@@ -11,8 +11,9 @@ const vendored = (path: string) => join(web, "public", PDFJS_BASE, path);
 const installed = (path: string) => join(web, "node_modules/pdfjs-dist", path);
 
 describe("public/pdfjs", () => {
-  it("serves the worker the renderer points at, byte for byte the installed pdfjs-dist (refresh it on a version bump)", () => {
-    expect(PDFJS_WORKER_SRC).toBe(`${PDFJS_BASE}pdf.worker.min.mjs`);
+  it("serves the worker the renderer points at: the polyfill wrapper around the installed pdfjs-dist worker, byte for byte (refresh it on a version bump)", () => {
+    expect(PDFJS_WORKER_SRC).toBe(`${PDFJS_BASE}pdf.worker.polyfilled.mjs`);
+    expect(readFileSync(vendored("pdf.worker.polyfilled.mjs"), "utf8")).toContain('import "./pdf.worker.min.mjs";');
     expect(
       readFileSync(vendored("pdf.worker.min.mjs")).equals(readFileSync(installed("build/pdf.worker.min.mjs"))),
     ).toBe(true);

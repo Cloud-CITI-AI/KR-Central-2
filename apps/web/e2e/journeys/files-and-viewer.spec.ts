@@ -2,7 +2,6 @@ import { expect, test } from "../fixtures";
 import { createJob } from "../harness/jobs";
 import { STAFF } from "../harness/users";
 import { dwgFile, pdfFile, pngFile, textFile } from "../support/documents";
-import { installUpsert } from "../support/polyfills";
 import { card, fileInput, openTracker } from "../support/tracker";
 import { expectFirstPageDrawn } from "../support/viewer";
 
@@ -13,7 +12,6 @@ test("staff upload the survey PDF and DWG, open the PDF in the viewer, and remov
   signInAs,
   apiAs,
 }) => {
-  await installUpsert(page);
   const job = await createJob(await apiAs(STAFF));
   await signInAs(STAFF);
   await openTracker(page, job.id);
