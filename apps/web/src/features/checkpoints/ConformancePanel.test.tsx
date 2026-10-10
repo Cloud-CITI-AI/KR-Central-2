@@ -173,6 +173,42 @@ describe("conformance panel", () => {
     expect(screen.getByRole("button", READ_AGAIN)).toBeEnabled();
   });
 
+  it("sends a fresh Idempotency-Key with each read request (the API answers 400 without one)", async () => {
+    const job = withFiles(["Notice.pdf"]);
+    renderCard(job, "i4_2");
+    const keys: (string | null)[] = [];
+    server.use(
+      handlerFor("startConformanceReading", ({ request }) => {
+        keys.push(request.headers.get("idempotency-key"));
+        return HttpResponse.json(operation(job.id, "queued"), { status: 202 });
+      }),
+      handlerFor("getOperation", () => HttpResponse.json(operation(job.id, "succeeded", found))),
+    );
+    await userEvent.click(screen.getByRole("button", READ_AGAIN));
+    await screen.findByText("Taken from the file name: Mon, 16 Mar 2026.", {}, { timeout: 4000 });
+    await userEvent.click(screen.getByRole("button", READ_AGAIN));
+    await waitFor(() => {
+      expect(keys).toHaveLength(2);
+    });
+    for (const key of keys) expect(key).toMatch(/^[\x21-\x7e]{8,128}$/);
+    expect(keys[0]).not.toBe(keys[1]);
+  });
+
+  it("offers the read for a file that scanning skipped (MALWARE_SCAN_MODE=disabled), as extraction does", () => {
+    const base = syntheticJob();
+    renderCard(
+      withCheckpoint(base, "i4_2", { files: [pdf(base.id, "Skipped.pdf", { scanStatus: "skipped" })] }),
+      "i4_2",
+    );
+    expect(screen.getByRole("button", READ_AGAIN)).toBeEnabled();
+  });
+
+  it.each(["pending", "infected", "error"] as const)("keeps the read button off for a %s file", (scanStatus) => {
+    const base = syntheticJob();
+    renderCard(withCheckpoint(base, "i4_2", { files: [pdf(base.id, "Bad.pdf", { scanStatus })] }), "i4_2");
+    expect(screen.getByRole("button", READ_AGAIN)).toBeDisabled();
+  });
+
   it("keeps the read button off until the file has been scanned", () => {
     const base = syntheticJob();
     renderCard(withCheckpoint(base, "i4_2", { files: [pdf(base.id, "Fresh.pdf", { scanStatus: "pending" })] }), "i4_2");

@@ -10,7 +10,7 @@ import { Folder, FolderHeader } from "./Folder";
 import { conformanceNotStartedText, conformanceUnreadableText, fileCountText } from "./messages";
 import { PanelBox } from "./PanelBox";
 import { SlotZone, type SlotZoneProps } from "./SlotZone";
-import { filesInSlot } from "./slotFiles";
+import { filesInSlot, isReadable } from "./slotFiles";
 import { useFollowedOperation } from "./useFollowedOperation";
 import { useStartConformanceReading } from "./useStartConformanceReading";
 import styles from "./Conformance.module.css";
@@ -107,7 +107,7 @@ export function ConformancePanel({ job, checkpoint, panel }: ConformancePanelPro
               <Button
                 key={file.id}
                 small
-                disabled={running || file.scanStatus !== "clean"}
+                disabled={running || !isReadable(file)}
                 onClick={() => {
                   read(file);
                 }}
