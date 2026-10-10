@@ -140,6 +140,62 @@ describe("useUploadFiles", () => {
     expect(polls).toBe(2);
   }, 10_000);
 
+  it("follows the task the scan queued (its followUpOperationId) and refreshes the job again when that settles", async () => {
+    const job = syntheticJob();
+    const requests = stubUploads();
+    const { queryClient, served } = renderWithJob(<Probe jobId={job.id} files={[pdf("One.pdf")]} />, job);
+    const stored = syntheticFile(job.id, { name: "One.pdf", checkpointKey: "i7_1", slot: "documents" });
+    const SCAN_ID = "7a2e4c1f-6d2b-4c75-8e5f-1e9c2b3d4e5f";
+    const NEXT_ID = "6f1d3b0e-5c1a-4b64-9d4e-0d8b1a2c3d4e";
+    const operation = (id: string, type: "file.scan" | "conformance.read", status: string, result: unknown = null) =>
+      Operation.parse({
+        id,
+        jobId: job.id,
+        type,
+        status,
+        createdAt: "2026-09-28T03:50:56.543Z",
+        completedAt: status === "succeeded" ? "2026-09-28T03:50:57.543Z" : null,
+        result,
+        error: null,
+      });
+    let followPolls = 0;
+    server.use(
+      handlerFor("getOperation", ({ request }) => {
+        if (new URL(request.url).pathname.endsWith(NEXT_ID)) {
+          followPolls += 1;
+          if (followPolls < 2) return HttpResponse.json(operation(NEXT_ID, "conformance.read", "running"));
+          served.job = { ...job, version: job.version + 1, conformedDate: "2026-07-20" };
+          return HttpResponse.json(
+            operation(NEXT_ID, "conformance.read", "succeeded", {
+              found: true,
+              date: "2026-07-20",
+              method: "file_name",
+              stampText: null,
+              message: "Taken from the file name: Mon, 20 Jul 2026.",
+            }),
+          );
+        }
+        return HttpResponse.json(
+          operation(SCAN_ID, "file.scan", "succeeded", { scanStatus: "clean", followUpOperationId: NEXT_ID }),
+        );
+      }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => {
+      expect(requests).toHaveLength(1);
+    });
+    served.job = job;
+    requests[0]?.finish(201, uploadResult(stored, operation(SCAN_ID, "file.scan", "queued")));
+    const cached = () => queryClient.getQueryData<typeof job>(queryKeys.jobs.detail(job.id));
+    await waitFor(
+      () => {
+        expect(cached()?.conformedDate).toBe("2026-07-20");
+      },
+      { timeout: 5000 },
+    );
+    expect(followPolls).toBe(2);
+  }, 10_000);
+
   it("lists a refused file with its reason and still stores the others", async () => {
     const job = syntheticJob();
     const requests = stubUploads();

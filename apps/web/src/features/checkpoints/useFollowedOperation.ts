@@ -1,6 +1,6 @@
 "use client";
 import type { Operation } from "@kr/contracts";
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { api, queryKeys } from "@/lib/api";
 import { pollDelay, useOperation } from "@/lib/query/hooks";
@@ -26,28 +26,78 @@ export function useFollowedOperation(operationId: string | null): Operation | un
   return operationId ? data : undefined;
 }
 
+/** The task a settled `file.scan` queued for its file (a conformance read, an email parse), when it queued one. */
+export function followUpOf(operation: Operation | undefined): string | null {
+  if (operation?.status !== "succeeded" || !operation.result || !("followUpOperationId" in operation.result))
+    return null;
+  return operation.result.followUpOperationId;
+}
+
+/** Resolves after `ms`, or at once when `signal` aborts. */
+function wait(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
 /**
- * Follow several operations at once (what an upload of many files queues: one file.scan each) with the same polling as
- * `useOperation`, and refresh the job once for each that settles, so a scanned file shows as clean (or not) at once instead of at
- * the next periodic refetch. The queries are the ones `useOperation` uses, so a component following the same id shares them.
+ * Poll one operation with the same key and back-off as `useOperation` (so a component following the same id shares the cached
+ * answer) until it settles, then refresh the job. Resolves with the settled operation, or null when stopped or when a poll fails
+ * (the periodic job refetch still shows the outcome). An imperative loop, not `useQueries`, to keep that observer code out of the
+ * tracker's first load.
+ */
+async function settle(queryClient: QueryClient, id: string, signal: AbortSignal): Promise<Operation | null> {
+  for (let repolls = 0; ; repolls++) {
+    try {
+      const operation = await queryClient.query({
+        queryKey: queryKeys.operation(id),
+        queryFn: ({ signal: querySignal }) => api("getOperation", { params: { operationId: id }, signal: querySignal }),
+        // What another observer of the same operation fetched within this poll's delay is reused, not fetched again.
+        staleTime: pollDelay(repolls),
+      });
+      if (isSettled(operation)) {
+        if (!signal.aborted) void refreshJob(queryClient);
+        return operation;
+      }
+    } catch {
+      return null;
+    }
+    await wait(pollDelay(repolls), signal);
+    if (signal.aborted) return null;
+  }
+}
+
+/**
+ * Follow several operations at once (what an upload of many files queues: one file.scan each) and refresh the job once for each
+ * that settles, so a scanned file shows as clean (or not) at once instead of at the next periodic refetch. When a scan settles
+ * having queued a task for its file (`followUpOperationId`: the conformance read of 4.2, the parse of an email) that task is
+ * followed too and refreshes the job when it settles.
  */
 export function useFollowedOperations(operationIds: readonly string[]): void {
   const queryClient = useQueryClient();
-  const results = useQueries({
-    queries: operationIds.map((id) => ({
-      queryKey: queryKeys.operation(id),
-      queryFn: ({ signal }: { signal: AbortSignal }) => api("getOperation", { params: { operationId: id }, signal }),
-      refetchInterval: (query: { state: { data: Operation | undefined; dataUpdateCount: number } }) =>
-        isSettled(query.state.data) ? (false as const) : pollDelay(Math.max(0, query.state.dataUpdateCount - 1)),
-    })),
-  });
-  const refreshed = useRef(new Set<string>());
-  // Operation ids are UUIDs, so the comma-joined list is a stable dependency for "which ones have settled".
-  const settledKey = results.flatMap((result, i) => (isSettled(result.data) ? [operationIds[i] ?? ""] : [])).join();
+  const done = useRef(new Set<string>());
   useEffect(() => {
-    const fresh = settledKey.split(",").filter((id) => id !== "" && !refreshed.current.has(id));
-    if (fresh.length === 0) return;
-    for (const id of fresh) refreshed.current.add(id);
-    void refreshJob(queryClient);
-  }, [settledKey, queryClient]);
+    const controller = new AbortController();
+    const { signal } = controller;
+    const follow = async (id: string): Promise<void> => {
+      if (done.current.has(id)) return;
+      const operation = await settle(queryClient, id, signal);
+      if (!operation || signal.aborted) return;
+      done.current.add(id);
+      const next = followUpOf(operation);
+      if (next) await follow(next);
+    };
+    for (const id of operationIds) void follow(id);
+    return () => {
+      controller.abort();
+    };
+  }, [operationIds, queryClient]);
 }

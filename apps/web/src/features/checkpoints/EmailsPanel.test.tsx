@@ -1,3 +1,4 @@
+import { Operation } from "@kr/contracts";
 import { screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
@@ -178,6 +179,62 @@ describe("emails panel", () => {
     requests[0]?.finish(201, uploadResult(stored));
     expect(await screen.findByRole("button", { name: "Query" })).toBeInTheDocument();
   });
+
+  it("follows the email.parse the scan queued and shows the parsed subject as soon as it settles", async () => {
+    const job = syntheticJob();
+    const requests = stubUploads();
+    const { served } = renderCard(job, "i4_3");
+    const SCAN_ID = "7a2e4c1f-6d2b-4c75-8e5f-1e9c2b3d4e5f";
+    const PARSE_ID = "6f1d3b0e-5c1a-4b64-9d4e-0d8b1a2c3d4e";
+    const AT = "2026-09-28T03:50:56.543Z";
+    const op = (
+      id: string,
+      type: "file.scan" | "email.parse",
+      status: "queued" | "succeeded",
+      result: unknown = null,
+    ) =>
+      Operation.parse({
+        id,
+        jobId: job.id,
+        type,
+        status,
+        createdAt: AT,
+        completedAt: status === "queued" ? null : AT,
+        result,
+        error: null,
+      });
+    const pending = email(job.id, "Query", {
+      scanStatus: "pending",
+      email: {
+        parseStatus: "pending",
+        subject: null,
+        from: null,
+        to: null,
+        cc: null,
+        sentAt: null,
+        isPasted: false,
+        bodyText: null,
+      },
+    });
+    server.use(
+      handlerFor("getOperation", ({ request }) => {
+        if (!new URL(request.url).pathname.endsWith(PARSE_ID))
+          return HttpResponse.json(
+            op(SCAN_ID, "file.scan", "succeeded", { scanStatus: "clean", followUpOperationId: PARSE_ID }),
+          );
+        served.job = withCheckpoint(job, "i4_3", { files: [email(job.id, "Query")] });
+        return HttpResponse.json(op(PARSE_ID, "email.parse", "succeeded"));
+      }),
+    );
+    await userEvent.upload(zone(), new File(["From: a@example.com"], "Query.eml", { type: "message/rfc822" }));
+    await waitFor(() => {
+      expect(requests).toHaveLength(1);
+    });
+    served.job = withCheckpoint(job, "i4_3", { files: [pending] });
+    requests[0]?.finish(201, uploadResult(pending, op(SCAN_ID, "file.scan", "queued")));
+    // The parse settles about 1 s after the scan, well before the 15 s periodic refetch.
+    expect(await screen.findByRole("button", { name: "Query" }, { timeout: 5000 })).toBeInTheDocument();
+  }, 10_000);
 
   it("refuses a dropped file that is not an email with the emails wording, and sends nothing", async () => {
     const requests = stubUploads();
