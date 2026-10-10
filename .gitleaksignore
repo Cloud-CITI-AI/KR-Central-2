@@ -1,0 +1,15 @@
+# gitleaks fingerprints (commit:file:rule:line) of reviewed false positives in the full-history scan that
+# security.yml runs on every push to main and weekly (SC-A1, SC-B11). Each one is a synthetic test value or a comment,
+# not a credential. Fingerprints include the commit, so they stay valid while history is not rewritten; add new lines only
+# after reviewing the finding, never a path-wide allowlist.
+#
+# services/ops/test/support.ts: secretAccessKey 'test-secret-0123456789' (S3 mock credential)
+6181eb76e2837c7bfd68554cc11392ae15332d5d:services/ops/test/support.ts:generic-api-key:55
+# apps/web/src/lib/api/upload.test.ts and client.test.ts: idempotencyKey 'idem-12345678' (test header value)
+0ce8f3b5745155de32c76d096855433bdc957a00:apps/web/src/lib/api/upload.test.ts:generic-api-key:93
+1d38610516f9316eef80ee5e0d9187506ff2bd9c:apps/web/src/lib/api/client.test.ts:generic-api-key:56
+# apps/web/src/lib/bff/proxy.test.ts: idempotency key and test header values
+18c41e23dbcaac1b09cb55884d9b4626cca0ccce:apps/web/src/lib/bff/proxy.test.ts:generic-api-key:29
+18c41e23dbcaac1b09cb55884d9b4626cca0ccce:apps/web/src/lib/bff/proxy.test.ts:generic-api-key:52
+# packages/storage/src/s3.ts: a comment that names the credential option
+0329bcc8203796842ede85dbaa5c8c8bcab5a1f7:packages/storage/src/s3.ts:generic-api-key:49
