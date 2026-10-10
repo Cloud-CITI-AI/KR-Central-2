@@ -62,6 +62,16 @@ test.describe("a job that cannot be shown", () => {
   });
 });
 
+test("an unknown route is a 404 in the signed-in shell", async ({ page, signInAs }) => {
+  await signInAs(FIRST_MEMBER);
+  for (const path of ["/nope-page", "/admin/nope"]) {
+    const response = await page.goto(path);
+    expect(response?.status(), path).toBe(404);
+    await expectOneShell(page, FIRST_MEMBER, true);
+    await expect(page).toHaveTitle(`Page not found | ${APP}`);
+  }
+});
+
 test("pages are titled for what they show", async ({ page, signInAs, apiAs }) => {
   const job = await createJob(await apiAs(STAFF), {
     jobNumber: "P-4242",

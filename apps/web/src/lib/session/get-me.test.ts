@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { getMe } from "./get-me";
+import { getMe, getOptionalMe } from "./get-me";
 
 let upstream: Upstream | undefined;
 beforeEach(() => {
@@ -55,5 +55,20 @@ describe("getMe", () => {
     await upstream?.close();
     await api(200, { nope: true });
     await expect(getMe()).rejects.toThrow();
+  });
+});
+
+describe("getOptionalMe", () => {
+  it("is the Me for a session and null (not a redirect) when there is none, so a 404 page can still render", async () => {
+    await api(200, syntheticMe("staff"));
+    await expect(getOptionalMe()).resolves.toMatchObject({ user: { role: "staff" } });
+    await upstream?.close();
+    await api(401, { type: "urn:kr:problem:unauthenticated", title: "x", status: 401, requestId: "r" });
+    await expect(getOptionalMe()).resolves.toBeNull();
+  });
+
+  it("still throws for any other failure", async () => {
+    await api(500, { type: "about:blank", title: "Internal", status: 500, requestId: "req-500" });
+    await expect(getOptionalMe()).rejects.toMatchObject({ status: 500 });
   });
 });
