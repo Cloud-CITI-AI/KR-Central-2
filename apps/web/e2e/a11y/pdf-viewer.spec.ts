@@ -3,6 +3,7 @@ import { expect, test } from "../fixtures";
 import type { ApiSession } from "../harness/api-client";
 import { createJob } from "../harness/jobs";
 import { STAFF } from "../harness/users";
+import { violationsOn } from "../support/a11y";
 import { pdfFile } from "../support/documents";
 import { card, openTracker } from "../support/tracker";
 import { expectFirstPageDrawn } from "../support/viewer";
@@ -26,6 +27,41 @@ async function openSurveyViewer(page: Page, staff: ApiSession, pages: number): P
   await card(page, "i2_0").getByRole("button", { name: "feature-survey.pdf", exact: true }).click();
   return page.getByRole("dialog", { name: "feature-survey.pdf" });
 }
+
+test("D4: the PDF viewer's pages can be scrolled with the keyboard", async ({ page, signInAs, apiAs }) => {
+  const staff = await apiAs(STAFF);
+  await signInAs(STAFF);
+  const viewer = await openSurveyViewer(page, staff, 3);
+  await expect(viewer.locator("canvas")).toHaveCount(3);
+  await expectFirstPageDrawn(viewer);
+
+  // Tab reaches the page column (a named region), and it shows where the focus is.
+  const pages = viewer.getByRole("region", { name: "Pages of feature-survey.pdf" });
+  await expect(pages).toHaveAttribute("tabindex", "0");
+  for (let presses = 0; presses < 12; presses++) {
+    if (await pages.evaluate((element) => element === document.activeElement)) break;
+    await page.keyboard.press("Tab");
+  }
+  await expect(pages).toBeFocused();
+  expect(await pages.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe("none");
+  expect(await pages.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+
+  const scrollTop = () => pages.evaluate((element) => element.scrollTop);
+  expect(await scrollTop()).toBe(0);
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(scrollTop).toBeGreaterThan(0);
+  const afterArrow = await scrollTop();
+  await page.keyboard.press("PageDown");
+  await expect.poll(scrollTop).toBeGreaterThan(afterArrow);
+  await page.keyboard.press("End");
+  await expect
+    .poll(() => pages.evaluate((element) => element.scrollHeight - element.clientHeight - element.scrollTop))
+    .toBeLessThanOrEqual(1);
+  await page.keyboard.press("Home");
+  await expect.poll(scrollTop).toBe(0);
+
+  expect(await violationsOn(page, { only: ["scrollable-region-focusable"] })).toEqual([]);
+});
 
 // Formerly known defect D5: pdf.js 6 needs `Map.prototype.getOrInsertComputed` (ES2026), which Chrome before 145, Firefox before 144
 // and Safari before 26.2 (iOS included) lack. The product installs the methods itself, on the page and in the pdf.js worker.

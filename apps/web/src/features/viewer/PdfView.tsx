@@ -13,9 +13,16 @@ export interface PdfViewProps {
   readonly file: FileMeta;
 }
 
+/** `tabindex="0"`: the scrolling column joins the tab order, which is how a keyboard user reaches it (WCAG 2.1.1). */
+const IN_TAB_ORDER = 0;
+
 type Loaded = { readonly status: "ready"; readonly document: PdfDocumentHandle } | { readonly status: "error" };
 
-/** The in-app PDF reader (§11.1, replaces the prototype's `<iframe>`): every page in a scrollable column, drawn as it nears view. */
+/**
+ * The in-app PDF reader (§11.1, replaces the prototype's `<iframe>`): every page in a scrollable column, drawn as it nears view.
+ * The column is a focusable region named "Pages of <file>", so a keyboard user can tab to it and scroll with the arrow, Page and
+ * Home/End keys (WCAG 2.1.1; axe `scrollable-region-focusable`).
+ */
 export function PdfView({ file }: PdfViewProps) {
   const renderer = usePdfRenderer();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -44,7 +51,13 @@ export function PdfView({ file }: PdfViewProps) {
   }, [renderer, file.id]);
 
   return (
-    <div ref={scroller} className={styles.scroller}>
+    <div
+      ref={scroller}
+      className={styles.scroller}
+      role="region"
+      aria-label={`Pages of ${file.name}`}
+      tabIndex={IN_TAB_ORDER}
+    >
       {loaded === null && <Spinner label={VIEWER_MESSAGES.loading} />}
       {loaded?.status === "error" && <p className={styles.failed}>{VIEWER_MESSAGES.pdfFailed}</p>}
       {loaded?.status === "ready" &&

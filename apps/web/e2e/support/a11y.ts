@@ -97,10 +97,9 @@ export async function violationsOn(
  * Soft-asserts that the page as it is now has no WCAG 2.2 AA violations (zero is the only acceptable count), naming the
  * state in the report so one run lists every state that fails. Colour contrast stays on: only the nodes whose colour pair is one
  * of the documented pairs of a known defect (`KNOWN_CONTRAST_PAIRS`) are tolerated, and e2e/a11y/known-defects.spec.ts turns red
- * when such a defect is fixed (then delete its pairs). `alsoExcept` names another rule that one state fails because of a known defect (D4), so the rest
- * of that state is still checked.
+ * when such a defect is fixed (then delete its pairs).
  */
-export async function expectAccessible(page: Page, state: string, alsoExcept: string[] = []): Promise<void> {
-  const violations = await violationsOn(page, { except: alsoExcept, ignoreKnown: true });
+export async function expectAccessible(page: Page, state: string): Promise<void> {
+  const violations = await violationsOn(page, { ignoreKnown: true });
   expect.soft(violations, `WCAG 2.2 AA violations: ${state}`).toEqual([]);
 }

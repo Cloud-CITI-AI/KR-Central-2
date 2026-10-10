@@ -1,4 +1,5 @@
 import { act, configure, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoAxeViolations } from "@/test/axe";
 import type { PdfDocumentHandle, PdfPageHandle, PdfRenderer, PdfRenderTask } from "./pdf-renderer";
@@ -66,6 +67,16 @@ describe("PdfView", () => {
     expect(renderer.open).toHaveBeenCalledWith(`/api/v1/files/${file.id}/content`);
     expect(container.querySelectorAll("canvas")).toHaveLength(3);
     await expectNoAxeViolations(container);
+  });
+
+  it("makes the page column a keyboard-focusable region named after the file, so it can be scrolled without a mouse", async () => {
+    const document = fakeDocument(3);
+    renderWith({ open: () => Promise.resolve(document) });
+    const pages = screen.getByRole("region", { name: "Pages of plan.pdf" });
+    expect(pages).toHaveAttribute("tabindex", "0");
+    await screen.findByText("Page 3 of 3");
+    await userEvent.tab();
+    expect(pages).toHaveFocus();
   });
 
   it("neither fetches nor draws a page until it comes near the viewport", async () => {

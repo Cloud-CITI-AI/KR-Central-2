@@ -112,8 +112,7 @@ for (const viewport of VIEWPORTS) {
 
         await card(page, "i2_0").getByRole("button", { name: "feature-survey.pdf", exact: true }).click();
         await expectFirstPageDrawn(page.getByRole("dialog", { name: "feature-survey.pdf" }));
-        // D4 (e2e/a11y/known-defects.spec.ts): the page scroller is not keyboard focusable.
-        await expectAccessible(page, at("document viewer, PDF"), ["scrollable-region-focusable"]);
+        await expectAccessible(page, at("document viewer, PDF"));
         await page.getByRole("dialog").getByRole("button", { name: "Next file" }).click();
         await expect(page.getByRole("dialog", { name: "feature-survey.dwg" })).toBeVisible();
         await expectAccessible(page, at("document viewer, DWG download page"));
