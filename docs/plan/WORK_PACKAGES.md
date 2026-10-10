@@ -31,6 +31,7 @@ At most 3 WPs run at once (playbook docs/10 §10.5: ≤ 3 concurrent agent PRs p
 | 6    | WP-12 Worker service: queue poller, ClamAV scanning with retries, conditions extraction, conformed-date reading; WP-17 Web document viewer; WP-18 Web admin pages                                                                                                                                         | WP-12: High, WP-17: Medium, WP-18: Medium |
 | 7    | WP-19 End-to-end, accessibility, visual regression and prototype-parity suite; WP-20 Security hardening: threat model, authz completeness, login-CSRF and header tests, ZAP rules, mutation-runner check; WP-23 Railway delivery: service settings as code, deploy-images and smoke scripts, deploy guide | WP-19: Low, WP-20: High, WP-23: High      |
 | 8    | WP-21 Operations documentation: runbooks, backup/restore drill, incident response, user guides; WP-22 Performance budgets: per-route bundle budget, web-vitals checks, k6 API smoke                                                                                                                       | WP-21: Low, WP-22: Medium                 |
+| 9    | WP-24 Performance remediation: first-load JS, layout shift, LCP and Expand all responsiveness to the §14 budgets                                                                                                                                                                                          | WP-24: Medium                             |
 
 ```mermaid
 flowchart LR
@@ -84,6 +85,7 @@ flowchart LR
   WP12[WP-12] --> WP21[WP-21]
   WP23[WP-23] --> WP21[WP-21]
   WP19[WP-19] --> WP22[WP-22]
+  WP22[WP-22] --> WP24[WP-24]
 ```
 
 ## 2. Risk tiers and approvals
@@ -1435,7 +1437,7 @@ pnpm exec prettier --check docs README.md
 
 - Risk tier: **Medium** — CI quality gates (no product behaviour)
 - Wave: 8 · Depends on: WP-19 · Target: apps/web, services/api/load · Commit scope: `web`
-- Owned paths: `apps/web/perf/**`, `apps/web/.size-limit.json`, `apps/web/scripts/perf/**`, `services/api/load/**`
+- Owned paths: `apps/web/perf/**`, `apps/web/.size-limit.mjs`, `apps/web/scripts/perf/**`, `services/api/load/**`
 
 **Goal.** The playbook's performance budgets (PRODUCT_SPEC §14) are measured and enforced instead of assumed.
 
@@ -1443,13 +1445,13 @@ pnpm exec prettier --check docs README.md
 
 - PRODUCT_SPEC §14 (API p95 < 300 ms / p99 < 800 ms reads; LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1; first-load JS ≤ 170 KB gzip per route; pdf.js lazy)
 - ADR-0005
-- apps/web/.size-limit.json (current single 400 KB budget) and the `perf:check` script
+- apps/web/.size-limit.mjs (per-route entries from Next's route-bundle-stats, held at a 260 KB ratchet) and the `perf:check` script
 - the WP-19 e2e harness (reuse it)
 - services/api package.json `test:load` (expects load/smoke.js)
 
 **Plan of record**
 
-1. Per-route first-load JS budget (≤ 170 KB gzip) in `apps/web/.size-limit.json` or `apps/web/scripts/perf/check-route-budgets.mjs` computed from the Next build output (document the method); `perf:check` (already a script; CI runs it after build) fails when a route exceeds its budget and proves pdf.js is not in any route's first load.
+1. Per-route first-load JS budget (≤ 170 KB gzip) in `apps/web/.size-limit.mjs` (method and pdf.js proof in `apps/web/scripts/perf/`) computed from the Next build output (document the method); `perf:check` (already a script; CI runs it after build) fails when a route exceeds its budget and proves pdf.js is not in any route's first load.
 2. `apps/web/perf/` Playwright project (own config file) on the WP-19 harness measuring LCP, CLS and an INP proxy for the dashboard and tracker on a throttled profile, failing over budget.
 3. `services/api/load/smoke.js` (k6) against the e2e stack with a session created through the harness: list jobs, get job, facets; thresholds p95 < 300 ms, p99 < 800 ms; run via `docker run mirror.gcr.io/grafana/k6` when k6 is not installed.
 4. Send the orchestrator the CI diff to run the web-vitals project and the k6 smoke in the e2e job (do not edit .github).
@@ -1462,8 +1464,8 @@ pnpm exec prettier --check docs README.md
 
 **Acceptance criteria**
 
-1. `pnpm --filter @kr/web perf:check` enforces ≤ 170 KB gzip first-load JS per route after `pnpm build`.
-2. The web-vitals project reports LCP/CLS/INP proxy for dashboard and tracker and fails over budget.
+1. `pnpm --filter @kr/web perf:check` enforces ≤ 170 KB gzip first-load JS per route after `pnpm build`; a route over it today is held to a ratchet ceiling in `BUDGET_WAIVERS` naming WP-24 (a stale waiver fails), and `node scripts/perf/check-route-budgets.ts --strict` reports the bare budget.
+2. The web-vitals project reports LCP/CLS/INP proxy for dashboard and tracker at p75 on the PRODUCT_SPEC §14 reference profile and fails over budget; a metric over budget today is held to a ratchet ceiling in `KNOWN_BREACHES` naming WP-24, and `PERF_STRICT=1` ignores the ceilings.
 3. `pnpm --filter @kr/api test:load` (or the documented docker command) runs the k6 smoke with the §14 thresholds against the e2e stack.
 4. The CI wiring is proposed as an exact diff.
 
@@ -1477,7 +1479,7 @@ pnpm exec prettier --check docs README.md
 - May change the public API contract: no
 - May add a database migration: no
 - May create/update visual snapshots: no
-- Note: Do not edit apps/web/package.json: `perf:check` already exists; propose a diff to the orchestrator if another script is needed.
+- Note: package.json: add exactly `perf:unit`, `perf:vitals`, `perf:k6` and the extended `typecheck` to apps/web/package.json and the extended `typecheck` to services/api/package.json (orchestrator-approved CI wiring; `.github` is already wired with `--if-present`). No other package.json change.
 
 **Verify**
 
@@ -1485,4 +1487,64 @@ pnpm exec prettier --check docs README.md
 pnpm build
 pnpm --filter @kr/web perf:check
 E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filter @kr/web exec playwright test -c perf/playwright.config.ts
+```
+
+### WP-24 — Performance remediation: first-load JS, layout shift, LCP and Expand all responsiveness to the §14 budgets
+
+- Risk tier: **Medium** — Product UI code across the shell, dashboard, tracker and admin pages; no behaviour or look change
+- Wave: 9 · Depends on: WP-22 · Target: apps/web · Commit scope: `web`
+- Owned paths: `apps/web/src/app/layout.tsx`, `apps/web/src/app/(app)/**`, `apps/web/src/lib/**`, `apps/web/src/components/**`, `apps/web/src/features/dashboard/**`, `apps/web/src/features/tracker/**`, `apps/web/src/features/checkpoints/**`, `apps/web/src/features/admin/**`, `apps/web/next.config.ts`, `apps/web/perf/budgets.ts`, `apps/web/scripts/perf/route-budgets.ts`
+
+**Goal.** Every route and page meets PRODUCT_SPEC §14 on the reference profile with no ceiling: `BUDGET_WAIVERS` and `KNOWN_BREACHES` are empty, so the strict budgets are the CI gate.
+
+**Read first**
+
+- PRODUCT_SPEC §14 (budgets and the reference profile)
+- apps/web/AGENTS.md FE-9
+- ADR-0005 (Server Components for shells, client components at the lowest level, TanStack Query)
+- DECISIONS_LOG coding-phase entries for WP-22 (measured breaches)
+- apps/web/scripts/perf/route-budgets.ts and apps/web/perf/ (how the numbers are measured; `--strict`, `PERF_STRICT=1`)
+- docs/reference/prototype/ (the look must not change)
+
+**Plan of record**
+
+1. First-load JS: /jobs/[jobId] 253.8 KB, / 239.5 KB, /admin/audit and /admin/users 237.8 KB gzip against 170 KB (sign-in routes 167.8 KB, /_not-found 158.3 KB). Find what the root and (app) layouts and the pages put in the shared first load (providers, zod schemas, contracts, workflow, UI primitives) and keep it on the server or behind `next/dynamic` (dialogs, new-job form, access manager, below-the-fold panels); lower or delete each `BUDGET_WAIVERS` entry in the same PR.
+2. CLS: tracker 0.654 (`main` and the footer shift at first render) and dashboard 0.09 to 0.17 (job grid, chips and summary box move as the cards arrive): reserve the settled layout's space at first render (sized skeletons, min-heights, `next/font` with metric overrides, nothing inserted above content that already painted); the settled page is unchanged.
+3. LCP: 3.7 to 4.1 s on the reference profile (about 1.0 s at 10 Mbit/s): put the LCP element in the server HTML (prefetch the dashboard and tracker queries on the server and hydrate TanStack Query) and preload what it needs, on top of the JS reduction.
+4. INP: tracker "Expand all" 0.35 to 0.52 s: keep the click response under 200 ms (transition or deferred rendering of the expanded stages, memoised stage and checkpoint cards, `content-visibility` for off-screen stages) while every stage still expands as in the prototype.
+5. Each PR lowers or deletes the `KNOWN_BREACHES`/`BUDGET_WAIVERS` entries it fixes; the last PR leaves both tables empty.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 24-a shared first-load JS and per-route splitting
+2. 24-b layout shift on the dashboard and tracker
+3. 24-c LCP: server-prefetched first view
+4. 24-d Expand all responsiveness and empty ceiling tables
+
+**Acceptance criteria**
+
+1. `node scripts/perf/check-route-budgets.ts --strict` and `pnpm --filter @kr/web perf:check` pass with `BUDGET_WAIVERS` empty.
+2. `PERF_STRICT=1` web-vitals project passes with `KNOWN_BREACHES` empty (dashboard and tracker: LCP ≤ 2.5 s, CLS ≤ 0.1, INP proxy ≤ 200 ms at p75 on the reference profile).
+3. The e2e, accessibility, visual and prototype-parity suites pass with no snapshot updated; behaviour unchanged; web checks green.
+
+**Out of scope / must not change**
+
+- Changing a budget or the reference profile: if a route or page cannot meet §14 without dropping a specified feature, stop and send the measurements to the orchestrator.
+- API or contract changes; new runtime dependencies.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: no
+- May add a database migration: no
+- May create/update visual snapshots: no
+
+**Verify**
+
+```sh
+pnpm build
+pnpm --filter @kr/web exec node scripts/perf/check-route-budgets.ts --strict
+pnpm --filter @kr/web perf:check
+PERF_STRICT=1 E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filter @kr/web exec playwright test -c perf/playwright.config.ts
+E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filter @kr/web test:e2e
 ```
