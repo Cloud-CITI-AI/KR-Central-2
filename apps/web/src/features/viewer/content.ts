@@ -12,11 +12,11 @@ export function contentUrl(fileId: string, disposition: "inline" | "attachment" 
 export type ViewerView =
   | { readonly type: "unavailable"; readonly message: string }
   | { readonly type: "pdf" | "image" | "video" | "text" | "dwg" }
-  /** `body` is false for an Outlook .msg, whose bytes are not text. */
-  | { readonly type: "email"; readonly body: boolean };
+  /** Shown from the parsed message (`email.bodyText`), whatever the container: .eml, Outlook .msg or pasted text. */
+  | { readonly type: "email" };
 
-/** Outlook messages are stored as the original CFB file; only their metadata is readable in the browser. */
-const OUTLOOK_MSG = "application/vnd.ms-outlook";
+/** Outlook messages are stored as the original CFB file: their bytes are not text, so only the parsed body can be shown. */
+export const OUTLOOK_MSG = "application/vnd.ms-outlook";
 
 /** Choose the body: a scan state that blocks the file wins over its kind (§5.5, §11.1). */
 export function viewFor(file: Pick<FileMeta, "kind" | "scanStatus" | "contentType" | "email">): ViewerView {
@@ -31,9 +31,9 @@ export function viewFor(file: Pick<FileMeta, "kind" | "scanStatus" | "contentTyp
     case "skipped":
       break;
   }
-  if (file.kind === "email") return { type: "email", body: file.contentType !== OUTLOOK_MSG };
+  if (file.kind === "email") return { type: "email" };
   // A pasted email is stored as a text file that carries its email metadata.
-  if (file.kind === "text" && file.email) return { type: "email", body: true };
+  if (file.kind === "text" && file.email) return { type: "email" };
   return { type: file.kind };
 }
 

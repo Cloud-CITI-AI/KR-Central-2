@@ -2,9 +2,8 @@
 import type { FileMeta } from "@kr/contracts";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
-import buttonStyles from "@/components/ui/Button.module.css";
+import { ButtonLink } from "@/components/ui/ButtonLink";
 import { Dialog } from "@/components/ui/Dialog";
-import { cx } from "@/lib/cx";
 import { contentUrl, opensInTab, viewFor } from "./content";
 import { VIEWER_MESSAGES } from "./messages";
 import { ViewerBody } from "./ViewerBody";
@@ -81,15 +80,15 @@ export function ViewerDialog({ open, files, index, onIndexChange, onClose }: Vie
               {index + 1} of {files.length}
             </span>
           )}
+          {view.type === "email" && (
+            <ButtonLink small href={contentUrl(file.id, "attachment")}>
+              {VIEWER_MESSAGES.downloadOriginal}
+            </ButtonLink>
+          )}
           {opensInTab(view) && (
-            <a
-              className={cx(buttonStyles.btn, buttonStyles.small)}
-              href={contentUrl(file.id)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <ButtonLink small newTab href={contentUrl(file.id)}>
               {VIEWER_MESSAGES.openInNewTab}
-            </a>
+            </ButtonLink>
           )}
         </>
       }

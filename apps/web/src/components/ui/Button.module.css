@@ -6,6 +6,8 @@
   padding: 7px 12px;
   cursor: pointer;
   white-space: nowrap;
+  /* an <a class="btn"> takes the ink colour like a <button> does, not the browser's link blue */
+  color: inherit;
   text-decoration: none;
   text-align: center;
 }

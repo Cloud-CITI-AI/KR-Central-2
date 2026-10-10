@@ -1,4 +1,5 @@
 import { HttpResponse } from "msw";
+import type { FileMeta } from "@kr/contracts";
 import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { navigation } from "@/lib/navigation";
@@ -53,51 +54,93 @@ describe("ViewerBody", () => {
     assign.mockRestore();
   });
 
-  it("puts the email header block above the message text, in Perth time", async () => {
-    server.use(text("Hello,\nplease see attached."));
-    const file = syntheticFile({
-      name: "Query.eml",
-      kind: "email",
-      contentType: "message/rfc822",
-      email: {
-        parseStatus: "parsed",
-        subject: "Query about lot 4",
-        from: "planner@example.test",
-        to: "office@example.test",
-        cc: null,
-        sentAt: "2026-09-28T07:50:00.000Z",
-        isPasted: false,
-        bodyText: null,
-      },
+  describe("emails (PRODUCT_SPEC 10.3: Subject/From/To/Cc/Date, a rule, body)", () => {
+    const email = (over: Partial<NonNullable<FileMeta["email"]>> = {}): NonNullable<FileMeta["email"]> => ({
+      parseStatus: "parsed",
+      subject: "Query about lot 4",
+      from: "planner@example.test",
+      to: "office@example.test",
+      cc: null,
+      sentAt: "2026-09-28T07:50:00.000Z",
+      isPasted: false,
+      bodyText: "Plain version café continued",
+      ...over,
     });
-    const { container } = renderViewer(<ViewerBody file={file} />);
-    expect(await screen.findByText(/please see attached/)).toBeInTheDocument();
-    const terms = [...container.querySelectorAll("dt")].map((dt) => dt.textContent);
-    expect(terms).toEqual(["Subject", "From", "To", "Sent"]);
-    expect(screen.getByText("Query about lot 4")).toBeInTheDocument();
-    expect(screen.getByText("28 Sep 2026, 3:50 pm")).toBeInTheDocument();
-    await expectNoAxeViolations(container);
-  });
 
-  it("shows only the header block for an Outlook .msg, without fetching its bytes", () => {
-    const file = syntheticFile({
-      name: "Query.msg",
-      kind: "email",
-      contentType: "application/vnd.ms-outlook",
-      email: {
-        parseStatus: "parsed",
-        subject: "Query",
-        from: null,
-        to: null,
-        cc: null,
-        sentAt: null,
-        isPasted: false,
-        bodyText: null,
-      },
+    it("shows the parsed body of an .eml under its header block and a rule, not the raw MIME source", async () => {
+      // No content handler: the parsed body is on the file, so nothing may be fetched.
+      const file = syntheticFile({ name: "Query.eml", kind: "email", contentType: "message/rfc822", email: email() });
+      const { container } = renderViewer(<ViewerBody file={file} />);
+      const terms = [...container.querySelectorAll("dt")].map((dt) => dt.textContent);
+      expect(terms).toEqual(["Subject", "From", "To", "Date"]);
+      expect(screen.getByText("Query about lot 4")).toBeInTheDocument();
+      expect(screen.getByText("28 Sep 2026, 3:50 pm")).toBeInTheDocument();
+      expect(screen.getByRole("separator")).toBeInTheDocument();
+      expect(container.querySelector("pre")).toHaveTextContent("Plain version café continued");
+      expect(container).not.toHaveTextContent("Content-Type");
+      expect(screen.queryByText(/can't be previewed/)).toBeNull();
+      await expectNoAxeViolations(container);
     });
-    renderViewer(<ViewerBody file={file} />);
-    expect(screen.getByText("Query")).toBeInTheDocument();
-    expect(screen.getByText(/can't be previewed in the browser/)).toBeInTheDocument();
+
+    it("shows the parsed body of an Outlook .msg the same way", () => {
+      const file = syntheticFile({
+        name: "Query.msg",
+        kind: "email",
+        contentType: "application/vnd.ms-outlook",
+        email: email({ cc: "records@example.test" }),
+      });
+      const { container } = renderViewer(<ViewerBody file={file} />);
+      expect([...container.querySelectorAll("dt")].map((dt) => dt.textContent)).toEqual([
+        "Subject",
+        "From",
+        "To",
+        "Cc",
+        "Date",
+      ]);
+      expect(container.querySelector("pre")).toHaveTextContent("Plain version café continued");
+      expect(screen.queryByText(/can't be previewed/)).toBeNull();
+    });
+
+    it("shows a pasted email, stored as text, from its parsed body too", () => {
+      const file = syntheticFile({
+        name: "Query about lot 12.txt",
+        kind: "text",
+        contentType: "text/plain",
+        email: email({ isPasted: true, from: "Pasted text", to: null, bodyText: "Please confirm the setback." }),
+      });
+      const { container } = renderViewer(<ViewerBody file={file} />);
+      expect(container.querySelector("pre")).toHaveTextContent("Please confirm the setback.");
+      expect(screen.getByText("Pasted text")).toBeInTheDocument();
+    });
+
+    it("says there is no message text when the message was parsed and has none", () => {
+      const file = syntheticFile({ kind: "email", contentType: "message/rfc822", email: email({ bodyText: null }) });
+      const { container } = renderViewer(<ViewerBody file={file} />);
+      expect(screen.getByText("(no message text)")).toBeInTheDocument();
+      expect(container.querySelector("pre")).toBeNull();
+    });
+
+    it("falls back to the raw text of an .eml that could not be parsed", async () => {
+      server.use(text("Subject: raw\r\n\r\nraw body"));
+      const file = syntheticFile({
+        kind: "email",
+        contentType: "message/rfc822",
+        email: email({ parseStatus: "failed", subject: null, from: null, to: null, sentAt: null, bodyText: null }),
+      });
+      const { container } = renderViewer(<ViewerBody file={file} />);
+      expect(await screen.findByText(/raw body/)).toBeInTheDocument();
+      expect(container.querySelector("pre")).toBeInTheDocument();
+    });
+
+    it("explains that an unparsed Outlook .msg cannot be previewed, without fetching its bytes", () => {
+      const file = syntheticFile({
+        kind: "email",
+        contentType: "application/vnd.ms-outlook",
+        email: email({ parseStatus: "pending", bodyText: null }),
+      });
+      renderViewer(<ViewerBody file={file} />);
+      expect(screen.getByText(/can't be previewed in the browser/)).toBeInTheDocument();
+    });
   });
 
   it("explains a DWG and offers a direct .dwg download", async () => {

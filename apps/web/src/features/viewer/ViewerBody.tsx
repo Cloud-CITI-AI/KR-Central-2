@@ -6,6 +6,7 @@ import { ButtonLink } from "@/components/ui/ButtonLink";
 import { Spinner } from "@/components/ui/Spinner";
 import { contentUrl, viewFor } from "./content";
 import { VIEWER_MESSAGES } from "./messages";
+import { EmailView } from "./EmailView";
 import { TextView } from "./TextView";
 import styles from "./ViewerBody.module.css";
 
@@ -41,7 +42,7 @@ export function ViewerBody({ file }: ViewerBodyProps) {
     case "text":
       return <TextView file={file} />;
     case "email":
-      return <TextView file={file} body={view.body} />;
+      return <EmailView file={file} />;
     case "dwg":
       return (
         <div className={styles.notice}>

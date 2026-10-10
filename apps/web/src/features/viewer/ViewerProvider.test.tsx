@@ -131,4 +131,42 @@ describe("ViewerProvider and the viewer dialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Next file" }));
     expect(screen.queryByRole("link", { name: "Open in new tab" })).toBeNull();
   });
+
+  it("styles 'Open in new tab' as the small button Close and the arrows use, not a browser-default link", async () => {
+    setup([png("site.png")]);
+    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    const link = screen.getByRole("link", { name: "Open in new tab" });
+    const close = screen.getByRole("button", { name: "Close" });
+    for (const name of ["btn", "small"]) {
+      expect(link.className).toContain(name);
+      expect(close.className).toContain(name);
+    }
+    expect(link.className).toBe(close.className);
+  });
+
+  it("keeps a download link for the original in every email dialog, .msg included", async () => {
+    const email = {
+      parseStatus: "parsed",
+      subject: "Query",
+      from: null,
+      to: null,
+      cc: null,
+      sentAt: null,
+      isPasted: false,
+      bodyText: "Hello",
+    } as const;
+    const eml = syntheticFile({ name: "q.eml", kind: "email", contentType: "message/rfc822", email });
+    const msg = syntheticFile({ name: "q.msg", kind: "email", contentType: "application/vnd.ms-outlook", email });
+    setup([eml, msg]);
+    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    expect(screen.getByRole("link", { name: "Download original" })).toHaveAttribute(
+      "href",
+      `/api/v1/files/${eml.id}/content?disposition=attachment`,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Next file" }));
+    expect(screen.getByRole("link", { name: "Download original" })).toHaveAttribute(
+      "href",
+      `/api/v1/files/${msg.id}/content?disposition=attachment`,
+    );
+  });
 });

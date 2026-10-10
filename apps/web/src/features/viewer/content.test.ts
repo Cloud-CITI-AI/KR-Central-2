@@ -35,7 +35,7 @@ describe("viewFor", () => {
     expect(viewFor(syntheticFile({ scanStatus, kind: "dwg", contentType: "image/vnd.dwg" }))).toEqual({ type: "dwg" });
   });
 
-  it("treats an email, and a pasted email stored as text, as an email; an Outlook .msg has no body", () => {
+  it("treats an email, and a pasted email stored as text, as an email, whatever its container", () => {
     const email = {
       parseStatus: "parsed",
       subject: "Query",
@@ -48,15 +48,12 @@ describe("viewFor", () => {
     } as const;
     expect(viewFor(syntheticFile({ kind: "email", contentType: "message/rfc822", email }))).toEqual({
       type: "email",
-      body: true,
     });
     expect(viewFor(syntheticFile({ kind: "text", contentType: "text/plain", email }))).toEqual({
       type: "email",
-      body: true,
     });
     expect(viewFor(syntheticFile({ kind: "email", contentType: "application/vnd.ms-outlook", email }))).toEqual({
       type: "email",
-      body: false,
     });
   });
 });
@@ -70,7 +67,7 @@ describe("opensInTab", () => {
       true,
     ]);
     expect(opensInTab({ type: "dwg" })).toBe(false);
-    expect(opensInTab({ type: "email", body: true })).toBe(false);
+    expect(opensInTab({ type: "email" })).toBe(false);
     expect(opensInTab({ type: "unavailable", message: "x" })).toBe(false);
   });
 });
