@@ -1,18 +1,10 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { ButtonLink } from "@/components/ui/ButtonLink";
-import { StatusPage } from "@/components/ui/StatusPage";
+import { NotFoundPage } from "@/components/ui/NotFoundPage";
 
-/** Branded 404 with the request id. Also what a job the person may not see looks like (the API answers 404, not 403). */
+export const metadata: Metadata = { title: "Page not found" };
+
+/** Branded 404 with the request id, for URLs that match no route. Also what a job the person may not see looks like (the API answers 404, not 403). */
 export default async function NotFound() {
-  const requestId = (await headers()).get("x-request-id");
-  return (
-    <StatusPage title="Page not found" requestId={requestId}>
-      <p>We couldn't find that page. It may have moved, or you may not have access to it.</p>
-      <p>
-        <ButtonLink href="/" variant="primary">
-          Back to the dashboard
-        </ButtonLink>
-      </p>
-    </StatusPage>
-  );
+  return <NotFoundPage requestId={(await headers()).get("x-request-id")} />;
 }

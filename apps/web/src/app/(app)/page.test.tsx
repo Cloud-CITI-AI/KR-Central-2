@@ -9,7 +9,7 @@ import { syntheticMe } from "@/test/fixtures";
 import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
-import DashboardPage from "./page";
+import DashboardPage, { metadata } from "./page";
 
 vi.mock("next/navigation", async () => (await import("@/features/dashboard/test-router")).navigationMock);
 
@@ -20,6 +20,10 @@ const emptyLists = () => [
 ];
 
 describe("DashboardPage", () => {
+  it("is titled Dashboard", () => {
+    expect(metadata.title).toBe("Dashboard");
+  });
+
   it("renders the dashboard header with counts from the facets and leaves <main> and the h1 to the layout", async () => {
     setTestUrl("/");
     server.use(mockApi("getJobFacets", syntheticFacets()), ...emptyLists());

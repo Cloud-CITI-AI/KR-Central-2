@@ -1,0 +1,4 @@
+/* the same breathing room Wrap's `spaced` gives a whole status page, for the panel inside the signed-in main */
+.inShell {
+  padding-block: 18px 36px;
+}
