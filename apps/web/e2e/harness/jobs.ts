@@ -64,3 +64,11 @@ export async function waitForOperation(
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
 }
+
+/** Give a person access to a job through the API (as staff would from the access manager). The grant is pending until they sign in. */
+export function grantAccess(
+  session: ApiSession,
+  grant: { jobId: string; email: string; role: "client" | "architect"; displayName?: string },
+): Promise<{ id: string; status: string }> {
+  return session.post("/v1/access-grants", grant);
+}
