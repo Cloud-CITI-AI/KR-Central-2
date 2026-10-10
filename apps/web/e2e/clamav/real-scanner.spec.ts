@@ -97,3 +97,41 @@ test("without a date in the file name the stamp on page 1 is read", async ({ pag
   await expect(outcome.getByRole("textbox", { name: "WAPC outcome date" })).toHaveValue("2026-06-14");
   await expect(outcome.getByText("Read from Conformance Notification.pdf")).toBeVisible();
 });
+
+// KNOWN PRODUCT DEFECTS D1 and D2 (WP-19; there are no issues yet, so the defect ids reported to the orchestrator stand in for
+// them). These two assert what PRODUCT_SPEC §5.5 and §10.1 say and are marked `test.fail`: the run stays green while the defects
+// stand and goes red the day one is fixed ("expected to fail, but passed"). Then delete that test's `test.fail` line.
+const readDate = addDays(perthToday(), -3);
+const READ_FILE_NAME = `Conformance Notification ${compactDate(readDate)}.pdf`;
+const TAKEN = `Taken from the file name: ${formatDateWithWeekday(readDate)}.`;
+
+test("D1: uploading a Conformance Notification starts the reading by itself (§5.5: 'Uploading a PDF starts a conformance read')", async ({
+  page,
+  signInAs,
+}) => {
+  test.fail(true, "WP-19 defect D1: an upload to 4.2 does not start a conformance read (see the comment above)");
+  const job = await createJob(await signInAs(STAFF));
+  await openTracker(page, job.id);
+  const conformance = card(page, "i4_2");
+  await fileInput(conformance).setInputFiles(await pdfFile(READ_FILE_NAME));
+  // The upload response is meant to carry the conformance.read operation (contract UploadResult.operation) and the zone says
+  // "Reading the conformed date…" while it runs; the date then appears without anyone pressing a button.
+  await expect(conformance.getByText(TAKEN)).toBeVisible({ timeout: 30_000 });
+});
+
+test("D2: 'Read conformed date again' reads the date of a clean file (§10.1)", async ({ page, signInAs }) => {
+  test.fail(
+    true,
+    "WP-19 defect D2: the button sends no Idempotency-Key, so the API answers 400 (and it stays disabled when scanning is off)",
+  );
+  const job = await createJob(await signInAs(STAFF));
+  await openTracker(page, job.id);
+  const conformance = card(page, "i4_2");
+  await fileInput(conformance).setInputFiles(await pdfFile(READ_FILE_NAME));
+  const read = conformance.getByRole("button", { name: "Read conformed date again" });
+  await expect(read).toBeEnabled({ timeout: 30_000 });
+  await read.click();
+  // Today startConformanceReading is sent without the Idempotency-Key header the route requires: 400, and the card says
+  // "<file> couldn't be sent to be read (Request ID: …)".
+  await expect(conformance.getByText(TAKEN)).toBeVisible({ timeout: 30_000 });
+});
