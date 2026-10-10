@@ -1,6 +1,6 @@
 // Bundle budgets for `pnpm perf:check` (after `pnpm build`). Chunk file names are hashes, so the entries are built from
 // Next's own record of which chunks each route loads first (`.next/diagnostics/route-bundle-stats.json`) instead of a glob.
-// The method, the waivers and the pdf.js proof live in scripts/perf/route-budgets.ts (see scripts/perf/README.md).
+// The method, the waivers and the pdf.js proof live in scripts/perf/route-budgets.ts.
 //
 // Three budgets, each measured on its own, so a lazily loaded library (pdf.js, ~135 KB gzip, opened only in the document
 // viewer) cannot hide a first-load regression and first-load growth cannot hide behind lazy chunks:

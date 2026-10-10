@@ -18,8 +18,8 @@ export type Scenario = "dashboard" | "tracker";
  *    INP proxy 0.35 to 0.51 s (the "Expand all" click renders every stage at once).
  */
 export const KNOWN_BREACHES: Readonly<Record<Scenario, Partial<Budgets>>> = {
-  dashboard: { lcpMs: 4600, cls: 0.22 },
-  tracker: { lcpMs: 5000, cls: 0.7, inpMs: 650 },
+  dashboard: { lcpMs: 4600, cls: 0.22 }, // LCP 3.7 to 3.9 s, CLS 0.09 to 0.17 measured, owner: WP-24
+  tracker: { lcpMs: 5000, cls: 0.7, inpMs: 650 }, // LCP 3.7 to 4.1 s, CLS 0.654, INP 0.35 to 0.52 s measured, owner: WP-24
 };
 
 /**

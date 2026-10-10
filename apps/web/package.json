@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start --port ${PORT:-3000}",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p perf/tsconfig.json && tsc --noEmit -p scripts/perf/tsconfig.json",
     "format": "prettier --write .",
     "test:unit": "vitest run --coverage --coverage.reportsDirectory=coverage/unit --passWithNoTests",
     "test:watch": "vitest",
@@ -19,6 +19,9 @@
     "test:e2e": "playwright test --pass-with-no-tests",
     "test:mutation": "stryker run",
     "perf:check": "size-limit",
+    "perf:unit": "vitest run -c scripts/perf/vitest.config.ts",
+    "perf:vitals": "playwright test -c perf/playwright.config.ts",
+    "perf:k6": "playwright test -c perf/k6.config.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm build"
   },
   "dependencies": {

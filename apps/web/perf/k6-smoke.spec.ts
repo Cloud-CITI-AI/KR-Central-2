@@ -8,7 +8,9 @@ import { seedDashboard } from "./data";
 // driver gives it a stack, a staff session created by the harness (the real OIDC flow) and 24 synthetic jobs.
 
 const LOAD_DIR = `${REPO_ROOT}services/api/load`;
-const K6_IMAGE = process.env.K6_IMAGE ?? "mirror.gcr.io/grafana/k6:2.3.0";
+const K6_IMAGE =
+  process.env.K6_IMAGE ??
+  "mirror.gcr.io/grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34";
 
 function hasLocalK6(): boolean {
   try {

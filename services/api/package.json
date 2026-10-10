@@ -10,7 +10,7 @@
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint . --max-warnings=0 && node ../../scripts/check-module-boundaries.mjs src/modules",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p load/tsconfig.json",
     "format": "prettier --write .",
     "test:unit": "vitest run --project unit --coverage --coverage.reportsDirectory=coverage/unit --passWithNoTests",
     "test:integration": "vitest run --project integration --coverage --coverage.reportsDirectory=coverage/integration --passWithNoTests",

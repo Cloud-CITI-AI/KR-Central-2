@@ -31,10 +31,10 @@ export const PDFJS_ENGINE_MARKERS: readonly string[] = ["pdfjs_internal_id_", "p
  * 170 KB; a waiver on a route that already fits fails the check so none is left behind.
  */
 export const BUDGET_WAIVERS: Readonly<Record<string, number>> = {
-  "/jobs/[jobId]": 255_000, // 253.8 KB measured
-  "/": 241_000, // 239.5 KB measured
-  "/admin/audit": 239_000, // 237.8 KB measured
-  "/admin/users": 239_000, // 237.8 KB measured
+  "/jobs/[jobId]": 255_000, // 253.8 KB measured, owner: WP-24
+  "/": 241_000, // 239.5 KB measured, owner: WP-24
+  "/admin/audit": 239_000, // 237.8 KB measured, owner: WP-24
+  "/admin/users": 239_000, // 237.8 KB measured, owner: WP-24
 };
 
 const routeStatsSchema = z.array(z.object({ route: z.string(), firstLoadChunkPaths: z.array(z.string()) }));
