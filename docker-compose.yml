@@ -64,6 +64,12 @@ services:
     environment:
       COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: tracker-files-local,tracker-backups-local
     ports: ["9090:9090"]
+    # The mock takes a few seconds to listen; migrate's pre-migration backup needs it answering (ListBuckets).
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9090/ > /dev/null"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
   clamav:
     # The production ClamAV image (infra/clamav): limits above UPLOAD_MAX_BYTES. Loading signatures takes a minute or two.
     build: infra/clamav
@@ -109,7 +115,7 @@ services:
       retries: 40
     depends_on:
       bootstrap: { condition: service_completed_successfully }
-      s3: { condition: service_started }
+      s3: { condition: service_healthy }
   api:
     <<: *app-service
     profiles: [stack]

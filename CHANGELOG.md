@@ -25,3 +25,7 @@ Releases are prepared by release-please from Conventional Commits.
 - Schema: OIDC flows are bound to the browser (`auth_flows.browser_binding_hash`), evidence and source files are constrained to their job, job numbers are checked (R15), sessions record `acrs`, files record `scan_attempts`.
 - API config: spec rate limits and 100 KB JSON body limit, `HOST` (`::`), `TRUST_PROXY_HOPS` default 1, identity-provider host pinned in staging/production, MFA evidence via `amr` or `acrs`.
 - CI: every workspace package gated, per-layer coverage for diff coverage, mutation limited to each package's mutate globs, Prettier check, pinned scanners.
+
+### Fixed
+
+- Local stack (`docker compose --profile stack up`): the S3 mock has a health check and `migrate` waits for it, so a cold start no longer fails with `ECONNREFUSED` on the pre-migration backup.
