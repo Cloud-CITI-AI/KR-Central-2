@@ -15,42 +15,47 @@ export interface StageBarProps {
 
 /**
  * The stage bar (§5.3): chevron, upper-case name, "N to do" / "Complete" / "Not required", 90 px track and percentage,
- * coloured by the stage state. An excluded agency stage is a disabled grey bar that cannot be opened.
+ * coloured by the stage state. An excluded agency stage is a disabled grey bar that cannot be opened. Each bar is the content of a
+ * level-2 heading (the page outline is the stages, then their checkpoints; WCAG 1.3.1, 2.4.6): the heading adds no visual of its own.
  */
 export function StageBar({ stage, summary, open, bodyId, onToggle }: StageBarProps) {
   if (summary.excluded) {
     return (
-      <div
-        className={`${styles.bar} ${styles.off}`}
-        data-state="not_required"
-        title={`The Decision Letter has no conditions for ${stage.name}`}
+      <h2 className={styles.heading}>
+        <span
+          className={`${styles.bar} ${styles.off}`}
+          data-state="not_required"
+          title={`The Decision Letter has no conditions for ${stage.name}`}
+        >
+          <span className={styles.chev} aria-hidden="true" />
+          <span className={styles.name}>{stage.name}</span>{" "}
+          <span className={styles.meta}>
+            <span className={styles.count}>{summary.label}</span>
+          </span>
+        </span>
+      </h2>
+    );
+  }
+  return (
+    <h2 className={styles.heading}>
+      <button
+        type="button"
+        className={styles.bar}
+        data-state={summary.state}
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={onToggle}
       >
         <span className={styles.chev} aria-hidden="true" />
         <span className={styles.name}>{stage.name}</span>{" "}
         <span className={styles.meta}>
-          <span className={styles.count}>{summary.label}</span>
+          <span className={styles.count}>{summary.label}</span>{" "}
+          <span className={styles.track} aria-hidden="true">
+            <i style={{ width: `${summary.percent}%` }} />
+          </span>
+          <b className={styles.pct}>{summary.percent}%</b>
         </span>
-      </div>
-    );
-  }
-  return (
-    <button
-      type="button"
-      className={styles.bar}
-      data-state={summary.state}
-      aria-expanded={open}
-      aria-controls={bodyId}
-      onClick={onToggle}
-    >
-      <span className={styles.chev} aria-hidden="true" />
-      <span className={styles.name}>{stage.name}</span>{" "}
-      <span className={styles.meta}>
-        <span className={styles.count}>{summary.label}</span>{" "}
-        <span className={styles.track} aria-hidden="true">
-          <i style={{ width: `${summary.percent}%` }} />
-        </span>
-        <b className={styles.pct}>{summary.percent}%</b>
-      </span>
-    </button>
+      </button>
+    </h2>
   );
 }

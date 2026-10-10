@@ -33,7 +33,8 @@ const expanded = async (page: Page, jobId: string): Promise<void> => {
   await page.getByRole("button", { name: "Expand all" }).click();
   await page.locator('section button[aria-expanded="false"]').first().waitFor({ state: "detached" });
 };
-const stage = (page: Page, index: number): Locator => page.locator("section:has(> button[aria-expanded])").nth(index);
+const stage = (page: Page, index: number): Locator =>
+  page.locator("section:has(> h2 > button[aria-expanded])").nth(index);
 const whole = (page: Page): Promise<Buffer> => page.screenshot({ fullPage: true });
 
 /** The job page's summary row: the Subdivision progress and Status key panels together. */

@@ -30,6 +30,19 @@ describe("condition evidence upload", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("names each condition's file input after the condition, so the inputs can be told apart", () => {
+    renderCard(threeConditions(), "i5_0");
+    const names = [1, 2, 3].map((number) => zone(number));
+    expect(names.map((input) => input.closest("label")?.textContent)).toEqual([
+      "Drop clearance evidence here (condition 1)photos, stat dec, approvals – or click to choose",
+      "Drop clearance evidence here (condition 2)photos, stat dec, approvals – or click to choose",
+      "Drop clearance evidence here (condition 3)photos, stat dec, approvals – or click to choose",
+    ]);
+    expect(names[0]).toHaveAccessibleName(/^Drop clearance evidence here ?\(condition 1\) ?photos, stat dec/);
+    expect(names[1]).toHaveAccessibleName(/^Drop clearance evidence here ?\(condition 2\) ?photos, stat dec/);
+    expect(names[2]).toHaveAccessibleName(/^Drop clearance evidence here ?\(condition 3\) ?photos, stat dec/);
+  });
+
   it("uploads a file for the condition with its id, shows it at once and refreshes the job", async () => {
     const job = threeConditions();
     const target = conditionAt(job, 1);

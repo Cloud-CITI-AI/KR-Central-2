@@ -2,6 +2,7 @@
 import type { Condition } from "@kr/contracts";
 import { EVIDENCE_ACCEPT } from "@kr/workflow";
 import { DropZone } from "@/components/ui/DropZone";
+import { VisuallyHidden } from "@/components/ui/VisuallyHidden";
 import { slotFileRules, useUploadFiles } from "@/features/checkpoints";
 import { useSession } from "@/lib/session";
 import { withEvidence } from "./cache";
@@ -13,7 +14,12 @@ export interface EvidenceZoneProps {
   readonly condition: Condition;
 }
 
-/** "Drop clearance evidence here": the small drop zone of a condition, with the upload progress and the refused files under it (§5.6). */
+/**
+ * "Drop clearance evidence here": the small drop zone of a condition, with the upload progress and the refused files under it (§5.6).
+ * The file input is named by its label, which carries the condition's number for screen readers ("Drop clearance evidence here
+ * (condition 2) photos, …"), so the inputs of a job's conditions are not all called the same (WCAG 2.4.6, 3.3.2). The visible text
+ * stays inside the name (2.5.3).
+ */
 export function EvidenceZone({ jobId, condition }: EvidenceZoneProps) {
   const { uploadMaxBytes } = useSession();
   const { upload, busy, progress, errors } = useUploadFiles({
@@ -27,7 +33,12 @@ export function EvidenceZone({ jobId, condition }: EvidenceZoneProps) {
       <DropZone
         small
         busy={busy}
-        label={EVIDENCE_LABEL}
+        label={
+          <>
+            {EVIDENCE_LABEL}
+            <VisuallyHidden> (condition {condition.number})</VisuallyHidden>
+          </>
+        }
         hint={EVIDENCE_HINT}
         onFiles={(files) => {
           void upload(files);

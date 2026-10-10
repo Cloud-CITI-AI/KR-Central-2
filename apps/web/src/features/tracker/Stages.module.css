@@ -19,6 +19,11 @@
 .stage {
   scroll-margin-top: 12px;
 }
+/* each bar sits in an h2 for the page outline: the heading is invisible (no margin, no type of its own) */
+.heading {
+  margin: 0;
+  font: inherit;
+}
 .bar {
   width: 100%;
   display: flex;

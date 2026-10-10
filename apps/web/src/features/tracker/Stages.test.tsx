@@ -43,6 +43,29 @@ describe("Stages", { timeout: WHOLE_TRACKER_TIMEOUT_MS }, () => {
     await expectNoAxeViolations(container);
   });
 
+  it("makes every stage bar a level-2 heading wrapping its button, so the outline is stages then checkpoints", async () => {
+    show(syntheticJob({ conditionAgencies: ["Western Power", "WAPC"] }));
+    await userEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    const headings = screen.getAllByRole("heading", { level: 2 });
+    for (const stage of STAGES) {
+      const section = document.getElementById(stage.key);
+      const heading = section?.querySelector("h2");
+      expect(heading, stage.name).not.toBeNull();
+      expect(heading).toHaveTextContent(stage.name);
+      expect(headings).toContain(heading);
+      expect(heading?.parentElement).toBe(section);
+      // the button keeps aria-expanded, and an excluded stage (no button) is a heading too
+      const button = heading?.querySelector("button");
+      if (button) expect(button).toHaveAttribute("aria-expanded", "true");
+    }
+    expect(document.querySelector("#water-corporation h2 button")).toBeNull();
+    // checkpoint cards stay below the stages in the outline
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(
+      document.querySelectorAll("[data-checkpoint]").length,
+    );
+    expect(screen.queryAllByRole("heading", { level: 1 })).toHaveLength(0);
+  });
+
   it("colours a bar by its stage state and labels Complete and Not required", () => {
     show(syntheticJob({ statuses: { ...all("preliminaries", "completed"), ...all("titles", "not_required") } }));
     expect(bar("preliminaries")).toHaveTextContent("Complete");
