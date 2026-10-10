@@ -67,4 +67,31 @@ describe("API config", () => {
         .ENTRA_ADMIN_AUTH_CONTEXT_ID,
     ).toBe("c1");
   });
+
+  it("treats empty optional variables (a pasted .env.example) as unset", () => {
+    const c = parseConfig(ApiConfigSchema, {
+      ...valid,
+      OTEL_EXPORTER_OTLP_ENDPOINT: "",
+      OTEL_EXPORTER_OTLP_HEADERS: "",
+      ENTRA_ADMIN_AUTH_CONTEXT_ID: "",
+    });
+    expect(c.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+    expect(c.OTEL_EXPORTER_OTLP_HEADERS).toBeUndefined();
+    expect(c.ENTRA_ADMIN_AUTH_CONTEXT_ID).toBeUndefined();
+  });
+
+  it("keeps required variables required when empty", () => {
+    try {
+      parseConfig(ApiConfigSchema, { ...valid, ENTRA_CLIENT_SECRET: "", DATABASE_URL: "" });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as ConfigError).variables).toEqual(["DATABASE_URL", "ENTRA_CLIENT_SECRET"]);
+    }
+  });
+
+  it("still requires the authentication context id (empty counts as missing) for acrs", () => {
+    expect(() =>
+      parseConfig(ApiConfigSchema, { ...valid, ADMIN_MFA_EVIDENCE: "acrs", ENTRA_ADMIN_AUTH_CONTEXT_ID: "" }),
+    ).toThrow(ConfigError);
+  });
 });

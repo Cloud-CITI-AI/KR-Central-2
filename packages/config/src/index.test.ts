@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { BooleanFromString, ConfigError, CsvList, HttpsUrl, parseConfig, PostgresUrl } from "./index.js";
+import { BooleanFromString, ConfigError, CsvList, HttpsUrl, OptionalVar, parseConfig, PostgresUrl } from "./index.js";
 
 describe("config helpers", () => {
   const Schema = z.object({
@@ -29,6 +29,42 @@ describe("config helpers", () => {
       expect(e).toBeInstanceOf(ConfigError);
       expect((e as ConfigError).variables).toEqual(["DB", "PUBLIC_URL"]);
       expect((e as Error).message).not.toContain("secret-value");
+    }
+  });
+});
+
+describe("OptionalVar", () => {
+  const Schema = z.object({
+    REQUIRED: z.string().min(1),
+    ENDPOINT: OptionalVar(z.url()),
+    TOKEN: OptionalVar(z.string().min(8)),
+  });
+
+  it("treats an unset or empty optional variable as undefined", () => {
+    expect(parseConfig(Schema, { REQUIRED: "x" })).toEqual({ REQUIRED: "x" });
+    const c = parseConfig(Schema, { REQUIRED: "x", ENDPOINT: "", TOKEN: "" });
+    expect(c.ENDPOINT).toBeUndefined();
+    expect(c.TOKEN).toBeUndefined();
+  });
+
+  it("still validates a value that is present", () => {
+    expect(parseConfig(Schema, { REQUIRED: "x", ENDPOINT: "https://otel.example.com" }).ENDPOINT).toBe(
+      "https://otel.example.com",
+    );
+    try {
+      parseConfig(Schema, { REQUIRED: "x", ENDPOINT: "not a url", TOKEN: "short" });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as ConfigError).variables).toEqual(["ENDPOINT", "TOKEN"]);
+    }
+  });
+
+  it("keeps required variables required when empty", () => {
+    try {
+      parseConfig(Schema, { REQUIRED: "" });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as ConfigError).variables).toEqual(["REQUIRED"]);
     }
   });
 });

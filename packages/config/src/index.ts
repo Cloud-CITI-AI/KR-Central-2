@@ -27,6 +27,13 @@ export const PostgresUrl = z.string().regex(/^postgres(ql)?:\/\//, "must be a po
 
 export const HttpsUrl = z.url().refine((v) => v.startsWith("https://"), "must be an https:// URL");
 
+/**
+ * An optional variable: unset or empty means "not set". Railway's raw editor (and .env.example) create empty strings
+ * for blank entries, which must not crash startup; a non-empty value is still validated by `schema`.
+ */
+export const OptionalVar = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((v) => (v === "" ? undefined : v), schema.optional());
+
 /** Secrets: at least `min` characters; never logged. */
 export const Secret = (min = 32) => z.string().min(min);
 

@@ -27,4 +27,26 @@ describe("worker config", () => {
       ConfigError,
     );
   });
+
+  it("treats empty optional variables (a pasted .env.example) as unset", () => {
+    const c = parseConfig(WorkerConfigSchema, {
+      ...valid,
+      ANTHROPIC_API_KEY: "",
+      OTEL_EXPORTER_OTLP_ENDPOINT: "",
+      OTEL_EXPORTER_OTLP_HEADERS: "",
+    });
+    expect(c.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(c.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+    expect(c.OTEL_EXPORTER_OTLP_HEADERS).toBeUndefined();
+  });
+
+  it("an empty ANTHROPIC_API_KEY does not satisfy the AI stamp reading flag", () => {
+    expect(() =>
+      parseConfig(WorkerConfigSchema, { ...valid, FEATURE_AI_STAMP_READING: "true", ANTHROPIC_API_KEY: "" }),
+    ).toThrow(ConfigError);
+  });
+
+  it("keeps required variables required when empty", () => {
+    expect(() => parseConfig(WorkerConfigSchema, { ...valid, DATABASE_URL: "" })).toThrow(ConfigError);
+  });
 });

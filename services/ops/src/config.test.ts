@@ -57,4 +57,21 @@ describe("requireSourceBucket", () => {
     expect(error).toBeInstanceOf(ConfigError);
     expect((error as ConfigError).variables).toEqual(["S3_BUCKET", "S3_ACCESS_KEY_ID"]);
   });
+
+  it("treats empty optional variables (a pasted .env.example) as unset", () => {
+    const c = parseConfig(OpsConfigSchema, {
+      ...valid,
+      S3_ENDPOINT: "",
+      S3_BUCKET: "",
+      S3_ACCESS_KEY_ID: "",
+      S3_SECRET_ACCESS_KEY: "",
+    });
+    expect(c.S3_ENDPOINT).toBeUndefined();
+    expect(c.S3_SECRET_ACCESS_KEY).toBeUndefined();
+    expect(() => requireSourceBucket(c)).toThrow(ConfigError);
+  });
+
+  it("keeps required variables required when empty", () => {
+    expect(() => parseConfig(OpsConfigSchema, { ...valid, BACKUP_S3_BUCKET: "" })).toThrow(ConfigError);
+  });
 });

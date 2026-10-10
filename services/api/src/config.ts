@@ -8,6 +8,7 @@ import {
   CsvList,
   LogLevel,
   NodeEnv,
+  OptionalVar,
   Port,
   PostgresUrl,
   Secret,
@@ -63,10 +64,7 @@ export const ApiConfigSchema = z
      * Access authentication context). Which one Entra emits for this app must be proven in staging (go-live gate).
      */
     ADMIN_MFA_EVIDENCE: z.enum(["amr", "acrs"]).default("amr"),
-    ENTRA_ADMIN_AUTH_CONTEXT_ID: z
-      .string()
-      .regex(/^c([1-9]|[1-9][0-9])$/)
-      .optional(),
+    ENTRA_ADMIN_AUTH_CONTEXT_ID: OptionalVar(z.string().regex(/^c([1-9]|[1-9][0-9])$/)),
 
     /** Rate limits (PRODUCT_SPEC §14); 429 + Retry-After. */
     RATE_LIMIT_SIGNIN_PER_MINUTE_PER_IP: z.coerce.number().int().min(1).default(20),
@@ -100,8 +98,8 @@ export const ApiConfigSchema = z
     FEATURE_AI_STAMP_READING: BooleanFromString.default(false),
     FEATURE_ENTRA_GUEST_INVITES: BooleanFromString.default(false),
 
-    OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
-    OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
+    OTEL_EXPORTER_OTLP_ENDPOINT: OptionalVar(z.url()),
+    OTEL_EXPORTER_OTLP_HEADERS: OptionalVar(z.string()),
     RELEASE_VERSION: z.string().default("dev"),
   })
   .refine((c) => c.NODE_ENV !== "production" || c.MALWARE_SCAN_MODE === "required" || c.APP_ENV === "local", {

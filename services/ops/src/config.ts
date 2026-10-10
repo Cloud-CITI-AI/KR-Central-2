@@ -3,7 +3,17 @@
  * The `migrate` service is the ONLY Railway service that receives MIGRATION_DATABASE_URL (ADR-0007): the api never
  * holds DDL credentials.
  */
-import { AppEnv, BooleanFromString, ConfigError, LogLevel, NodeEnv, PostgresUrl, Secret, loadConfig } from "@kr/config";
+import {
+  AppEnv,
+  BooleanFromString,
+  ConfigError,
+  LogLevel,
+  NodeEnv,
+  OptionalVar,
+  PostgresUrl,
+  Secret,
+  loadConfig,
+} from "@kr/config";
 import { z } from "zod";
 
 export const OpsConfigSchema = z.object({
@@ -28,11 +38,11 @@ export const OpsConfigSchema = z.object({
   BACKUP_RETENTION_DAYS: z.coerce.number().int().min(7).max(400).default(35),
 
   /** Source files bucket, read-only credentials (nightly object copy). */
-  S3_ENDPOINT: z.url().optional(),
+  S3_ENDPOINT: OptionalVar(z.url()),
   S3_REGION: z.string().min(1).default("auto"),
-  S3_BUCKET: z.string().min(3).max(63).optional(),
-  S3_ACCESS_KEY_ID: z.string().min(1).optional(),
-  S3_SECRET_ACCESS_KEY: Secret(16).optional(),
+  S3_BUCKET: OptionalVar(z.string().min(3).max(63)),
+  S3_ACCESS_KEY_ID: OptionalVar(z.string().min(1)),
+  S3_SECRET_ACCESS_KEY: OptionalVar(Secret(16)),
   S3_FORCE_PATH_STYLE: BooleanFromString.default(true),
 
   /** pg_dump 17 binary. The child process gets no PATH, so use an absolute path unless it is in /usr/bin or /bin. */

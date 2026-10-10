@@ -1,5 +1,5 @@
 /** Worker configuration — the only place that reads process.env (BE-2). Listed in .env.example (CF-3). */
-import { AppEnv, BooleanFromString, LogLevel, NodeEnv, PostgresUrl, Secret, loadConfig } from "@kr/config";
+import { AppEnv, BooleanFromString, LogLevel, NodeEnv, OptionalVar, PostgresUrl, Secret, loadConfig } from "@kr/config";
 import { z } from "zod";
 
 export const WorkerConfigSchema = z
@@ -42,7 +42,7 @@ export const WorkerConfigSchema = z
     SCAN_ERROR_MAX_RETRIES: z.coerce.number().int().min(0).max(10).default(3),
 
     FEATURE_AI_STAMP_READING: BooleanFromString.default(false),
-    ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    ANTHROPIC_API_KEY: OptionalVar(z.string().min(1)),
     ANTHROPIC_MODEL: z.string().default("claude-sonnet-5-5"),
     ANTHROPIC_TIMEOUT_MS: z.coerce.number().int().min(1000).default(30_000),
 
@@ -51,8 +51,8 @@ export const WorkerConfigSchema = z
     WORKER_LEASE_SECONDS: z.coerce.number().int().min(30).default(300),
     PDF_MAX_PAGES: z.coerce.number().int().min(1).default(60),
 
-    OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
-    OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
+    OTEL_EXPORTER_OTLP_ENDPOINT: OptionalVar(z.url()),
+    OTEL_EXPORTER_OTLP_HEADERS: OptionalVar(z.string()),
     RELEASE_VERSION: z.string().default("dev"),
   })
   .refine((c) => !c.FEATURE_AI_STAMP_READING || Boolean(c.ANTHROPIC_API_KEY), {
