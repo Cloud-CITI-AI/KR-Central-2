@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { BooleanFromString, ConfigError, CsvList, HttpsUrl, OptionalVar, parseConfig, PostgresUrl } from "./index.js";
+import {
+  AppEnv,
+  BooleanFromString,
+  ConfigError,
+  CsvList,
+  HttpsUrl,
+  NodeEnv,
+  OptionalVar,
+  parseConfig,
+  PostgresUrl,
+} from "./index.js";
 
 describe("config helpers", () => {
   const Schema = z.object({
@@ -65,6 +75,48 @@ describe("OptionalVar", () => {
       expect.unreachable();
     } catch (e) {
       expect((e as ConfigError).variables).toEqual(["REQUIRED"]);
+    }
+  });
+});
+
+describe("explicit APP_ENV in production", () => {
+  const Service = z.object({
+    NODE_ENV: NodeEnv.default("production"),
+    APP_ENV: AppEnv.default("local"),
+  });
+
+  it("refuses to start in production (the default NODE_ENV) without APP_ENV, naming it", () => {
+    for (const env of [{}, { NODE_ENV: "production" }, { NODE_ENV: "production", APP_ENV: "" }]) {
+      try {
+        parseConfig(Service, env);
+        expect.unreachable();
+      } catch (e) {
+        expect(e).toBeInstanceOf(ConfigError);
+        expect((e as ConfigError).variables).toEqual(["APP_ENV"]);
+      }
+    }
+  });
+
+  it("accepts any explicit APP_ENV in production, and still defaults to local outside production", () => {
+    expect(parseConfig(Service, { APP_ENV: "staging" }).APP_ENV).toBe("staging");
+    expect(parseConfig(Service, { NODE_ENV: "production", APP_ENV: "local" }).APP_ENV).toBe("local");
+    expect(parseConfig(Service, { NODE_ENV: "development" }).APP_ENV).toBe("local");
+    expect(parseConfig(Service, { NODE_ENV: "test" }).APP_ENV).toBe("local");
+  });
+
+  it("applies to a schema with refinements and leaves schemas without APP_ENV alone", () => {
+    const refined = Service.refine(() => true);
+    expect(() => parseConfig(refined, {})).toThrow(ConfigError);
+    expect(parseConfig(z.object({ A: z.string().default("x") }), {})).toEqual({ A: "x" });
+  });
+
+  it("reports APP_ENV together with the other invalid variables", () => {
+    const Both = Service.extend({ DB: PostgresUrl });
+    try {
+      parseConfig(Both, { DB: "mysql://x" });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as ConfigError).variables).toEqual(["APP_ENV", "DB"]);
     }
   });
 });

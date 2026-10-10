@@ -74,4 +74,15 @@ describe("requireSourceBucket", () => {
   it("keeps required variables required when empty", () => {
     expect(() => parseConfig(OpsConfigSchema, { ...valid, BACKUP_S3_BUCKET: "" })).toThrow(ConfigError);
   });
+
+  it("fails closed when APP_ENV is missing in production", () => {
+    const { APP_ENV: _omit, ...rest } = valid;
+    try {
+      parseConfig(OpsConfigSchema, rest);
+      expect.unreachable();
+    } catch (e) {
+      expect((e as ConfigError).variables).toEqual(["APP_ENV"]);
+    }
+    expect(parseConfig(OpsConfigSchema, { ...rest, NODE_ENV: "test" }).APP_ENV).toBe("local");
+  });
 });

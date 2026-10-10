@@ -49,4 +49,15 @@ describe("worker config", () => {
   it("keeps required variables required when empty", () => {
     expect(() => parseConfig(WorkerConfigSchema, { ...valid, DATABASE_URL: "" })).toThrow(ConfigError);
   });
+
+  it("fails closed when APP_ENV is missing in production (MALWARE_SCAN_MODE=disabled would be accepted)", () => {
+    const { APP_ENV: _omit, ...rest } = valid;
+    try {
+      parseConfig(WorkerConfigSchema, { ...rest, MALWARE_SCAN_MODE: "disabled" });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as ConfigError).variables).toContain("APP_ENV");
+    }
+    expect(parseConfig(WorkerConfigSchema, { ...rest, NODE_ENV: "development" }).APP_ENV).toBe("local");
+  });
 });

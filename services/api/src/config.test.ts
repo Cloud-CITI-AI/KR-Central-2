@@ -94,4 +94,23 @@ describe("API config", () => {
       parseConfig(ApiConfigSchema, { ...valid, ADMIN_MFA_EVIDENCE: "acrs", ENTRA_ADMIN_AUTH_CONTEXT_ID: "" }),
     ).toThrow(ConfigError);
   });
+
+  it("fails closed when APP_ENV is missing in production (the image sets NODE_ENV=production)", () => {
+    const { APP_ENV: _omit, ...rest } = valid;
+    const risky = {
+      ...rest,
+      MALWARE_SCAN_MODE: "disabled",
+      PUBLIC_BASE_URL: "http://tracker.example.test",
+      ENTRA_AUTHORITY_HOST: "http://evil.example.test",
+    };
+    for (const env of [risky, { ...risky, NODE_ENV: "production" }, { ...risky, APP_ENV: "" }]) {
+      try {
+        parseConfig(ApiConfigSchema, env);
+        expect.unreachable();
+      } catch (e) {
+        expect((e as ConfigError).variables).toContain("APP_ENV");
+      }
+    }
+    expect(parseConfig(ApiConfigSchema, { ...rest, NODE_ENV: "development" }).APP_ENV).toBe("local");
+  });
 });

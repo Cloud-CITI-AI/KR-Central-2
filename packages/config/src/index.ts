@@ -44,13 +44,29 @@ export class ConfigError extends Error {
   }
 }
 
+/**
+ * Fail closed on a missing APP_ENV. Every production guardrail keys off APP_ENV (malware scanning, https, the pinned
+ * identity provider, placeholder secrets), and the images set NODE_ENV=production but not APP_ENV, so a forgotten
+ * variable must not silently mean "local". Applies to any object schema declaring both NODE_ENV and APP_ENV: when
+ * NODE_ENV is production (also its default) APP_ENV must be set explicitly (an empty value counts as missing).
+ */
+function appEnvMissing(schema: z.ZodType, env: Readonly<Record<string, string | undefined>>): boolean {
+  if (!(schema instanceof z.ZodObject) || !("APP_ENV" in schema.shape) || !("NODE_ENV" in schema.shape)) return false;
+  const nodeEnv = env.NODE_ENV === undefined || env.NODE_ENV === "" ? "production" : env.NODE_ENV;
+  return nodeEnv === "production" && (env.APP_ENV === undefined || env.APP_ENV === "");
+}
+
 /** Parse without exiting (for tests). Throws ConfigError listing the offending variable names. */
 export function parseConfig<T extends z.ZodType>(
   schema: T,
   env: Readonly<Record<string, string | undefined>>,
 ): z.infer<T> {
+  const missingAppEnv = appEnvMissing(schema, env);
   const r = schema.safeParse(env);
-  if (!r.success) throw new ConfigError([...new Set(r.error.issues.map((i) => i.path.join(".") || "(root)"))]);
+  if (!r.success || missingAppEnv) {
+    const names = r.success ? [] : r.error.issues.map((i) => i.path.join(".") || "(root)");
+    throw new ConfigError([...new Set(missingAppEnv ? ["APP_ENV", ...names] : names)]);
+  }
   return r.data;
 }
 
