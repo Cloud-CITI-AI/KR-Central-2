@@ -1,11 +1,9 @@
 "use client";
-import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { VisuallyHidden } from "@/components/ui/VisuallyHidden";
-import { ApiProblem } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { DashboardCard } from "./DashboardCard";
-import { GRID_MESSAGES, loadFailedText } from "./messages";
+import { GRID_MESSAGES } from "./messages";
 import type { DashboardParams } from "./params";
 import { useJobList } from "./queries";
 import styles from "./JobGrid.module.css";
@@ -22,9 +20,8 @@ export function JobGrid({ params, visibleJobs }: JobGridProps) {
   const jobs = useJobList(params);
   const cards = jobs.data?.pages.flatMap((page) => page.items) ?? [];
 
-  if (jobs.isError && !jobs.data) {
-    return <Banner>{loadFailedText(jobs.error instanceof ApiProblem ? jobs.error.requestId : undefined)}</Banner>;
-  }
+  // A failed load has nothing to show here: the dashboard's one banner (a live region) reports it.
+  if (jobs.isError && !jobs.data) return null;
   if (jobs.isPending) {
     return (
       <div role="status" className={styles.grid}>

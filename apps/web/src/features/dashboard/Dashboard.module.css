@@ -5,3 +5,8 @@
   gap: 12px;
   margin-top: 16px;
 }
+
+/* The live region stays mounted so what is added to it is announced; empty, it takes no room in the grid. */
+.live:empty {
+  position: absolute;
+}

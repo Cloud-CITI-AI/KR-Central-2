@@ -101,9 +101,13 @@ describe("JobGrid", () => {
     });
   });
 
-  it("shows a problem banner with the request id when the cards cannot be loaded", async () => {
+  it("shows nothing but leaves the failure to the dashboard's banner when the cards cannot be loaded", async () => {
     server.use(mockProblem("listJobs", 500, PROBLEM_TYPES.internal, { requestId: "req-grid-1" }));
-    renderWithProviders(<JobGrid params={params()} visibleJobs={1} />);
-    expect(await screen.findByText(/Request ID: req-grid-1/)).toBeInTheDocument();
+    const { container } = renderWithProviders(<JobGrid params={params()} visibleJobs={1} />);
+    await waitFor(() => {
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+    expect(container).toBeEmptyDOMElement();
+    expect(screen.queryByText(/Request ID/)).toBeNull();
   });
 });
