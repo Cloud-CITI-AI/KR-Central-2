@@ -1,5 +1,4 @@
-import { buildPath, getRoute } from "@kr/contracts";
-import { API_BASE, redirectToSignIn } from "./client";
+import { apiPath, redirectToSignIn } from "./client";
 import { networkProblem, problemFromResponse } from "./problem";
 
 /**
@@ -10,7 +9,7 @@ import { networkProblem, problemFromResponse } from "./problem";
 export async function fetchFileText(fileId: string, signal?: AbortSignal): Promise<string> {
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}${buildPath(getRoute("getFileContent").path, { fileId })}`, {
+    response = await fetch(apiPath("getFileContent", { fileId }), {
       credentials: "same-origin",
       signal: signal ?? null,
     });

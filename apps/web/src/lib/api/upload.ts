@@ -1,6 +1,6 @@
-import { getRoute, UploadResult } from "@kr/contracts";
+import type { UploadResult } from "@kr/contracts";
 import type { z } from "zod";
-import { API_BASE, redirectToSignIn } from "./client";
+import { apiPath, redirectToSignIn } from "./client";
 import { getCsrfToken } from "./csrf";
 import { networkProblem, problemFromResponse } from "./problem";
 
@@ -37,7 +37,7 @@ export function uploadFile(options: UploadFileOptions): Promise<UploadedFile> {
     form.append("file", file, file.name);
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}${getRoute("uploadFile").path.replace("{jobId}", encodeURIComponent(jobId))}`);
+    xhr.open("POST", apiPath("uploadFile", { jobId }));
     xhr.setRequestHeader("accept", "application/json");
     xhr.setRequestHeader("idempotency-key", idempotencyKey ?? crypto.randomUUID());
     const csrf = getCsrfToken();
@@ -60,7 +60,7 @@ export function uploadFile(options: UploadFileOptions): Promise<UploadedFile> {
       if (xhr.status >= 200 && xhr.status < 300) {
         response
           .json()
-          .then((json: unknown) => UploadResult.parse(json))
+          .then(async (json: unknown) => (await import("./validate")).parseUploadResult(json))
           .then(resolve, reject);
         return;
       }

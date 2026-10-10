@@ -10,6 +10,8 @@ import type { z } from "zod";
 import { CsrfHeader, IdempotencyKeyHeader, IfMatchHeader, PaginationQuery, Problem } from "./common.js";
 import * as S from "./schemas.js";
 
+export { buildPath, toFastifyPath } from "./path.js";
+
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface ResponseDef {
@@ -578,20 +580,6 @@ export function getRoute(operationId: OperationId): RouteDef {
   const r = ROUTES.find((x) => x.operationId === operationId);
   if (!r) throw new RangeError(`Unknown operation ${operationId}`);
   return r;
-}
-
-/** "/v1/jobs/{jobId}" → "/v1/jobs/:jobId" */
-export function toFastifyPath(path: string): string {
-  return path.replace(/\{(\w+)\}/g, ":$1");
-}
-
-/** Fill path params: buildPath("/v1/jobs/{jobId}", { jobId }) */
-export function buildPath(path: string, params: Readonly<Record<string, string>>): string {
-  return path.replace(/\{(\w+)\}/g, (_, k: string) => {
-    const v = params[k];
-    if (v === undefined) throw new RangeError(`Missing path param ${k}`);
-    return encodeURIComponent(v);
-  });
 }
 
 /** Paths reachable without a session (API-6 allowlist). */

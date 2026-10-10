@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./routes-table": {
+      "@kr/source": "./src/routes-table.ts",
+      "types": "./dist/routes-table.d.ts",
+      "default": "./dist/routes-table.js"
+    },
     "./openapi.yaml": "./openapi.yaml"
   },
   "files": [
@@ -28,8 +33,8 @@
     "test:e2e": "echo 'no e2e layer in this package'",
     "test:mutation": "stryker run",
     "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build",
-    "openapi:generate": "tsx --conditions=@kr/source scripts/generate-openapi.ts",
-    "openapi:check": "tsx --conditions=@kr/source scripts/generate-openapi.ts --check"
+    "openapi:generate": "tsx --conditions=@kr/source scripts/generate-openapi.ts && tsx --conditions=@kr/source scripts/generate-routes-table.ts",
+    "openapi:check": "tsx --conditions=@kr/source scripts/generate-openapi.ts --check && tsx --conditions=@kr/source scripts/generate-routes-table.ts --check"
   },
   "dependencies": {
     "@kr/workflow": "workspace:*",

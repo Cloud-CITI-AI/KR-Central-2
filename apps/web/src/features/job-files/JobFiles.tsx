@@ -1,8 +1,8 @@
 "use client";
-import { buildPath, getRoute, type JobDetail } from "@kr/contracts";
+import type { JobDetail } from "@kr/contracts";
 import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
-import { API_BASE } from "@/lib/api/client";
+import { apiPath } from "@/lib/api/client";
 import { countText, FILES_MESSAGES } from "./messages";
 import styles from "./JobFiles.module.css";
 
@@ -17,7 +17,7 @@ export interface JobFilesProps {
  */
 export function JobFiles({ job }: JobFilesProps) {
   const count = job.summary.fileCount;
-  const href = `${API_BASE}${buildPath(getRoute("downloadJobPackage").path, { jobId: job.id })}`;
+  const href = apiPath("downloadJobPackage", { jobId: job.id });
   return (
     <section className={styles.box} aria-labelledby="job-files-title">
       <div className={styles.head}>

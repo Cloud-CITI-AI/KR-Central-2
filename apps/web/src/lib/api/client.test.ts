@@ -66,6 +66,27 @@ describe("api()", () => {
     expect(await create?.json()).toEqual({ audience: "all", body: "hi" });
   });
 
+  it("refuses to send a call that lacks a header its route requires, naming the operation, without a request", async () => {
+    let requests = 0;
+    server.use(
+      handlerFor("startConformanceReading", () => {
+        requests += 1;
+        return HttpResponse.json(operation, { status: 202 });
+      }),
+      handlerFor("updateCheckpoint", () => {
+        requests += 1;
+        return HttpResponse.json({});
+      }),
+    );
+    await expect(
+      api("startConformanceReading", { params: { jobId: JOB_ID }, body: { fileId: JOB_ID } }),
+    ).rejects.toThrow(new RangeError("startConformanceReading needs idempotencyKey"));
+    await expect(
+      api("updateCheckpoint", { params: { jobId: JOB_ID, checkpointKey: "i4_0" }, body: { status: "completed" } }),
+    ).rejects.toThrow(new RangeError("updateCheckpoint needs ifMatch"));
+    expect(requests).toBe(0);
+  });
+
   it("sends query parameters, skipping undefined ones", async () => {
     let url = "";
     server.use(
