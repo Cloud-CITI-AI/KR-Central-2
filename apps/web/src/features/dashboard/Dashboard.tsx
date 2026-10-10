@@ -1,13 +1,12 @@
 "use client";
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
-import { AccessManager } from "@/features/access";
 import { useSession } from "@/lib/session";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardJobbar } from "./DashboardJobbar";
 import { JobGrid } from "./JobGrid";
-import { NewJobForm } from "./NewJobForm";
 import { archivedText, dashboardFailureText } from "./messages";
 import { SummaryChips } from "./SummaryChips";
 import { useJobFacets, useJobList } from "./queries";
@@ -15,6 +14,10 @@ import { useDashboardParams } from "./useDashboardParams";
 import styles from "./Dashboard.module.css";
 
 const NEW_JOB_BUTTON_ID = "new-job-button";
+
+// Both forms validate with the contract's schemas (Zod): loaded on demand, they stay out of the dashboard's first load (FE-9).
+const NewJobForm = dynamic(() => import("./NewJobForm").then((module) => module.NewJobForm));
+const AccessManager = dynamic(() => import("@/features/access").then((module) => module.AccessManager));
 
 /** The dashboard (§6): filters in the URL, counts from `getJobFacets`. The cards follow the counts. */
 export function Dashboard() {
@@ -29,7 +32,8 @@ export function Dashboard() {
         failed.every((query) => query.data !== undefined),
       )
     : null;
-  const canCreate = useSession().capabilities.includes("jobs.create");
+  const { capabilities } = useSession();
+  const canCreate = capabilities.includes("jobs.create");
   const [creating, setCreating] = useState(false);
   return (
     <>
@@ -78,7 +82,7 @@ export function Dashboard() {
         {facets.data && <SummaryChips facets={facets.data} />}
         <JobGrid params={params} visibleJobs={facets.data?.statusCounts.all} />
       </div>
-      <AccessManager />
+      {capabilities.includes("access.manage") && <AccessManager />}
     </>
   );
 }

@@ -71,6 +71,6 @@ describe("Jobbar", () => {
     view.unmount();
     renderTracker(<Jobbar job={syntheticJob()} onSaveAsPdf={() => undefined} />);
     await userEvent.click(screen.getByRole("button", { name: "EDIT JOB" }));
-    expect(screen.getByRole("dialog", { name: "Job details" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Job details" })).toBeInTheDocument();
   });
 });

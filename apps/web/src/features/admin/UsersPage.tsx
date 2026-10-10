@@ -1,5 +1,6 @@
 "use client";
-import { GLOBAL_ROLES, type GlobalRole, type User } from "@kr/contracts";
+import type { GlobalRole, User } from "@kr/contracts";
+import { GLOBAL_ROLES } from "@kr/contracts/capabilities";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";

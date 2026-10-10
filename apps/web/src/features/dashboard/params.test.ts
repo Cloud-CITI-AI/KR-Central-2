@@ -1,5 +1,6 @@
+import { CreateJobRequest, JobStatusFilter, SubdivisionType } from "@kr/contracts";
 import { describe, expect, it } from "vitest";
-import { dashboardHref, parseDashboardParams } from "./params";
+import { DASHBOARD_STATUSES, dashboardHref, parseDashboardParams } from "./params";
 
 const search = (text: string) => new URLSearchParams(text);
 
@@ -34,6 +35,38 @@ describe("parseDashboardParams archived", () => {
 
   it("keeps a job number, trimmed", () => {
     expect(parseDashboardParams(search("archived=%20S-0001%20")).archived).toBe("S-0001");
+  });
+});
+
+/** params.ts writes the contract's rules out (no Zod on the first render); these keep the two from drifting. */
+describe("parseDashboardParams against the contract schemas", () => {
+  it("accepts exactly the statuses and subdivision types the contract lists", () => {
+    expect([...DASHBOARD_STATUSES]).toEqual(JobStatusFilter.options);
+    for (const type of SubdivisionType.options) {
+      expect(parseDashboardParams(search(`type=${encodeURIComponent(type)}`)).type).toBe(type);
+    }
+    expect(parseDashboardParams(search("type=freehold")).type).toBe("");
+  });
+
+  it.each([
+    "S-0001",
+    " S-0001 ",
+    "S 0001/2.1",
+    "a",
+    "S-".concat("1".repeat(30)),
+    "S-".concat("1".repeat(31)),
+    "",
+    "   ",
+    "-S-1",
+    ".1",
+    "S_1",
+    "S-1\n",
+    "<b>x</b>",
+  ])("treats the archived job number %j as the contract's job number does", (value) => {
+    const parsed = CreateJobRequest.shape.jobNumber.safeParse(value);
+    expect(parseDashboardParams(search(`archived=${encodeURIComponent(value)}`)).archived).toBe(
+      parsed.success ? parsed.data : "",
+    );
   });
 });
 

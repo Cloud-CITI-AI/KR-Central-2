@@ -1,7 +1,8 @@
 "use client";
-import { Uuid, type JobCard } from "@kr/contracts";
+import type { JobCard } from "@kr/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { api, queryKeys } from "@/lib/api";
+import { isUuid } from "@/lib/uuid";
 import { useDebouncedValue } from "./useDebouncedValue";
 
 export interface JobLookup {
@@ -22,5 +23,5 @@ export function useJobLookup(text: string): JobLookup {
   });
   const options = data?.items ?? [];
   const match = options.find((job) => job.jobNumber.toLowerCase() === typed.toLowerCase());
-  return { options, jobId: match?.id ?? (Uuid.safeParse(typed).success ? typed : undefined) };
+  return { options, jobId: match?.id ?? (isUuid(typed) ? typed : undefined) };
 }

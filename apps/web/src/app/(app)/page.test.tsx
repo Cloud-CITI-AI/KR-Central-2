@@ -69,7 +69,8 @@ describe("DashboardPage", () => {
     expect(button).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(button);
     expect(button).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("textbox", { name: "Job number" })).toBeInTheDocument();
+    // The form is loaded on demand (it carries the contract schemas), so it arrives a moment after the click.
+    expect(await screen.findByRole("textbox", { name: "Job number" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("textbox", { name: "Job number" })).toBeNull();
     expect(button).toHaveFocus();

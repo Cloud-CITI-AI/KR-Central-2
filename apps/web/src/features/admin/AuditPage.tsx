@@ -1,5 +1,5 @@
 "use client";
-import { hasCapability } from "@kr/contracts";
+import { hasCapability } from "@kr/contracts/capabilities";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";

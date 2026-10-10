@@ -1,5 +1,6 @@
 "use client";
-import { GLOBAL_ROLES, type GlobalRole, type User } from "@kr/contracts";
+import type { GlobalRole, User } from "@kr/contracts";
+import { GLOBAL_ROLES } from "@kr/contracts/capabilities";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { cx } from "@/lib/cx";

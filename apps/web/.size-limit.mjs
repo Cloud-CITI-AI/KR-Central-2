@@ -7,8 +7,9 @@
 //   1. first-load JS, all routes together  (FE-9, 400 KB)
 //   2. first-load JS of each route         (FE-9: 170 KB gzip; a route over it today is held to its BUDGET_WAIVERS ceiling,
 //                                           which only ratchets down)
-//   3. lazy JS: chunks no route loads first (pdf.js, Next's polyfill script, small dynamic imports; 186 KB today, so
-//      200 KB leaves room for one small lazy feature and flags a second large library)
+//   3. lazy JS: chunks no route loads first (pdf.js, Zod with the contract schemas for the forms that validate with them,
+//      Next's polyfill script, small dynamic imports; 235 KB today, of which Zod and the schemas are ~49 KB that used to
+//      be in four routes' first load, so 240 KB leaves room for one small lazy feature and flags a second large library)
 // Besides sizes, loading this file fails the check when a waiver is stale or pdf.js is in any route's first load.
 import { budgetProblems, jsOnly, limitFor, measureBuild } from "./scripts/perf/route-budgets.ts";
 
@@ -37,7 +38,7 @@ export default [
   {
     name: "lazy JS, chunks no route loads first, e.g. pdf.js (gzip)",
     path: lazy,
-    limit: "200 KB",
+    limit: "240 KB",
     gzip: true,
   },
 ];

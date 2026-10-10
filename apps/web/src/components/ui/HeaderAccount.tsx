@@ -1,5 +1,5 @@
 "use client";
-import { hasCapability } from "@kr/contracts";
+import { hasCapability } from "@kr/contracts/capabilities";
 import { useSession } from "@/lib/session";
 import { ButtonLink } from "./ButtonLink";
 import { SignOutButton } from "./SignOutButton";

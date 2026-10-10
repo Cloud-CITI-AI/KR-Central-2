@@ -1,5 +1,4 @@
-import { CreateJobRequest, JobStatusFilter, SubdivisionType as SubdivisionTypeSchema } from "@kr/contracts";
-import type { SubdivisionType } from "@kr/workflow";
+import { SUBDIVISION_TYPES, type SubdivisionType } from "@kr/workflow";
 import type { DashboardStatus } from "./types";
 
 /** Dashboard filters as they live in the URL (§6): `?status=complete&type=Freehold&q=…&archived=S-0001`. */
@@ -14,17 +13,26 @@ export interface DashboardParams {
 
 type Search = Pick<URLSearchParams, "get" | "toString">;
 
+/**
+ * The same rules as the contract's `JobStatusFilter`, `SubdivisionType` and job number (`CreateJobRequest.jobNumber`),
+ * written out so the dashboard's first render does not load Zod; params.test.ts compares them with the schemas.
+ */
+export const DASHBOARD_STATUSES = ["in_progress", "complete", "all"] as const satisfies readonly DashboardStatus[];
+const JOB_NUMBER = /^[A-Za-z0-9][A-Za-z0-9 ./-]*$/;
+const JOB_NUMBER_MAX = 32;
+
 /** Parse the query string; anything invalid falls back to the default (the URL is external input, A4). */
 export function parseDashboardParams(search: Search): DashboardParams {
-  const status = JobStatusFilter.safeParse(search.get("status"));
-  const type = SubdivisionTypeSchema.safeParse(search.get("type"));
-  // The banner quotes this text, so only a real job number (the contract's schema) gets through; anything else fails closed.
-  const archived = CreateJobRequest.shape.jobNumber.safeParse(search.get("archived"));
+  const status = DASHBOARD_STATUSES.find((value) => value === search.get("status"));
+  const type = SUBDIVISION_TYPES.find((value) => value === search.get("type"));
+  // The banner quotes this text, so only a real job number (trimmed, as the contract does) gets through; anything else fails closed.
+  const archived = (search.get("archived") ?? "").trim();
+  const validArchived = archived.length > 0 && archived.length <= JOB_NUMBER_MAX && JOB_NUMBER.test(archived);
   return {
-    status: status.success ? status.data : "in_progress",
-    type: type.success ? type.data : "",
+    status: status ?? "in_progress",
+    type: type ?? "",
     q: (search.get("q") ?? "").slice(0, 100),
-    archived: archived.success ? archived.data : "",
+    archived: validArchived ? archived : "",
   };
 }
 

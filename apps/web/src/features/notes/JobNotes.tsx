@@ -1,9 +1,12 @@
 "use client";
 import type { JobCapability } from "@kr/contracts";
+import dynamic from "next/dynamic";
 import { NOTES_MESSAGES } from "./messages";
-import { NoteForm } from "./NoteForm";
 import { NoteList } from "./NoteList";
 import styles from "./JobNotes.module.css";
+
+// The form validates with the contract's schema (Zod), below the fold: loaded on demand, out of the tracker's first load (FE-9).
+const NoteForm = dynamic(() => import("./NoteForm").then((module) => module.NoteForm));
 
 export interface JobNotesProps {
   readonly jobId: string;

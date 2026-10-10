@@ -29,12 +29,16 @@ export const PDFJS_ENGINE_MARKERS: readonly string[] = ["pdfjs_internal_id_", "p
  * 2026-10-10 plus ~1 KB). They are product-code breaches reported to the orchestrator (WP-22 does not optimise product
  * code). A waiver is a ratchet: lower the ceiling as the route shrinks and delete the entry when the route is within
  * 170 KB; a waiver on a route that already fits fails the check so none is left behind.
+ *
+ * FIX-R1-WEBCLIENT removed Zod and every contract schema from these first loads (they were 47 + 20 KB of the 254 KB):
+ * the browser client uses the schema-free `@kr/contracts/routes-table` and `/capabilities`, and the forms that validate
+ * with a schema load on demand. What remains is the app's own code (React Query, tracker and dashboard components).
  */
 export const BUDGET_WAIVERS: Readonly<Record<string, number>> = {
-  "/jobs/[jobId]": 255_000, // 253.8 KB measured, owner: WP-24
-  "/": 241_000, // 239.5 KB measured, owner: WP-24
-  "/admin/audit": 239_000, // 237.8 KB measured, owner: WP-24
-  "/admin/users": 239_000, // 237.8 KB measured, owner: WP-24
+  "/jobs/[jobId]": 217_500, // 216.4 KB measured (was 253.8), owner: WP-24
+  "/": 200_000, // 198.8 KB measured (was 239.5), owner: WP-24
+  "/admin/audit": 200_500, // 199.4 KB measured (was 237.8), owner: WP-24
+  "/admin/users": 200_500, // 199.4 KB measured (was 237.8), owner: WP-24
 };
 
 const routeStatsSchema = z.array(z.object({ route: z.string(), firstLoadChunkPaths: z.array(z.string()) }));

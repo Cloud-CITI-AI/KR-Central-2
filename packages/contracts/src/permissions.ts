@@ -4,9 +4,11 @@
  * See docs/spec/PRODUCT_SPEC.md §3 "Roles and permissions".
  */
 import { z } from "zod";
+import { GLOBAL_ROLES, GRANT_ROLES, hasCapability } from "./capabilities.js";
 
-/** Global role on the user record. */
-export const GLOBAL_ROLES = ["admin", "kr_admin", "staff", "external"] as const;
+export { GLOBAL_ROLES, GRANT_ROLES, hasCapability };
+
+/** Global role on the user record (the list is in capabilities.ts). */
 export const GlobalRole = z.enum(GLOBAL_ROLES).meta({
   id: "GlobalRole",
   description:
@@ -14,8 +16,7 @@ export const GlobalRole = z.enum(GLOBAL_ROLES).meta({
 });
 export type GlobalRole = z.infer<typeof GlobalRole>;
 
-/** Role of an external user on one job (access grant). */
-export const GRANT_ROLES = ["client", "architect"] as const;
+/** Role of an external user on one job (access grant; the list is in capabilities.ts). */
 export const GrantRole = z.enum(GRANT_ROLES).meta({ id: "GrantRole" });
 export type GrantRole = z.infer<typeof GrantRole>;
 
@@ -136,8 +137,4 @@ export function jobCapabilitiesFor(role: GlobalRole, grantRole: GrantRole | null
       if (grantRole === "architect") return [...ARCHITECT_JOB];
       return [];
   }
-}
-
-export function hasCapability<T extends string>(caps: readonly T[], cap: T): boolean {
-  return caps.includes(cap);
 }

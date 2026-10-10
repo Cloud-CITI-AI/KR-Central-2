@@ -16,6 +16,11 @@
       "types": "./dist/routes-table.d.ts",
       "default": "./dist/routes-table.js"
     },
+    "./capabilities": {
+      "@kr/source": "./src/capabilities.ts",
+      "types": "./dist/capabilities.d.ts",
+      "default": "./dist/capabilities.js"
+    },
     "./openapi.yaml": "./openapi.yaml"
   },
   "files": [

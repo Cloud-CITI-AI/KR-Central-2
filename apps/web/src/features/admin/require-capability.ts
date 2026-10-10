@@ -1,4 +1,5 @@
-import { hasCapability, type GlobalCapability, type Me } from "@kr/contracts";
+import type { GlobalCapability, Me } from "@kr/contracts";
+import { hasCapability } from "@kr/contracts/capabilities";
 import { notFound } from "next/navigation";
 import { getMe } from "@/lib/session/get-me";
 

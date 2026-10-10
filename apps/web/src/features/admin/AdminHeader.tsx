@@ -1,5 +1,5 @@
 "use client";
-import { hasCapability } from "@kr/contracts";
+import { hasCapability } from "@kr/contracts/capabilities";
 import Link from "next/link";
 import { useSession } from "@/lib/session";
 import styles from "./Admin.module.css";
