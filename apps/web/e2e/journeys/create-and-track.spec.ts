@@ -1,7 +1,7 @@
 import { expect, test } from "../fixtures";
 import { createJob, uniqueJobNumber } from "../harness/jobs";
 import { STAFF } from "../harness/users";
-import { card, openTracker } from "../support/tracker";
+import { card, expectProgress, expectProgressCounts, openTracker, progressSummary } from "../support/tracker";
 
 // PRODUCT_SPEC §5 and §6: staff create a job and work its checkpoints.
 
@@ -25,8 +25,9 @@ test("staff create a job from the dashboard, and a duplicate number is refused",
 
   await expect(page).toHaveURL(/\/jobs\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("combobox", { name: "Job" })).toContainText(jobNumber);
-  await expect(page.getByText("0%", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("46").first()).toBeVisible();
+  await expectProgress(page, 0);
+  await expectProgressCounts(page, { completed: 0, notRequired: 0, notCompleted: 46 });
+  await expect(progressSummary(page)).toContainText("46 Not completed");
 
   await page.getByRole("link", { name: "Dashboard" }).click();
   await page.getByRole("button", { name: "New job" }).click();
@@ -49,11 +50,11 @@ test("staff set statuses and responsibility, and the progress follows and surviv
   const survey = card(page, "i2_0");
   await survey.getByRole("button", { name: "Completed", exact: true }).click();
   await expect(survey.getByRole("button", { name: "Completed", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("2%", { exact: true }).first()).toBeVisible();
+  await expectProgress(page, 2);
 
   const quote = card(page, "i4_0");
   await quote.getByRole("button", { name: "Not required" }).click();
-  await expect(page.getByText("4%", { exact: true }).first()).toBeVisible();
+  await expectProgress(page, 4);
   await survey.getByRole("combobox", { name: "Responsibility for 2.0" }).selectOption("Client");
 
   await page.reload();
@@ -67,5 +68,5 @@ test("staff set statuses and responsibility, and the progress follows and surviv
     "aria-pressed",
     "true",
   );
-  await expect(page.getByText("4%", { exact: true }).first()).toBeVisible();
+  await expectProgress(page, 4);
 });

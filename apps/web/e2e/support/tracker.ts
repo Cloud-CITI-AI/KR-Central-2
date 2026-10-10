@@ -12,9 +12,22 @@ export async function openTracker(page: Page, jobId: string): Promise<void> {
 /** The file input of a drop zone inside `scope` (the zone's `<input type=file>` is visually hidden but present). */
 export const fileInput = (scope: Locator): Locator => scope.locator('input[type="file"]');
 
-/** The progress ring's percentage text. */
+/** The "Subdivision progress" summary region (percentage ring, bar and the Completed / Not completed / Not required counts). */
+export const progressSummary = (page: Page): Locator => page.getByRole("region", { name: "Subdivision progress" });
+
+/** The progress ring's percentage text, read inside the summary so no other text on the page can satisfy it. */
 export async function expectProgress(page: Page, percent: number): Promise<void> {
-  await expect(page.getByText(`${percent.toString()}%`, { exact: true }).first()).toBeVisible();
+  await expect(progressSummary(page).getByText(`${percent.toString()}%`, { exact: true })).toBeVisible();
+}
+
+/** The counts the progress summary shows, from its bar's accessible name ("0 completed, 0 not required, 46 not completed of 46"). */
+export async function expectProgressCounts(
+  page: Page,
+  counts: { completed: number; notRequired: number; notCompleted: number },
+): Promise<void> {
+  await expect(progressSummary(page).getByRole("img")).toHaveAccessibleName(
+    `${counts.completed.toString()} completed, ${counts.notRequired.toString()} not required, ${counts.notCompleted.toString()} not completed of 46`,
+  );
 }
 
 /**

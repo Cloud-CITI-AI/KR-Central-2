@@ -2,7 +2,7 @@ import { PDFDocument } from "pdf-lib";
 import { expect, test } from "../fixtures";
 import { createJob } from "../harness/jobs";
 import { STAFF } from "../harness/users";
-import { surfaceLuminance, card, tabTo } from "../support/tracker";
+import { surfaceLuminance, card, expectProgress, tabTo } from "../support/tracker";
 
 // PRODUCT_SPEC §12: dark mode, keyboard use, and the print stylesheet ("Save as PDF").
 
@@ -69,7 +69,7 @@ test("a checkpoint can be opened and updated with the keyboard alone, with a vis
   await tabTo(page, responsibility);
   await page.keyboard.press("ArrowDown");
   await expect(responsibility).not.toHaveValue("kr");
-  await expect(page.getByText("2%", { exact: true }).first()).toBeVisible();
+  await expectProgress(page, 2);
 });
 
 test("the tracker prints on A4 with the controls, drop zones and stage bars set for paper", async ({

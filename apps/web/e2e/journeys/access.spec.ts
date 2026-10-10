@@ -1,10 +1,14 @@
-import { expect, test } from "../fixtures";
+import { expect, isolatedStackTest } from "../fixtures";
 import { createJob, grantAccess } from "../harness/jobs";
 import { STAFF } from "../harness/users";
 import { signInThroughBrowser } from "../support/browser";
 
 // PRODUCT_SPEC §3.4 and §6 (access manager): staff grant a client access, the grant is pending until the guest signs in with that
 // email, then active and bound to them; removing it takes effect on the guest's next request.
+// The access list is one newest-first page shared by everyone on the system, so this journey has a stack of its own: on the shared
+// one, grants other tests add in parallel can push this one off the rendered page.
+const test = isolatedStackTest({ label: "access", seed: true });
+test.describe.configure({ mode: "serial" });
 
 test("staff grant a client access; it is pending until the guest signs in, then active; removing it ends the access", async ({
   page,
@@ -12,6 +16,7 @@ test("staff grant a client access; it is pending until the guest signs in, then 
   signInAs,
   apiAs,
   newUser,
+  own,
 }) => {
   const staff = await apiAs(STAFF);
   const job = await createJob(staff);
@@ -47,7 +52,7 @@ test("staff grant a client access; it is pending until the guest signs in, then 
   await expect(manager.getByText(`${email} is already on the list for ${job.jobNumber}.`)).toBeVisible();
 
   // The guest signs in with that email: the grant becomes theirs, and they see that job and no other.
-  const guestContext = await browser.newContext();
+  const guestContext = await browser.newContext({ baseURL: own.info.webUrl });
   const guestPage = await guestContext.newPage();
   await signInThroughBrowser(guestPage, guest);
   await expect(guestPage.getByRole("article")).toHaveCount(1);
