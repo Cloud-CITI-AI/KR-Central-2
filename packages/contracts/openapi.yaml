@@ -1416,6 +1416,17 @@ paths:
               request)
           required: true
           description: CSRF token from GET /v1/me (required on every state-changing request)
+        - in: header
+          name: idempotency-key
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 128
+            description: Required idempotency key (8 to 128 characters); repeating a request
+              with the same key returns the original result (API-5).
+          required: true
+          description: Required idempotency key (8 to 128 characters); repeating a request
+            with the same key returns the original result (API-5).
       requestBody:
         required: true
         content:
@@ -1501,6 +1512,17 @@ paths:
               request)
           required: true
           description: CSRF token from GET /v1/me (required on every state-changing request)
+        - in: header
+          name: idempotency-key
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 128
+            description: Required idempotency key (8 to 128 characters); repeating a request
+              with the same key returns the original result (API-5).
+          required: true
+          description: Required idempotency key (8 to 128 characters); repeating a request
+            with the same key returns the original result (API-5).
       requestBody:
         required: true
         content:

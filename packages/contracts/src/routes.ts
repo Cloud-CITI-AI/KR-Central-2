@@ -82,6 +82,13 @@ const VERSIONED_ERRORS = {
 const csrf = CsrfHeader;
 const csrfIfMatch = CsrfHeader.extend(IfMatchHeader.shape);
 const csrfIdem = CsrfHeader.extend(IdempotencyKeyHeader.shape);
+/** CSRF plus a required Idempotency-Key: the API answers 400 (path `idempotency-key`) without it. */
+const csrfRequiredIdem = CsrfHeader.extend({
+  "idempotency-key": IdempotencyKeyHeader.shape["idempotency-key"].unwrap().meta({
+    description:
+      "Required idempotency key (8 to 128 characters); repeating a request with the same key returns the original result (API-5).",
+  }),
+});
 /** CSRF plus an optional If-Match: honoured when sent (stale → 412), never required (no 428). */
 const csrfOptionalIfMatch = CsrfHeader.extend({
   "if-match": IfMatchHeader.shape["if-match"]
@@ -364,7 +371,7 @@ export const ROUTES = [
     tag: "checkpoints",
     auth: "session",
     authz: "job capability conformance.read; file must be a clean PDF in slot i4_2/conformance of this job",
-    request: { params: S.JobIdParams, body: S.StartConformanceReadingRequest, headers: csrf },
+    request: { params: S.JobIdParams, body: S.StartConformanceReadingRequest, headers: csrfRequiredIdem },
     responses: {
       202: { description: "Queued", schema: S.Operation },
       ...JOB_ERRORS,
@@ -381,7 +388,7 @@ export const ROUTES = [
     auth: "session",
     authz:
       "job capability conditions.extract; file must be a clean PDF in slot i5_0/decision whose name contains 'decision'",
-    request: { params: S.JobIdParams, body: S.StartConditionsExtractionRequest, headers: csrf },
+    request: { params: S.JobIdParams, body: S.StartConditionsExtractionRequest, headers: csrfRequiredIdem },
     responses: {
       202: { description: "Queued", schema: S.Operation },
       ...JOB_ERRORS,

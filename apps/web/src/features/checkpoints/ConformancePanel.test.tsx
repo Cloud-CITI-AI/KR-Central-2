@@ -74,11 +74,13 @@ describe("conformance panel", () => {
     const second = job.checkpoints.find((c) => c.key === "i4_2")?.files[1];
     const { served } = renderCard(job, "i4_2");
     const started: unknown[] = [];
+    const keys: (string | null)[] = [];
     let polls = 0;
     let jobReads = 0;
     server.use(
       handlerFor("startConformanceReading", async ({ request }) => {
         started.push(await request.json());
+        keys.push(request.headers.get("idempotency-key"));
         return HttpResponse.json(operation(job.id, "queued"), { status: 202 });
       }),
       handlerFor("getOperation", () => {
@@ -92,6 +94,8 @@ describe("conformance panel", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Read date from B.pdf" }));
     expect(started).toEqual([{ fileId: second?.id }]);
+    // The API answers 400 without an Idempotency-Key on this route (contract: required header).
+    expect(keys).toEqual([expect.stringMatching(/^[\w-]{8,128}$/)]);
     expect(await screen.findByText("Reading the conformed date…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Read date from A.pdf" })).toBeDisabled();
     const result = await screen.findByText("Taken from the file name: Mon, 16 Mar 2026.", {}, { timeout: 4000 });
