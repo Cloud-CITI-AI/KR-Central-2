@@ -239,6 +239,11 @@ export const APPROVAL_EXPIRY_WARN_DAYS = 180;
 /** Outcome-date warning window (days). */
 export const OUTCOME_WARN_DAYS = 14;
 
+/** "1 day" / "2 days". */
+function plural(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? "" : "s"}`;
+}
+
 /** Dashboard alerts ("things worth flagging"), in the prototype's order. */
 export function jobAlerts(input: JobRuleInput, now: Date): JobAlert[] {
   const alerts: JobAlert[] = [];
@@ -254,7 +259,7 @@ export function jobAlerts(input: JobRuleInput, now: Date): JobAlert[] {
       alerts.push({
         code: "approval_expiring",
         level: "warn",
-        text: `WAPC approval expires in ${days} days (${formatDateLong(input.approvalExpiry)})`,
+        text: `WAPC approval expires in ${plural(days, "day")} (${formatDateLong(input.approvalExpiry)})`,
       });
     }
   }
@@ -267,7 +272,7 @@ export function jobAlerts(input: JobRuleInput, now: Date): JobAlert[] {
         text: `WAPC outcome date passed ${formatDateLong(input.outcomeDate)} – no approval recorded`,
       });
     } else if (days <= OUTCOME_WARN_DAYS) {
-      alerts.push({ code: "outcome_due", level: "warn", text: `WAPC outcome due in ${days} days` });
+      alerts.push({ code: "outcome_due", level: "warn", text: `WAPC outcome due in ${plural(days, "day")}` });
     }
   }
   for (const c of CHECKPOINTS) {
@@ -288,7 +293,7 @@ export function jobAlerts(input: JobRuleInput, now: Date): JobAlert[] {
     alerts.push({
       code: "conditions_agency_unchecked",
       level: "warn",
-      text: `${guessed} condition${guessed > 1 ? "s" : ""} need their agency checked`,
+      text: guessed === 1 ? "1 condition needs its agency checked" : `${guessed} conditions need their agency checked`,
     });
   }
   return alerts;

@@ -141,6 +141,21 @@ describe("alerts", () => {
     expect(jobAlerts(job({ approvalExpiry: "2027-03-01" }), NOW)).toEqual([]);
   });
 
+  it("uses singular and plural correctly in alert text (Australian English)", () => {
+    const text = (input: Parameters<typeof job>[0]) => jobAlerts(job(input), NOW).map((a) => a.text);
+    // NOW is 10 Jan 2026 Perth: expiry on the same day is 1 day left, the day after is 2.
+    expect(text({ approvalExpiry: "2026-01-10" })).toEqual(["WAPC approval expires in 1 day (Sat, 10 Jan 2026)"]);
+    expect(text({ approvalExpiry: "2026-01-11" })).toEqual(["WAPC approval expires in 2 days (Sun, 11 Jan 2026)"]);
+    expect(text({ outcomeDate: "2026-01-10" })).toEqual(["WAPC outcome due in 1 day"]);
+    expect(text({ outcomeDate: "2026-01-11" })).toEqual(["WAPC outcome due in 2 days"]);
+    expect(text({ conditions: [cond("Western Power", { agencyGuessed: true })] })).toEqual([
+      "1 condition needs its agency checked",
+    ]);
+    expect(
+      text({ conditions: [cond("Western Power", { agencyGuessed: true }), cond("WAPC", { agencyGuessed: true })] }),
+    ).toEqual(["2 conditions need their agency checked"]);
+  });
+
   it("flags the outcome date only while 5.0 is not completed", () => {
     expect(jobAlerts(job({ outcomeDate: "2026-01-05" }), NOW)[0]?.code).toBe("outcome_passed");
     expect(jobAlerts(job({ outcomeDate: "2026-01-20" }), NOW)[0]).toEqual({
