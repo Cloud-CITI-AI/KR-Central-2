@@ -190,7 +190,10 @@ backup so new code never meets an old schema and the api never holds DDL credent
    (drift), for example a health-check path edited in the dashboard.
 3. Triggers a deployment and polls it. Healthy is `SUCCESS` (cron services: also `SLEEPING`); `FAILED`, `CRASHED`, `REMOVED`,
    `SKIPPED` and `NEEDS_APPROVAL` fail. The wait is the larger of 600 s or the health-check timeout plus 300 s (override with
-   `--timeout-minutes`), polled every 10 s. It stops at the first failing service and names the services not started.
+   `--timeout-minutes`), polled every 10 s. The six services can wait 65 minutes in all (clamav 10, migrate 15, the others 10
+   each), so `deploy.yml` gives the deploy step and the rollback step 75 minutes each and the job 200; the rollback step runs
+   on failure **and** cancellation (`infra/railway/test/pipeline.test.mjs` fails if the budgets stop covering the script).
+   It stops at the first failing service and names the services not started.
 4. `--record <file>` writes each service's current image and settings **before** the first change. `--rollback <file>` puts
    changed services back (same checks), skips services still on their recorded state, and leaves services that had no earlier
    image. A recorded image that is not a `ghcr.io/...@sha256:<digest>` reference (for example the setup placeholder
@@ -306,7 +309,9 @@ lifecycle rules exist, retention pruning is done by the `backup` job itself, nev
 - **Freeze deploys** (incident, error budget exhausted): set repository variable `DEPLOYS_FROZEN=true`; both jobs stop at
   their first step. Unset it to resume. Existing deployments keep running.
 - **Redeploy or roll back a release:** run `deploy.yml` with `workflow_dispatch` and the release tag (for a rollback, the
-  last good tag); staging deploys first and production waits for its approval. Migrations are expand-only, so the old images run on the new schema.
+  last good tag); staging deploys first and production waits for its approval. Both jobs check out that **tag** (not the
+  branch chosen in "Use workflow from"), so the old release's service settings, `deploy-images.mjs`, `smoke.mjs` and ZAP rules
+  run with its own images. Migrations are expand-only, so the old images run on the new schema.
 - **A failed deploy** has already rolled back automatically; read the failing step (`[service] ...` names the service and why:
   drift, status, timeout), fix forward in a new release, and do not edit Railway settings by hand (the next deploy reports it as drift).
 - **Settings changes** go through a pull request to `infra/railway/services/*.json` (CODEOWNERS review) and apply on the next deploy.

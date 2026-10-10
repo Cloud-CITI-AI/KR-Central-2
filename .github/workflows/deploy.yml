@@ -35,7 +35,7 @@ jobs:
   staging:
     runs-on: ubuntu-latest
     environment: staging
-    timeout-minutes: 45
+    timeout-minutes: 200 # deploy 75 + rollback 75 + verify, smoke and ZAP (pipeline.test.mjs checks the sum)
     permissions: { contents: read, attestations: read, packages: read }
     steps:
       - name: Kill-switch check
@@ -43,8 +43,13 @@ jobs:
         run: |
           echo "Deploys are frozen (vars.DEPLOYS_FROZEN)"
           exit 1
+      - name: Validate the tag (a release tag vX.Y.Z; nothing else reaches checkout)
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::'$TAG' is not a release tag (vX.Y.Z)"; exit 1; }
+      # The tag's own scripts and service settings, not the dispatching branch's: a redeploy or rollback of an old tag
+      # applies exactly what that tag shipped, not main's newer infra/railway/* with the old images.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with: { persist-credentials: false }
+        with: { ref: "refs/tags/${{ inputs.tag }}", persist-credentials: false }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: "24" }
       - name: Log in to GHCR (private images; needed to read attestations from the registry)
@@ -63,6 +68,7 @@ jobs:
             gh attestation verify "oci://$(cat "$f")" -R "${{ github.repository }}"
           done
       - name: Deploy by digest, in order, waiting for each service to be healthy
+        timeout-minutes: 75 # worst case: 65 min of scripted waits (healthWaitSeconds per service)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_ENVIRONMENT: staging
@@ -77,8 +83,9 @@ jobs:
           rules_file_name: infra/zap/rules.tsv
           fail_action: true
           allow_issue_writing: false
-      - name: Roll back staging on failure
-        if: failure()
+      - name: Roll back staging on failure or cancellation (a step timeout is a failure, a job timeout a cancellation)
+        if: failure() || cancelled()
+        timeout-minutes: 75
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_ENVIRONMENT: staging
@@ -90,7 +97,7 @@ jobs:
     needs: staging
     runs-on: ubuntu-latest
     environment: production # required reviewers configured on the environment; agents are never reviewers
-    timeout-minutes: 45
+    timeout-minutes: 200 # deploy 75 + rollback 75 + verify, smoke and ZAP (pipeline.test.mjs checks the sum)
     permissions: { contents: read, attestations: read, packages: read, deployments: write }
     steps:
       - name: Kill-switch check
@@ -98,8 +105,13 @@ jobs:
         run: |
           echo "Deploys are frozen (vars.DEPLOYS_FROZEN)"
           exit 1
+      - name: Validate the tag (a release tag vX.Y.Z; nothing else reaches checkout)
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::'$TAG' is not a release tag (vX.Y.Z)"; exit 1; }
+      # The tag's own scripts and service settings, not the dispatching branch's: a redeploy or rollback of an old tag
+      # applies exactly what that tag shipped, not main's newer infra/railway/* with the old images.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with: { persist-credentials: false }
+        with: { ref: "refs/tags/${{ inputs.tag }}", persist-credentials: false }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: "24" }
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -113,6 +125,7 @@ jobs:
           gh release download "$TAG" -p 'image-*.txt' -R "${{ github.repository }}"
           for f in image-*.txt; do gh attestation verify "oci://$(cat "$f")" -R "${{ github.repository }}"; done
       - name: Deploy by digest (migrate takes a pg_dump to the backup bucket before applying pending migrations)
+        timeout-minutes: 75 # worst case: 65 min of scripted waits (healthWaitSeconds per service)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_ENVIRONMENT: production
@@ -120,8 +133,9 @@ jobs:
       - name: Post-deploy smoke watch (10 min; health, headers and a latency probe against budgets — no metrics backend yet)
         env: { BASE_URL: "${{ vars.PRODUCTION_URL }}" }
         run: node infra/railway/scripts/smoke.mjs --base-url "$BASE_URL" --watch-minutes 10
-      - name: Automatic rollback on failure (previous image digests; no down-migrations, expand/contract only)
-        if: failure()
+      - name: Automatic rollback on failure or cancellation (previous image digests; no down-migrations, expand/contract only)
+        if: failure() || cancelled()
+        timeout-minutes: 75
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_ENVIRONMENT: production

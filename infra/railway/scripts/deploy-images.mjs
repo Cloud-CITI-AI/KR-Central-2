@@ -165,8 +165,22 @@ export async function run(options, { client, sleep, now, log, token }) {
   log(`Done: ${targets.length} service(s) ${options.rollback ? "rolled back" : "deployed"} to ${options.environment}.`);
 }
 
+/** How long to wait for one deployment to become healthy: the health-check timeout plus 300 s, never under 600 s. */
+export function healthWaitSeconds(healthcheckTimeout) {
+  return Math.max(600, (healthcheckTimeout ?? 0) + 300);
+}
+
+/**
+ * The longest a deploy (or a rollback) of these services can spend waiting, in seconds. deploy.yml sizes its step and
+ * job timeouts from this (see infra/railway/test/pipeline.test.mjs), so a hung deployment is stopped by the workflow
+ * only after the script has already given up, and the rollback step still has time to run.
+ */
+export function worstCaseSeconds(names = SERVICE_ORDER) {
+  return names.reduce((sum, name) => sum + healthWaitSeconds(loadSettings(name).healthcheck?.timeoutSeconds), 0);
+}
+
 async function waitHealthy({ client, deploymentId, target, options, sleep, now }) {
-  const timeoutSeconds = options.timeoutSeconds ?? Math.max(600, (target.state.healthcheckTimeout ?? 0) + 300);
+  const timeoutSeconds = options.timeoutSeconds ?? healthWaitSeconds(target.state.healthcheckTimeout);
   const deadline = now() + timeoutSeconds * 1000;
   for (;;) {
     const status = (await client.deployment(deploymentId))?.status ?? "UNKNOWN";

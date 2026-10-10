@@ -42,6 +42,8 @@ The failing step names the service and the reason. Read it before anything else.
 | `Deploys are frozen (vars.DEPLOYS_FROZEN)`                     | The kill switch is on. See below.                                                                                                                    |
 | `The Railway project has no service named ...`                 | A service was renamed in Railway; names must match exactly.                                                                                          |
 
+A deploy that hangs is stopped by the step timeouts (the deploy step 75 minutes, longer than the scripted worst case of 65
+minutes of health waits) and a cancelled run is rolled back too: the rollback step runs on failure **and** on cancellation.
 An automatic rollback ran if the "Roll back" step is green. It restores the previous image digests of the services that
 changed (and their recorded settings) from `previous-<env>.json`, a file the run wrote before its first change. The file
 lives only on that run's runner, so it covers failures in the same run; for any later rollback use the tag route below.
@@ -55,7 +57,10 @@ Use when a release is bad but the run passed (a problem found after the 10-minut
    included. So roll back first, freeze afterwards.
 3. Actions, workflow `deploy`, "Run workflow", enter the tag. It deploys staging, then production waits for approval.
    There is no shortcut around staging; it normally takes 10 to 20 minutes, so tell KR and mitigate meanwhile
-   (a flag off, [api-availability](api-availability.md)).
+   (a flag off, [api-availability](api-availability.md)). The run checks out **the tag itself** (`refs/tags/<tag>`, whatever
+   branch "Use workflow from" names), so it applies that tag's `infra/railway/services/*.json`, `deploy-images.mjs`,
+   `smoke.mjs` and ZAP rules together with that tag's image digests: a rollback deploys exactly what the old release shipped,
+   not today's settings. Only `vX.Y.Z` tags are accepted; anything else stops at the first step.
 4. Migrations are expand-only, so the old images run on the new schema; there are no down-migrations. Never try to
    reverse a migration. If data was damaged see [database-migrations](database-migrations.md).
 5. Verify: `node infra/railway/scripts/smoke.mjs --base-url https://<web domain>`, then dashboard 1 for 30 minutes.
