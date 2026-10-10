@@ -77,6 +77,38 @@ describe("useUpdateCheckpoint (through the card controls)", () => {
     });
   });
 
+  it("says the server can't be reached (no request id, one banner) when the request never arrives, and rolls back", async () => {
+    renderCard(syntheticJob(), "i4_0");
+    server.use(handlerFor("updateCheckpoint", () => HttpResponse.error()));
+    await userEvent.click(screen.getByRole("button", { name: "Completed" }));
+    expect(await screen.findByText(MESSAGES.offline)).toBeInTheDocument();
+    expect(screen.queryByText(/A change couldn't be saved/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Request ID/)).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Not completed" })).toHaveAttribute("aria-pressed", "true");
+    });
+  });
+
+  it("asks to wait when the API answers 429 with Retry-After, with the request id, and rolls back", async () => {
+    renderCard(syntheticJob(), "i4_0");
+    server.use(
+      handlerFor("updateCheckpoint", () =>
+        HttpResponse.json(
+          { type: PROBLEM_TYPES.rateLimited, title: "Too many requests", status: 429, requestId: "req-rl-1" },
+          { status: 429, headers: { "content-type": "application/problem+json", "retry-after": "30" } },
+        ),
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Completed" }));
+    expect(await screen.findByText(/Too many changes – wait a moment and try again\./)).toHaveTextContent(
+      "(Request ID: req-rl-1)",
+    );
+    expect(screen.queryByText(/Reload the page/)).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Not completed" })).toHaveAttribute("aria-pressed", "true");
+    });
+  });
+
   it("sends the second of two quick edits with the version the first one produced", async () => {
     const job = syntheticJob();
     const { served } = renderCard(job, "i4_0");
