@@ -1,6 +1,7 @@
 "use client";
 import { hasCapability } from "@kr/contracts/capabilities";
 import Link from "next/link";
+import { ButtonLink } from "@/components/ui/ButtonLink";
 import { useSession } from "@/lib/session";
 import styles from "./Admin.module.css";
 
@@ -8,7 +9,7 @@ export interface AdminHeaderProps {
   readonly current: "users" | "audit";
 }
 
-/** Title bar of an admin page (prototype `.dash-head`) with a link to each admin page the person may open. */
+/** Title bar of an admin page (prototype `.dash-head`) with a link to each admin page the person may open and DASHBOARD back out, as in the tracker's jobbar (§4). */
 export function AdminHeader({ current }: AdminHeaderProps) {
   const { capabilities } = useSession();
   const pages = [
@@ -33,6 +34,9 @@ export function AdminHeader({ current }: AdminHeaderProps) {
           ))}
         </nav>
       )}
+      <ButtonLink href="/" variant="primary">
+        Dashboard
+      </ButtonLink>
     </div>
   );
 }

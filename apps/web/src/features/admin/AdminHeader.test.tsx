@@ -15,6 +15,24 @@ describe("AdminHeader", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("has a Dashboard link back, like the tracker's jobbar, for every admin role", () => {
+    for (const role of ["admin", "kr_admin"] as const) {
+      const { unmount } = renderWithProviders(<AdminHeader current="audit" />, { me: syntheticMe(role) });
+      expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/");
+      unmount();
+    }
+  });
+
+  it("styles both tabs the same way (the same class, current or not)", () => {
+    renderWithProviders(<AdminHeader current="users" />, { me: syntheticMe("admin") });
+    const [users, audit] = [
+      screen.getByRole("link", { name: "Users" }),
+      screen.getByRole("link", { name: "Audit trail" }),
+    ];
+    expect(users.className).toBe(audit.className);
+    expect(users.className).toContain("tab");
+  });
+
   it("has no links for a KR admin, who can open only the audit trail", () => {
     renderWithProviders(<AdminHeader current="audit" />, { me: syntheticMe("kr_admin") });
     expect(screen.getByRole("heading", { level: 2, name: "Audit trail" })).toBeInTheDocument();

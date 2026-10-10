@@ -127,6 +127,11 @@ test("the audit trail shows who did what to a job, newest first, and can be filt
   // header + job.created + checkpoint.status_changed + note.created, newest first
   await expect(rows).toHaveCount(4);
   await expect(rows.nth(1)).toContainText("note.created");
+  // The Job column names the job by its number (§9.2), as a link in the accent colour, not the browser's blue.
+  const jobLink = rows.nth(1).getByRole("link", { name: `Open job ${job.jobNumber}` });
+  await expect(jobLink).toHaveText(job.jobNumber);
+  await expect(jobLink).toHaveAttribute("href", `/jobs/${job.id}`);
+  expect(await jobLink.evaluate((el) => getComputedStyle(el).color)).not.toBe("rgb(0, 0, 238)");
   await expect(rows.nth(2)).toContainText("checkpoint.status_changed");
   await expect(rows.nth(2)).toContainText(STAFF.name);
   await expect(rows.nth(2)).toContainText("completed");
@@ -146,4 +151,37 @@ test("the first admin's own sign-in is in the trail", async ({ page, signInAs })
   const audit = page.getByRole("region", { name: "Audit trail" });
   await audit.getByRole("textbox", { name: "Action" }).fill("user.first_admin_assigned");
   await expect(audit.getByRole("row").nth(1)).toContainText(FIRST_MEMBER.name);
+});
+
+test("the admin pages link back out: Dashboard, the logo, and tabs styled like the rest of the header", async ({
+  page,
+  signInAs,
+}) => {
+  await signInAs(FIRST_MEMBER);
+  await page.goto("/admin/users");
+  const colour = (locator: ReturnType<typeof page.locator>) => locator.evaluate((el) => getComputedStyle(el).color);
+
+  const admin = page.getByRole("navigation", { name: "Administration" });
+  const ink = await colour(page.getByRole("heading", { level: 2, name: "Users" }));
+  for (const tab of [admin.getByRole("link", { name: "Users" }), admin.getByRole("link", { name: "Audit trail" })]) {
+    const tabColour = await colour(tab);
+    expect(tabColour).not.toBe("rgb(0, 0, 238)");
+    expect(tabColour).not.toBe("rgb(158, 158, 255)");
+  }
+  expect(await colour(admin.getByRole("link", { name: "Audit trail" }))).toBe(ink);
+
+  // The logo is a link home with a name, in the tab order.
+  const logo = page.getByRole("link", { name: "KR Surveys home" });
+  await expect(logo).toHaveAttribute("href", "/");
+  await logo.focus();
+  await expect(logo).toBeFocused();
+
+  await page.getByRole("link", { name: "Audit trail" }).click();
+  await expect(page).toHaveURL(/\/admin\/audit$/);
+  await page.getByRole("link", { name: "Dashboard" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { level: 2, name: "Subdivision dashboard" })).toBeVisible();
+  await page.goto("/admin/users");
+  await logo.click();
+  await expect(page).toHaveURL(/\/$/);
 });

@@ -7,13 +7,23 @@ describe("AppHeader", () => {
   it("shows the hero: logo, tag, H1, tagline and, by default, only the theme control (public pages)", async () => {
     const { container } = render(<AppHeader />);
     expect(screen.getByRole("banner")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "KR Surveys" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "KR Surveys home" })).toBeInTheDocument();
     expect(screen.getByText("Subdivision Tracker")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "KR Surveys Subdivision Tracker" })).toBeInTheDocument();
     expect(screen.getByText("Keeping you up to date with your subdivision")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Theme" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Admin" })).toBeNull();
+    await expectNoAxeViolations(container);
+  });
+
+  it("makes the logo a keyboard-reachable link home with an accessible name, and keeps it out of the way of the h1", async () => {
+    const { container } = render(<AppHeader />);
+    const logo = screen.getByRole("link", { name: "KR Surveys home" });
+    expect(logo).toHaveAttribute("href", "/");
+    expect(logo.querySelector("img")).toHaveAttribute("alt", "");
+    logo.focus();
+    expect(logo).toHaveFocus();
     await expectNoAxeViolations(container);
   });
 
