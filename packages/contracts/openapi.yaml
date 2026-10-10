@@ -4016,6 +4016,7 @@ components:
             - anyOf:
                 - $ref: "#/components/schemas/ConditionsExtractResult"
                 - $ref: "#/components/schemas/ConformanceReadResult"
+                - $ref: "#/components/schemas/FileScanResult"
             - type: "null"
         error:
           anyOf:
@@ -4125,6 +4126,33 @@ components:
         - method
         - stampText
         - message
+      additionalProperties: false
+    FileScanResult:
+      type: object
+      properties:
+        scanStatus:
+          type: string
+          enum:
+            - clean
+            - skipped
+            - infected
+            - gone
+          description: "Scan outcome. `gone`: the file was deleted or purged before it
+            could be scanned."
+        followUpOperationId:
+          anyOf:
+            - type: string
+              format: uuid
+              pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+              description: UUID identifier
+              example: 0f8fad5b-d9cb-469f-a165-70867728950e
+            - type: "null"
+          description: The task the scan queued for this file (a conformance read or an
+            email parse), or the one already queued; null when none. Follow it
+            with getOperation.
+      required:
+        - scanStatus
+        - followUpOperationId
       additionalProperties: false
     UploadResult:
       type: object

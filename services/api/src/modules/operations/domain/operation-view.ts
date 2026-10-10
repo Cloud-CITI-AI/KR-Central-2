@@ -3,7 +3,7 @@
  * the API never relays text it has not vetted: known codes get a fixed message owned here, and an unknown code's message
  * is shown only when it looks like plain prose (no stack frames, paths, SQL or addresses), else a generic one (PRODUCT_SPEC §10).
  */
-import { ConditionsExtractResult, ConformanceReadResult, type Operation } from "@kr/contracts";
+import { ConditionsExtractResult, ConformanceReadResult, FileScanResult, type Operation } from "@kr/contracts";
 import type { OperationRow } from "@kr/db";
 
 export const GENERIC_FAILURE = "The task could not be completed. Try again, or contact KR Surveys if it keeps failing.";
@@ -36,16 +36,25 @@ export function safeFailure(code: string | null, message: string | null): { code
   return { code: safeCode, message: plain ? text : GENERIC_FAILURE };
 }
 
-/** The result only for the two task types that have one, and only when it matches the contract. */
+/**
+ * A file.scan result stored before the worker recorded its follow-up task has no `followUpOperationId`: read it as none,
+ * so older rows still show their scan outcome.
+ */
+function withFollowUpDefault(result: unknown): unknown {
+  return typeof result === "object" && result !== null && !Array.isArray(result)
+    ? { followUpOperationId: null, ...result }
+    : result;
+}
+
+/** The result only for the task types that have one, and only when it matches the contract. */
 function resultOf(row: Pick<OperationRow, "type" | "result">, onUnreadable?: () => void): Operation["result"] {
-  const schema =
+  if (row.result === null || row.result === undefined || row.type === "email.parse") return null;
+  const parsed =
     row.type === "conditions.extract"
-      ? ConditionsExtractResult
+      ? ConditionsExtractResult.safeParse(row.result)
       : row.type === "conformance.read"
-        ? ConformanceReadResult
-        : null;
-  if (!schema || row.result === null || row.result === undefined) return null;
-  const parsed = schema.safeParse(row.result);
+        ? ConformanceReadResult.safeParse(row.result)
+        : FileScanResult.safeParse(withFollowUpDefault(row.result));
   if (parsed.success) return parsed.data;
   onUnreadable?.();
   return null;

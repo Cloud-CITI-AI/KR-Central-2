@@ -54,6 +54,24 @@ describe("toOperation", () => {
     expect(unreadable).toHaveBeenCalledOnce();
   });
 
+  it("returns a file.scan result with the follow-up task, reading an older row without one as none", () => {
+    const done = { ...base, type: "file.scan" as const, status: "succeeded" as const, completed_at: base.created_at };
+    const followUpOperationId = "7d444840-9dc0-41b4-a5c2-3a8e7f1d2b9c";
+    expect(toOperation({ ...done, result: { scanStatus: "clean", followUpOperationId } }).result).toEqual({
+      scanStatus: "clean",
+      followUpOperationId,
+    });
+    expect(toOperation({ ...done, result: { scanStatus: "gone" } }).result).toEqual({
+      scanStatus: "gone",
+      followUpOperationId: null,
+    });
+    const unreadable = vi.fn();
+    expect(toOperation({ ...done, result: { scanStatus: "pending" } }, unreadable).result).toBeNull();
+    expect(toOperation({ ...done, result: ["clean"] }, unreadable).result).toBeNull();
+    expect(unreadable).toHaveBeenCalledTimes(2);
+    expect(toOperation({ ...done, type: "email.parse", result: { scanStatus: "clean" } }).result).toBeNull();
+  });
+
   it("shows an error only on a failed operation, not on a retry waiting in the queue", () => {
     const retry = { ...base, error_code: "timeout", error_message: "x", attempts: 1 };
     expect(toOperation(retry).error).toBeNull();

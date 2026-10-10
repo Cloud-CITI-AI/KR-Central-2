@@ -178,6 +178,19 @@ export const ConformanceReadResult = z
   })
   .meta({ id: "ConformanceReadResult" });
 
+export const FileScanResult = z
+  .object({
+    scanStatus: z.enum(["clean", "skipped", "infected", "gone"]).meta({
+      description: "Scan outcome. `gone`: the file was deleted or purged before it could be scanned.",
+    }),
+    followUpOperationId: Uuid.nullable().meta({
+      description:
+        "The task the scan queued for this file (a conformance read or an email parse), or the one already queued; " +
+        "null when none. Follow it with getOperation.",
+    }),
+  })
+  .meta({ id: "FileScanResult" });
+
 export const Operation = z
   .object({
     id: Uuid,
@@ -186,7 +199,7 @@ export const Operation = z
     status: OperationStatus,
     createdAt: IsoDateTime,
     completedAt: IsoDateTime.nullable(),
-    result: z.union([ConditionsExtractResult, ConformanceReadResult]).nullable(),
+    result: z.union([ConditionsExtractResult, ConformanceReadResult, FileScanResult]).nullable(),
     error: z.object({ code: z.string(), message: z.string() }).nullable(),
   })
   .meta({ id: "Operation" });
