@@ -10,17 +10,25 @@ import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { createTestQueryClient } from "@/test/render";
 import { syntheticJob } from "./test-fixtures";
+import { useJob } from "./useJob";
 import { applyJobEdit, useUpdateJob } from "./useUpdateJob";
 
 function setup(job = syntheticJob()) {
   const queryClient = createTestQueryClient();
+  queryClient.setQueryDefaults(queryKeys.jobs.detail(job.id), { staleTime: Infinity });
   queryClient.setQueryData(queryKeys.jobs.detail(job.id), job);
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <BannerProvider>{children}</BannerProvider>
     </QueryClientProvider>
   );
-  const hook = renderHook(() => ({ update: useUpdateJob(job.id), banners: useBanners().banners }), { wrapper });
+  const hook = renderHook(
+    () => {
+      useJob(job.id); // the observer that gives the reload its query function, as in the tracker
+      return { update: useUpdateJob(job.id), banners: useBanners().banners };
+    },
+    { wrapper },
+  );
   return { job, queryClient, ...hook };
 }
 
@@ -95,6 +103,28 @@ describe("useUpdateJob", () => {
     });
     await waitFor(() => {
       expect(result.current.banners.map((b) => b.id)).toEqual(["stale"]);
+    });
+  });
+
+  it("on 412 keeps the value the person typed on the reloaded job, with the server's version", async () => {
+    const { job, queryClient, result } = setup();
+    server.use(
+      mockProblem("updateJob", 412, PROBLEM_TYPES.preconditionFailed),
+      mockApi("getJob", { ...job, address: "Changed by someone else", clientName: "Their client", version: 5 }),
+    );
+    await act(async () => {
+      await expect(
+        result.current.update.mutateAsync({ address: "9 Example St", approvalDate: "2026-09-01" }),
+      ).rejects.toThrow();
+    });
+    await waitFor(() => {
+      expect(result.current.banners.map((b) => b.id)).toEqual(["stale"]);
+    });
+    expect(queryClient.getQueryData<typeof job>(queryKeys.jobs.detail(job.id))).toMatchObject({
+      address: "9 Example St",
+      approvalDate: "2026-09-01",
+      clientName: "Their client",
+      version: 5,
     });
   });
 

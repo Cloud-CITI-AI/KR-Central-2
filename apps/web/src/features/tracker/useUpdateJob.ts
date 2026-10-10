@@ -30,7 +30,7 @@ export function applyJobEdit(job: JobDetail, body: UpdateJobBody): JobDetail {
 
 /**
  * `updateJob` with `If-Match` (§5.1, §14): optimistic, one write at a time per job so the next one carries the version the
- * last one produced. 412 reloads the job and shows the stale banner; 409 (job number in use) is left to the caller to show
+ * last one produced. 412 reloads the job, keeps the typed values on it and shows the stale banner; 409 (job number in use) is left to the caller to show
  * next to the field; any other failure rolls back and shows the save-failed banner.
  */
 export function useUpdateJob(jobId: string) {
@@ -50,11 +50,13 @@ export function useUpdateJob(jobId: string) {
       if (previous) queryClient.setQueryData(queryKey, applyJobEdit(previous, body));
       return { previous };
     },
-    onError: async (error, _body, context) => {
+    onError: async (error, body, context) => {
       if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
       if (error instanceof ApiProblem && error.status === 409) return;
       if (error instanceof ApiProblem && error.isStale) {
         await queryClient.refetchQueries({ queryKey });
+        // What the person typed stays on the reloaded job (with its new version) rather than vanishing under their cursor (§15).
+        queryClient.setQueryData<JobDetail>(queryKey, (job) => job && applyJobEdit(job, body));
         banners.show("stale", MESSAGES.stale);
       } else {
         banners.show("save-failed", saveFailedText(error instanceof ApiProblem ? error.requestId : undefined));

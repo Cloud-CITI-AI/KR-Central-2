@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderCard } from "@/features/checkpoints/test-utils";
 import { queryKeys } from "@/lib/api";
 import { expectNoAxeViolations } from "@/test/axe";
+import { MESSAGES } from "@/lib/messages";
 import { mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { checklistCard as group, serveUpdates, threeConditions } from "./test-utils";
@@ -153,5 +154,20 @@ describe("who may change what on a condition (§2.1)", () => {
     });
     expect(calls[0]?.body).toEqual({ clientComment: "Thanks" });
     await expectNoAxeViolations(container);
+  });
+
+  it("keeps the client comment on screen when the save is refused as stale, beside the KR comment someone else saved", async () => {
+    const job = threeConditions();
+    const { served } = renderCard(job, "i5_0");
+    const target = conditionAt(job, 0);
+    served.job = withCondition(job, target.id, { krComment: "KR: power design lodged", version: 2 });
+    server.use(mockProblem("updateCondition", 412, PROBLEM_TYPES.preconditionFailed));
+    await userEvent.type(client(1), "Client: thanks, will pay");
+    await userEvent.tab();
+    expect(await screen.findByText(MESSAGES.stale)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(kr(1)).toHaveValue("KR: power design lodged");
+    });
+    expect(client(1)).toHaveValue("Client: thanks, will pay");
   });
 });

@@ -18,10 +18,16 @@ export interface CheckpointWriteOptions<TVars> {
   readonly inlineStatuses?: readonly number[];
 }
 
+interface WriteContext {
+  readonly previous: CheckpointState | undefined;
+  /** The KR note this write shows, when it changes it: kept on the reloaded checkpoint if the save is refused as stale. */
+  readonly typedNote: string | undefined;
+}
+
 /**
  * One write to a checkpoint (status, responsibility, KR note, decision, paid), with the job cache kept in step.
  * Writes to the same checkpoint run one after the other (a queued write starts from the version the previous one made).
- * Failure puts the checkpoint back: 412 reloads the job and shows the stale banner (§5.1), anything else the save-failed
+ * Failure puts the checkpoint back: 412 reloads the job (keeping a typed KR note) and shows the stale banner (§5.1), anything else the save-failed
  * banner. After success the job is refreshed so the progress, stage bars and dashboard follow.
  */
 export function useCheckpointWrite<TVars>({
@@ -37,7 +43,7 @@ export function useCheckpointWrite<TVars>({
   const mutationKey = ["checkpoint", jobId, checkpointKey] as const;
   const pendingWrites = () => queryClient.isMutating({ mutationKey: ["checkpoint", jobId] });
 
-  return useMutation<CheckpointState, Error, TVars, { previous: CheckpointState | undefined }>({
+  return useMutation<CheckpointState, Error, TVars, WriteContext>({
     mutationKey,
     scope: { id: mutationKey.join("-") },
     mutationFn: (vars) => {
@@ -48,11 +54,15 @@ export function useCheckpointWrite<TVars>({
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey });
       const job = queryClient.getQueryData<JobDetail>(queryKey);
-      if (job && optimistic) queryClient.setQueryData(queryKey, optimistic(job, vars));
-      return { previous: job?.checkpoints.find((c) => c.key === checkpointKey) };
+      const shown = job && optimistic ? optimistic(job, vars) : undefined;
+      if (shown) queryClient.setQueryData(queryKey, shown);
+      const previous = job?.checkpoints.find((c) => c.key === checkpointKey);
+      const typedNote = shown?.checkpoints.find((c) => c.key === checkpointKey)?.krNote;
+      return { previous, typedNote: typedNote !== previous?.krNote ? typedNote : undefined };
     },
     onError: async (error, _vars, context) => {
-      const { previous } = context ?? {};
+      const previous = context?.previous;
+      const typedNote = context?.typedNote;
       if (previous)
         queryClient.setQueryData<JobDetail>(
           queryKey,
@@ -61,6 +71,13 @@ export function useCheckpointWrite<TVars>({
       if (error instanceof ApiProblem && inlineStatuses.includes(error.status)) return;
       if (error instanceof ApiProblem && error.isStale) {
         await queryClient.refetchQueries({ queryKey });
+        // A KR note someone typed is never thrown away (§5.5, §15): it stays on the reloaded checkpoint, with its new version.
+        if (typedNote !== undefined) {
+          queryClient.setQueryData<JobDetail>(
+            queryKey,
+            (job) => job && mapCheckpoint(job, checkpointKey, (c) => ({ ...c, krNote: typedNote })),
+          );
+        }
         banners.show("stale", MESSAGES.stale);
       } else {
         banners.show("save-failed", saveFailedText(error instanceof ApiProblem ? error.requestId : undefined));
