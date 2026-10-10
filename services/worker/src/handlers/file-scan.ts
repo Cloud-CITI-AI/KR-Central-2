@@ -4,14 +4,23 @@
  * a lease expiry finds the verdict already recorded and only repeats the steps that follow it.
  */
 import { ObjectNotFoundError, type ObjectStorage } from "@kr/storage";
-import type { Db } from "@kr/db";
+import type { Database, Db } from "@kr/db";
+import type { Transaction } from "kysely";
 import type { KrMetrics } from "@kr/telemetry";
 import { z } from "zod";
 import type { WorkerConfig } from "../config.js";
 import { ClamdError, type ClamdClient, type ScanVerdict } from "../clients/clamd.js";
-import { findScanFile, auditInfected, queueEmailParse, saveScanResult, type ScanFile } from "../data/files.js";
+import {
+  findScanFile,
+  auditInfected,
+  queueConformanceRead,
+  queueEmailParse,
+  saveScanResult,
+  type ScanFile,
+} from "../data/files.js";
 import { judgeScanError, mayRescan, type ScanErrorKind } from "../domain/scan.js";
 import { TaskError } from "../errors.js";
+import type { FeatureFlags } from "../flags.js";
 import type { Handler, HandlerContext } from "./types.js";
 
 const Payload = z.object({ fileId: z.uuid() });
@@ -22,6 +31,8 @@ export interface FileScanDeps {
   readonly clamd: ClamdClient;
   readonly config: Pick<WorkerConfig, "MALWARE_SCAN_MODE" | "CLAMAV_TIMEOUT_MS" | "SCAN_ERROR_MAX_RETRIES">;
   readonly metrics: Pick<KrMetrics, "recordFileScan">;
+  /** `ai-stamp-reading` is carried into the conformance read an upload starts (the handler re-checks it). */
+  readonly flags: FeatureFlags;
 }
 
 function errorKind(error: unknown): ScanErrorKind {
@@ -30,13 +41,19 @@ function errorKind(error: unknown): ScanErrorKind {
 }
 
 export function fileScanHandler(deps: FileScanDeps): Handler {
-  const { db, storage, clamd, config, metrics } = deps;
+  const { db, storage, clamd, config, metrics, flags } = deps;
 
-  /** Records a passed scan and, for an uploaded email, queues its parse in the same transaction. */
+  /** What follows a passed scan: an uploaded email is parsed; a PDF in the Conformance Notification slot is read. */
+  async function followUp(trx: Transaction<Database>, file: ScanFile): Promise<void> {
+    await queueEmailParse(trx, file);
+    await queueConformanceRead(trx, file, flags.isEnabled("ai-stamp-reading"));
+  }
+
+  /** Records a passed scan and queues what follows it (email parse, conformance read) in the same transaction. */
   async function pass(file: ScanFile, status: "clean" | "skipped"): Promise<void> {
     await db.transaction().execute(async (trx) => {
       await saveScanResult(trx, file.id, { status, detail: null });
-      await queueEmailParse(trx, file);
+      await followUp(trx, file);
     });
   }
 
@@ -91,7 +108,7 @@ export function fileScanHandler(deps: FileScanDeps): Handler {
         return { scanStatus: "infected" };
       }
       if (file.scan_status === "clean" || file.scan_status === "skipped") {
-        await db.transaction().execute((trx) => queueEmailParse(trx, file));
+        await db.transaction().execute((trx) => followUp(trx, file));
         return { scanStatus: file.scan_status };
       }
       if (config.MALWARE_SCAN_MODE === "disabled") {

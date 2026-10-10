@@ -6,6 +6,7 @@ import { enqueue, insertJob, openDb } from "../../test/db.js";
 import { fileRow, handlerContext, insertFile } from "../../test/files.js";
 import { createClamdClient } from "../clients/clamd.js";
 import type { TaskError } from "../errors.js";
+import { staticFlags } from "../flags.js";
 import { fileScanHandler } from "./file-scan.js";
 
 let db: Db;
@@ -30,12 +31,13 @@ afterEach(async () => {
   await clamd.stop();
 });
 
-function handler(mode: "required" | "disabled" = "required") {
+function handler(mode: "required" | "disabled" = "required", flag = false) {
   return fileScanHandler({
     db,
     storage,
     clamd: createClamdClient({ host: "127.0.0.1", port: clamd.port, timeoutMs: 5000, maxBytes: 1024 * 1024 }),
     config: { MALWARE_SCAN_MODE: mode, CLAMAV_TIMEOUT_MS: 1000, SCAN_ERROR_MAX_RETRIES: 3 },
+    flags: staticFlags({ "ai-stamp-reading": flag }),
     metrics,
   });
 }
@@ -173,6 +175,67 @@ describe("file.scan: email follow-up", () => {
   });
 });
 
+describe("file.scan: conformance read follow-up (PRODUCT_SPEC §5.5 conformance)", () => {
+  const notice = (
+    o: { name?: string; kind?: "pdf" | "image"; slot?: string; checkpointKey?: string; bytes?: string } = {},
+  ) =>
+    insertFile(db, storage, jobId, {
+      kind: o.kind ?? "pdf",
+      checkpointKey: o.checkpointKey ?? "i4_2",
+      slot: o.slot ?? "conformance",
+      name: o.name ?? "Conformance Notification 2026-07-20.pdf",
+      ...(o.bytes ? { bytes: o.bytes } : {}),
+    });
+  const reads = (fileId?: string) =>
+    db
+      .selectFrom("operations")
+      .selectAll()
+      .where("type", "=", "conformance.read")
+      .where("job_id", "=", jobId)
+      .execute()
+      .then((rows) => rows.filter((r) => fileId === undefined || (r.payload as { fileId?: string }).fileId === fileId));
+
+  it("queues one conformance.read for a clean PDF in 4.2 / conformance, even when the scan is re-run", async () => {
+    const file = await notice();
+    await run(file.id);
+    await run(file.id);
+    const ops = await reads(file.id);
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({
+      status: "queued",
+      created_by: null,
+      payload: { jobId, fileId: file.id, allowAi: false },
+    });
+  });
+
+  it("queues it for a skipped scan (scanning disabled) and passes the AI flag as it stands", async () => {
+    const file = await notice();
+    const op = await enqueue(db, jobId, "file.scan", { fileId: file.id });
+    await handler("disabled", true).run(handlerContext(op));
+    expect((await fileRow(db, file.id)).scan_status).toBe("skipped");
+    expect(await reads(file.id)).toMatchObject([{ payload: { fileId: file.id, allowAi: true } }]);
+  });
+
+  it("queues a new one when the earlier read failed, but not while one is queued or running", async () => {
+    const file = await notice();
+    await run(file.id);
+    await db.updateTable("operations").set({ status: "failed" }).where("type", "=", "conformance.read").execute();
+    await run(file.id);
+    expect((await reads(file.id)).map((o) => o.status).sort()).toEqual(["failed", "queued"]);
+  });
+
+  it("queues none for another slot or checkpoint, a non-PDF, or infected content", async () => {
+    for (const file of [
+      await notice({ slot: "decision", checkpointKey: "i5_0" }),
+      await notice({ kind: "image", name: "scan.png" }),
+      await notice({ bytes: FAKE_VIRUS }),
+    ]) {
+      await run(file.id);
+    }
+    expect(await reads()).toHaveLength(0);
+  });
+});
+
 describe("file.scan: failures", () => {
   const failed = (outcome: unknown) => (outcome as { error: TaskError }).error;
 
@@ -225,6 +288,7 @@ describe("file.scan: failures", () => {
       storage,
       clamd: client,
       config: { MALWARE_SCAN_MODE: "required", CLAMAV_TIMEOUT_MS: 1000, SCAN_ERROR_MAX_RETRIES: 3 },
+      flags: staticFlags(),
       metrics,
     });
     const attempt = async (n: number) => {

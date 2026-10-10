@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { EICAR, startRealClamd, type RealClamd } from "../../test/clamav.js";
 import { enqueue, insertJob, openDb } from "../../test/db.js";
 import { fileRow, handlerContext, insertFile } from "../../test/files.js";
+import { staticFlags } from "../flags.js";
 import { fileScanHandler } from "../handlers/file-scan.js";
 import { ClamdError, createClamdClient } from "./clamd.js";
 
@@ -72,6 +73,7 @@ describe("the real clamd with infra/clamav/clamd.conf", () => {
         storage,
         clamd: client(),
         config: { MALWARE_SCAN_MODE: "required", CLAMAV_TIMEOUT_MS: 60_000, SCAN_ERROR_MAX_RETRIES: 3 },
+        flags: staticFlags(),
         metrics,
       });
       const big = await insertFile(db, storage, jobId, { bytes: randomBytes(55 * MIB) });

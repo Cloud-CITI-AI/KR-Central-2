@@ -1,6 +1,7 @@
 /** The transaction of an upload: file row, email record, scan operation, audit event and the stored response. */
 import type { UploadResult } from "@kr/contracts";
 import { enqueueOperation } from "@kr/db";
+import { CONFORMANCE_CHECKPOINT_KEY, getCheckpoint, slotsOf } from "@kr/workflow";
 import type { FastifyRequest } from "fastify";
 import type { z } from "zod";
 import { toFileMeta } from "../../_shared/index.js";
@@ -14,6 +15,8 @@ import { toOperation } from "../../operations/index.js";
 import { insertEmailMessage, insertFile, lockActiveJob, lockCurrentCondition } from "../data/files.js";
 import { canDeleteFile } from "./file-view.js";
 import type { StoredUpload } from "./read-upload.js";
+
+const CONFORMANCE_SLOT = slotsOf(getCheckpoint(CONFORMANCE_CHECKPOINT_KEY))[0]?.key;
 
 export interface RecordUploadOptions {
   readonly deps: ModuleDeps;
@@ -29,6 +32,11 @@ export function recordUpload(o: RecordUploadOptions) {
   const jobId = access.job.id;
   const skipScan = deps.config.MALWARE_SCAN_MODE === "disabled";
   const isEmail = stored.classification.kind === "email";
+  const isConformanceNotice =
+    stored.classification.kind === "pdf" &&
+    stored.target.type === "slot" &&
+    stored.target.checkpointKey === CONFORMANCE_CHECKPOINT_KEY &&
+    stored.target.slot.key === CONFORMANCE_SLOT;
   return withIdempotency(
     deps.db,
     {
@@ -65,10 +73,19 @@ export function recordUpload(o: RecordUploadOptions) {
       const email = isEmail
         ? await insertEmailMessage(trx, { fileId: file.id, parseStatus: "pending", isPasted: false })
         : null;
-      // The worker scans, then (for an email) parses; with scanning off nothing else would queue the parse.
-      const type = skipScan ? (isEmail ? "email.parse" : null) : "file.scan";
+      // The worker scans, then follows up (an email is parsed, a Conformance Notification is read); with scanning off
+      // nothing else would queue the follow-up, so it is queued here.
+      const type = skipScan ? (isEmail ? "email.parse" : isConformanceNotice ? "conformance.read" : null) : "file.scan";
       const queued = type
-        ? await enqueueOperation(trx, { jobId, type, payload: { fileId: file.id }, createdBy: auth.user.id })
+        ? await enqueueOperation(trx, {
+            jobId,
+            type,
+            payload:
+              type === "conformance.read"
+                ? { jobId, fileId: file.id, allowAi: deps.flags.isEnabled("ai-stamp-reading") }
+                : { fileId: file.id },
+            createdBy: auth.user.id,
+          })
         : null;
       await audit(trx, auditContext(request), {
         action: "file.uploaded",

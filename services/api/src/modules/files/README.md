@@ -31,7 +31,8 @@ kinds come from `@kr/workflow` (`findSlot`), permissions from `@kr/contracts`, s
 - The `files` row is `pending` (`skipped` when `MALWARE_SCAN_MODE=disabled`) and a `file.scan` operation with payload
   `{"fileId"}` is queued in the same transaction. An email file also gets an `email_messages` row (`pending`); with
   scanning disabled the API queues `email.parse` (payload `{"fileId"}`) itself, otherwise the worker does after a clean
-  scan. The 201 body is the contract's `UploadResult`: the file and that operation (or `null`).
+  scan. A PDF in the 4.2 `conformance` slot likewise starts a `conformance.read` (payload `{jobId, fileId, allowAi}`): the
+  API queues it with scanning disabled, the worker after a clean scan. The 201 body is the contract's `UploadResult`: the file and that operation (or `null`).
 - `Idempotency-Key` is honoured (bound to the fields, name and sha256 of the file).
 
 ## getFile and getFileContent

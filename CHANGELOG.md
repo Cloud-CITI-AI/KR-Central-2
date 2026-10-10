@@ -29,6 +29,7 @@ Releases are prepared by release-please from Conventional Commits.
 
 ### Fixed
 
+- Conformance Notification: an upload to 4.2 starts its conformance read once the scan passes (or at once when scanning is disabled); the first-page readers no longer apply the 60-page cap.
 - Local stack (`docker compose --profile stack up`): the S3 mock has a health check and `migrate` waits for it, so a cold start no longer fails with `ECONNREFUSED` on the pre-migration backup.
 - Job edits no longer get a false 412 ("This item was changed by someone else") after another person ticks, decides or marks paid a checkpoint or edits a condition: the job's `version` now versions only the job's own fields, and checkpoint and condition writes only move its updated time.
 - Clearing the conformed date also clears the WAPC outcome date (R10), so the countdown, the "Changed by hand" hint and the dashboard's outcome alerts no longer linger.

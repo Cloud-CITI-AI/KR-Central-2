@@ -1,17 +1,40 @@
 /** File and email queries of the scan handler (BE-7: Kysely only). */
 import { enqueueOperation, recordAudit, type Db, type FileRow, type ScanStatusValue } from "@kr/db";
+import { CONFORMANCE_CHECKPOINT_KEY, getCheckpoint, slotsOf } from "@kr/workflow";
 import { sql, type Transaction } from "kysely";
 import type { Database } from "@kr/db";
 
+const CONFORMANCE_SLOT = slotsOf(getCheckpoint(CONFORMANCE_CHECKPOINT_KEY))[0]?.key;
+
 export type ScanFile = Pick<
   FileRow,
-  "id" | "job_id" | "storage_key" | "kind" | "scan_status" | "scan_attempts" | "deleted_at" | "purged_at"
+  | "id"
+  | "job_id"
+  | "storage_key"
+  | "kind"
+  | "checkpoint_key"
+  | "slot"
+  | "scan_status"
+  | "scan_attempts"
+  | "deleted_at"
+  | "purged_at"
 >;
 
 export function findScanFile(db: Db, id: string): Promise<ScanFile | undefined> {
   return db
     .selectFrom("files")
-    .select(["id", "job_id", "storage_key", "kind", "scan_status", "scan_attempts", "deleted_at", "purged_at"])
+    .select([
+      "id",
+      "job_id",
+      "storage_key",
+      "kind",
+      "checkpoint_key",
+      "slot",
+      "scan_status",
+      "scan_attempts",
+      "deleted_at",
+      "purged_at",
+    ])
     .where("id", "=", id)
     .executeTakeFirst();
 }
@@ -75,6 +98,36 @@ export async function queueEmailParse(trx: Transaction<Database>, file: ScanFile
     jobId: file.job_id,
     type: "email.parse",
     payload: { fileId: file.id },
+    createdBy: null,
+  });
+  return true;
+}
+
+/**
+ * After a PDF passes the scan in the Conformance Notification slot (4.2): queues the conformance.read that PRODUCT_SPEC §5.5
+ * says an upload starts, unless one was queued, ran or is running for this file (a re-run after a lease expiry must not queue a
+ * second; a failed one does not count). `allowAi` is the `ai-stamp-reading` flag as it stands now, like the manual request.
+ */
+export async function queueConformanceRead(
+  trx: Transaction<Database>,
+  file: ScanFile,
+  allowAi: boolean,
+): Promise<boolean> {
+  if (file.kind !== "pdf" || file.checkpoint_key !== CONFORMANCE_CHECKPOINT_KEY || file.slot !== CONFORMANCE_SLOT) {
+    return false;
+  }
+  const existing = await trx
+    .selectFrom("operations")
+    .select("id")
+    .where("type", "=", "conformance.read")
+    .where(sql<string>`payload->>'fileId'`, "=", file.id)
+    .where("status", "<>", "failed")
+    .executeTakeFirst();
+  if (existing) return false;
+  await enqueueOperation(trx, {
+    jobId: file.job_id,
+    type: "conformance.read",
+    payload: { jobId: file.job_id, fileId: file.id, allowAi },
     createdBy: null,
   });
   return true;

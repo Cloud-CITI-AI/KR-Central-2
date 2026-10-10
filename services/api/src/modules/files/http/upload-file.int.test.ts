@@ -200,6 +200,31 @@ describe("uploadFile (real Postgres, in-memory storage)", () => {
     await local.close();
   });
 
+  it("with scanning disabled a PDF in the 4.2 Conformance Notification slot starts its conformance read directly", async () => {
+    const local = await createTestApp({ config: testConfig({ MALWARE_SCAN_MODE: "disabled" }) });
+    const lf = createFactories(local.db, 190);
+    const user = await signIn(local, await lf.makeUser({ role: "staff" }));
+    const job = await lf.makeJob();
+    const upload = (checkpointKey: string, slot: string, name: string) =>
+      uploadFile(local, { jobId: job.id, as: user, fields: { checkpointKey, slot }, file: { name, data: pdfBytes() } });
+    const res = await upload("i4_2", "conformance", "Conformance Notification 2026-07-20.pdf");
+    expect(res.statusCode).toBe(201);
+    const body = res.json<UploadBody>();
+    expect(body).toMatchObject({ file: { scanStatus: "skipped" }, operation: { type: "conformance.read" } });
+    const ops = await local.db.selectFrom("operations").selectAll().where("job_id", "=", job.id).execute();
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({
+      type: "conformance.read",
+      status: "queued",
+      created_by: user.user.id,
+      payload: { jobId: job.id, fileId: body.file.id, allowAi: false },
+    });
+    // Only the conformance slot starts a read: a survey PDF queues nothing.
+    expect((await upload("i2_0", "survey", "Survey.pdf")).json<UploadBody>().operation).toBeNull();
+    expect(await local.db.selectFrom("operations").select("id").where("job_id", "=", job.id).execute()).toHaveLength(1);
+    await local.close();
+  });
+
   it("refuses executables, empty files and files of a kind the slot does not take", async () => {
     const job = await fresh();
     const exe = Buffer.concat([Buffer.from("MZ"), Buffer.alloc(100)]);
