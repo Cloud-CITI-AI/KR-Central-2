@@ -2,8 +2,12 @@ import { PROBLEM_TYPES, jobCapabilitiesFor } from "@kr/contracts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BannerRegion } from "@/components/ui/BannerRegion";
+import { MESSAGES } from "@/lib/messages";
+import { navigation } from "@/lib/navigation";
 import { expectNoAxeViolations } from "@/test/axe";
+import { syntheticMe } from "@/test/fixtures";
 import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
@@ -202,5 +206,57 @@ describe("JobNotes", () => {
         "That note couldn't be deleted. Try again.",
       );
     });
+  });
+});
+
+describe("JobNotes when the session ends", () => {
+  const me = syntheticMe("staff");
+  const NOTE = "Synthetic note typed just before the session ended";
+
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  it("keeps the note when ADD NOTE is refused with 401, and puts it back in the box after sign-in", async () => {
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
+    server.use(mockProblem("createNote", 401, PROBLEM_TYPES.unauthenticated), list());
+    const first = renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />, { me });
+    await userEvent.type(await screen.findByRole("textbox", { name: "New job note" }), NOTE);
+    await userEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith("/sign-in");
+    });
+    first.unmount();
+
+    server.use(list());
+    renderWithProviders(
+      <>
+        <BannerRegion />
+        <JobNotes jobId={JOB} capabilities={STAFF} />
+      </>,
+      { me },
+    );
+    expect(await screen.findByRole("textbox", { name: "New job note" })).toHaveValue(NOTE);
+    expect(await screen.findByText(MESSAGES.draftRestored)).toBeInTheDocument();
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("keeps nothing when the box is empty or the person is someone else", async () => {
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
+    server.use(mockProblem("listNotes", 401, PROBLEM_TYPES.unauthenticated));
+    const first = renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />, { me });
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalled();
+    });
+    expect(window.sessionStorage.length).toBe(0);
+    first.unmount();
+
+    window.sessionStorage.setItem(
+      `kr-draft:${syntheticMe("staff").user.id}:${JOB}:note`,
+      JSON.stringify({ text: "Someone else's note", base: "", savedAt: Date.now() }),
+    );
+    server.use(list());
+    renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />, { me });
+    expect(await screen.findByRole("textbox", { name: "New job note" })).toHaveValue("");
   });
 });

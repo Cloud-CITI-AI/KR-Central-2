@@ -4,7 +4,10 @@ import { useRef, useState, type SubmitEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { ApiProblem } from "@/lib/api";
+import { ApiProblem, draftKey, useDraft } from "@/lib/api";
+import { useBanners } from "@/lib/banner/BannerProvider";
+import { MESSAGES } from "@/lib/messages";
+import { useSession } from "@/lib/session";
 import { AUDIENCE_OPTIONS, saveFailedText } from "./messages";
 import { useAddNote } from "./queries";
 import type { Note } from "./types";
@@ -25,6 +28,21 @@ export function NoteForm({ jobId }: NoteFormProps) {
   const [audience, setAudience] = useState<Note["audience"]>("all");
   const [error, setError] = useState<string | null>(null);
 
+  // A note being written is kept when the session ends and comes back in the box after sign-in (§3.1, §15).
+  const { user } = useSession();
+  const banners = useBanners();
+  const typed = useRef("");
+  useDraft(
+    draftKey(user.id, jobId, "note"),
+    () => (typed.current.trim() ? { text: typed.current, base: "" } : null),
+    (draft) => {
+      if (!draft.text.trim()) return;
+      typed.current = draft.text;
+      setBody(draft.text);
+      banners.show("draft-restored", MESSAGES.draftRestored);
+    },
+  );
+
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     // The contract decides what a note is (trimmed, not empty, not too long) and what is said when it is not.
@@ -37,6 +55,7 @@ export function NoteForm({ jobId }: NoteFormProps) {
     setError(null);
     add.mutate(parsed.data, {
       onSuccess: () => {
+        typed.current = "";
         setBody("");
         text.current?.focus();
       },
@@ -55,6 +74,7 @@ export function NoteForm({ jobId }: NoteFormProps) {
         aria-label="New job note"
         value={body}
         onChange={(event) => {
+          typed.current = event.target.value;
           setBody(event.target.value);
         }}
       />
