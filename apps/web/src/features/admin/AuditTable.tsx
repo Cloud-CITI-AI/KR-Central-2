@@ -15,7 +15,7 @@ export interface AuditTableProps {
 
 const shortId = (id: string): string => id.slice(0, 8);
 
-/** The audit trail as a table, newest first (§9.2): time, user, action, job, entity and the changes. */
+/** The audit trail as a table, newest first (§9.2): time, user, action, job (its number, linking to it), entity and the changes. */
 export function AuditTable({ events }: AuditTableProps) {
   return (
     <div className={table.tableWrap}>
@@ -40,8 +40,12 @@ export function AuditTable({ events }: AuditTableProps) {
               </td>
               <td data-label="Job">
                 {event.jobId ? (
-                  <Link href={`/jobs/${event.jobId}`} className={table.mono} aria-label={`Open job ${event.jobId}`}>
-                    {shortId(event.jobId)}
+                  <Link
+                    href={`/jobs/${event.jobId}`}
+                    className={`${styles.link} ${table.mono}`}
+                    aria-label={`Open job ${event.jobNumber ?? shortId(event.jobId)}`}
+                  >
+                    {event.jobNumber ?? shortId(event.jobId)}
                   </Link>
                 ) : (
                   "–"

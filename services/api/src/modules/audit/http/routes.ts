@@ -29,10 +29,11 @@ export function registerAuditRoutes(app: FastifyInstance, deps: ModuleDeps): voi
     const page = rows.slice(0, query.limit);
     const last = page.at(-1);
     return {
-      items: page.map(({ row, actorName }) =>
+      items: page.map(({ row, actorName, jobNumber }) =>
         toAuditEvent(
           row,
           row.actor_user_id !== null && actorName !== null ? { id: row.actor_user_id, display_name: actorName } : null,
+          jobNumber,
         ),
       ),
       nextCursor: rows.length > query.limit && last ? encodeAuditCursor(last.row.id) : null,

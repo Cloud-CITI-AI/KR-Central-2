@@ -547,6 +547,10 @@ export const AuditEvent = z
     actorType: z.enum(["user", "system"]),
     action: z.string().meta({ example: "checkpoint.status_changed" }),
     jobId: Uuid.nullable(),
+    jobNumber: z
+      .string()
+      .nullable()
+      .meta({ description: "Number of the job (also an archived one); null when the event has no job" }),
     entityType: z.string(),
     entityId: z.string().nullable(),
     requestId: z.string().nullable(),

@@ -4387,6 +4387,12 @@ components:
               description: UUID identifier
               example: 0f8fad5b-d9cb-469f-a165-70867728950e
             - type: "null"
+        jobNumber:
+          description: Number of the job (also an archived one); null when the event has
+            no job
+          type:
+            - string
+            - "null"
         entityType:
           type: string
         entityId:
@@ -4419,6 +4425,7 @@ components:
         - actorType
         - action
         - jobId
+        - jobNumber
         - entityType
         - entityId
         - requestId

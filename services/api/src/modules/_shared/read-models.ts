@@ -168,7 +168,11 @@ export function toAccessGrant(row: AccessGrantRow, ctx: GrantContext): Out<typeo
   };
 }
 
-export function toAuditEvent(row: AuditEventRow, actor: Named | null): Out<typeof AuditEvent> {
+export function toAuditEvent(
+  row: AuditEventRow,
+  actor: Named | null,
+  jobNumber: string | null,
+): Out<typeof AuditEvent> {
   return {
     id: row.id,
     occurredAt: iso(row.occurred_at),
@@ -176,6 +180,7 @@ export function toAuditEvent(row: AuditEventRow, actor: Named | null): Out<typeo
     actorType: row.actor_type,
     action: row.action,
     jobId: row.job_id,
+    jobNumber,
     entityType: row.entity_type,
     entityId: row.entity_id,
     requestId: row.request_id,

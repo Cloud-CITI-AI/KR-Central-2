@@ -92,3 +92,16 @@
 .problem .muted {
   color: inherit;
 }
+/* a link in a table cell: the accent (DESIGN_TOKENS: links), darkened in the light theme to meet 4.5:1 like the primary button */
+.link {
+  color: var(--accent-hover);
+  text-underline-offset: 2px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .link {
+    color: var(--accent);
+  }
+}
+:root[data-theme="dark"] .link {
+  color: var(--accent);
+}

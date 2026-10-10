@@ -25,6 +25,7 @@ const second = syntheticAuditEvent({
   actorType: "system",
   action: "user.created",
   jobId: null,
+  jobNumber: null,
   changes: null,
 });
 const jobA = syntheticJobCard("S-0001");
@@ -62,7 +63,11 @@ describe("AuditPage list", () => {
     expect(one?.getByText("28 Sep 2026, 11:50:56 am")).toBeInTheDocument();
     expect(one?.getByText("Ann Auditor")).toBeInTheDocument();
     expect(one?.getByText("job.updated")).toBeInTheDocument();
-    expect(one?.getByRole("link", { name: `Open job ${first.jobId}` })).toHaveAttribute("href", `/jobs/${first.jobId}`);
+    const jobLink = one?.getByRole("link", { name: "Open job P-0001" });
+    expect(jobLink).toHaveTextContent("P-0001");
+    expect(jobLink).toHaveAttribute("href", `/jobs/${first.jobId}`);
+    expect(jobLink?.className).toContain("link");
+    expect(container).not.toHaveTextContent(String(first.jobId).slice(0, 8));
     expect(one?.getByText("address")).toBeInTheDocument();
     expect(two?.getByText("System")).toBeInTheDocument();
     expect(screen.getByText("2 events")).toBeInTheDocument();

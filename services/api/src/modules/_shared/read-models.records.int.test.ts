@@ -46,11 +46,13 @@ describe("note, grant and audit read models parse with the @kr/contracts schemas
       .selectAll()
       .where("job_id", "=", job.id)
       .executeTakeFirstOrThrow();
-    expect(AuditEvent.parse(toAuditEvent(event, author))).toMatchObject({
+    expect(AuditEvent.parse(toAuditEvent(event, author, job.job_number))).toMatchObject({
       id: event.id,
       actorType: "user",
       action: "job.updated",
+      jobNumber: job.job_number,
       changes: { address: { from: "a", to: "b" } },
     });
+    expect(toAuditEvent(event, author, null).jobNumber).toBeNull();
   });
 });

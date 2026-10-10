@@ -17,14 +17,17 @@ export interface AuditFilters {
 export interface AuditRow {
   readonly row: AuditEventRow;
   readonly actorName: string | null;
+  /** The job's number, joined so the trail shows what the filter takes (also for an archived job). */
+  readonly jobNumber: string | null;
 }
 
 export async function listAuditRows(db: Db, f: AuditFilters): Promise<AuditRow[]> {
   let q = db
     .selectFrom("audit_events as e")
     .leftJoin("users as u", "u.id", "e.actor_user_id")
+    .leftJoin("jobs as j", "j.id", "e.job_id")
     .selectAll("e")
-    .select("u.display_name as actor_name");
+    .select(["u.display_name as actor_name", "j.job_number as job_number"]);
   if (f.jobId) q = q.where("e.job_id", "=", f.jobId);
   if (f.actorId) q = q.where("e.actor_user_id", "=", f.actorId);
   if (f.actionPrefix) q = q.where("e.action", "like", prefixPattern(f.actionPrefix));
@@ -35,5 +38,5 @@ export async function listAuditRows(db: Db, f: AuditFilters): Promise<AuditRow[]
     .orderBy("e.id", "desc")
     .limit(f.limit + 1)
     .execute();
-  return rows.map(({ actor_name, ...row }) => ({ row, actorName: actor_name }));
+  return rows.map(({ actor_name, job_number, ...row }) => ({ row, actorName: actor_name, jobNumber: job_number }));
 }

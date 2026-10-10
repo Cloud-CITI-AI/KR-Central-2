@@ -85,6 +85,19 @@ describe("audit trail (real Postgres)", () => {
     });
   });
 
+  it("names the job by its number (null without a job), also after the job was archived", async () => {
+    const live = await f.makeJob();
+    const archived = await f.makeJob({ deletedAt: new Date() });
+    await put(null, "job.created", { jobId: live.id });
+    await put(null, "job.archived", { jobId: archived.id });
+    await put(null, "user.created");
+    const byId = async (jobId: string) => (await list(admin, `?jobId=${jobId}`)).json<Page>().items[0];
+    expect(await byId(live.id)).toMatchObject({ jobId: live.id, jobNumber: live.job_number });
+    expect(await byId(archived.id)).toMatchObject({ jobId: archived.id, jobNumber: archived.job_number });
+    const noJob = (await list(admin, "?action=user.created")).json<Page>().items[0];
+    expect(noJob).toMatchObject({ jobId: null, jobNumber: null });
+  });
+
   it("filters by job, actor and action prefix (underscores are literal) and combines them", async () => {
     const [one, two] = [await f.makeUser({ role: "staff" }), await f.makeUser({ role: "staff" })];
     const job = await f.makeJob();

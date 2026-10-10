@@ -25,6 +25,7 @@ export function syntheticAuditEvent(overrides: Record<string, unknown> = {}) {
     actorType: "user",
     action: "checkpoint.status_changed",
     jobId: faker.string.uuid(),
+    jobNumber: "P-0001",
     entityType: "checkpoint",
     entityId: faker.string.uuid(),
     requestId: faker.string.alphanumeric(12),
