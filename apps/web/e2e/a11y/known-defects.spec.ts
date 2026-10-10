@@ -34,43 +34,49 @@ for (const theme of ["light", "dark"] as const) {
   }
 }
 
-// Known product defect D6 (WP-19, found when the contrast carve-out was narrowed to D3): in the dark theme the pressed filter chip's
-// count is #151514 on #ba5d2e (20% black over the accent), 4.08:1. axe reports this node only some of the time (it is absent
-// from a quiet run), so this test measures the ratio itself from the computed colours instead of asking axe. Expected to fail until fixed.
-test("D6: the pressed dashboard filter chip's count meets 4.5:1 contrast in the dark theme", async ({
-  page,
-  signInAs,
-  apiAs,
-}) => {
-  test.fail(true, "WP-19 defect D6: pressed chip count is #151514 on #ba5d2e, 4.08:1 (see the comment above)");
-  await createJob(await apiAs(STAFF));
-  await page.addInitScript(() => {
-    localStorage.setItem("kr-theme", "dark");
+// Known product defect D6 (WP-19, found when the contrast carve-out was narrowed to D3): the pressed dashboard filter chip's count
+// sits on a translucent overlay over the accent: white on #d0774c (3.26:1) in the light theme, #151514 on #ba5d2e (4.07:1) in the
+// dark. axe reports this node only on some runs (it is absent from a quiet one), so this test measures the ratio itself from the
+// computed colours instead of asking axe. Expected to fail until fixed.
+for (const theme of ["light", "dark"] as const) {
+  test(`D6: the pressed dashboard filter chip's count meets 4.5:1 contrast in the ${theme} theme`, async ({
+    page,
+    signInAs,
+    apiAs,
+  }) => {
+    test.fail(
+      true,
+      "WP-19 defect D6: pressed chip count is white on #d0774c (3.26) or #151514 on #ba5d2e (4.07), see the comment above",
+    );
+    await createJob(await apiAs(STAFF));
+    await page.addInitScript((value) => {
+      localStorage.setItem("kr-theme", value);
+    }, theme);
+    await signInAs(STAFF);
+    await page.goto("/");
+    const chip = page.getByRole("button", { name: /^All types/ });
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    await expect(chip.locator("span")).toHaveText(/^\d+$/);
+    const ratio = await chip.locator("span").evaluate((count) => {
+      const parse = (value: string): number[] => (value.match(/[\d.]+/g) ?? []).map(Number);
+      const [br = 0, bg = 0, bb = 0] = parse(getComputedStyle(count.parentElement as Element).backgroundColor);
+      const [or = 0, og = 0, ob = 0, oa = 1] = parse(getComputedStyle(count).backgroundColor);
+      const [fr = 0, fg = 0, fb = 0] = parse(getComputedStyle(count).color);
+      const mix = (under: number, over: number): number => over * oa + under * (1 - oa);
+      const luminance = (rgb: number[]): number => {
+        const [r = 0, g = 0, b = 0] = rgb.map((channel) => {
+          const c = channel / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const back = luminance([mix(br, or), mix(bg, og), mix(bb, ob)]);
+      const front = luminance([fr, fg, fb]);
+      return (Math.max(back, front) + 0.05) / (Math.min(back, front) + 0.05);
+    });
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
-  await signInAs(STAFF);
-  await page.goto("/");
-  const chip = page.getByRole("button", { name: /^All types/ });
-  await expect(chip).toHaveAttribute("aria-pressed", "true");
-  await expect(chip.locator("span")).toHaveText(/^\d+$/);
-  const ratio = await chip.locator("span").evaluate((count) => {
-    const parse = (value: string): number[] => (value.match(/[\d.]+/g) ?? []).map(Number);
-    const [br = 0, bg = 0, bb = 0] = parse(getComputedStyle(count.parentElement as Element).backgroundColor);
-    const [or = 0, og = 0, ob = 0, oa = 1] = parse(getComputedStyle(count).backgroundColor);
-    const [fr = 0, fg = 0, fb = 0] = parse(getComputedStyle(count).color);
-    const mix = (under: number, over: number): number => over * oa + under * (1 - oa);
-    const luminance = (rgb: number[]): number => {
-      const [r = 0, g = 0, b = 0] = rgb.map((channel) => {
-        const c = channel / 255;
-        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-      });
-      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    };
-    const back = luminance([mix(br, or), mix(bg, og), mix(bb, ob)]);
-    const front = luminance([fr, fg, fb]);
-    return (Math.max(back, front) + 0.05) / (Math.min(back, front) + 0.05);
-  });
-  expect(ratio).toBeGreaterThanOrEqual(4.5);
-});
+}
 
 // Known product defect D7 (WP-19, same discovery): on the conditions checklist the orange agency and "WAPC approval" links
 // (#d65614 on white, 4.03:1, and on the red tint #fce8e6, 3.42:1, at 12.5px) fail contrast in the light theme. Expected to fail until fixed.

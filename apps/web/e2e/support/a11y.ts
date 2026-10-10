@@ -18,7 +18,7 @@ export type ContrastDefect = "D3" | "D6" | "D7";
  * Only nodes whose pair is listed here are tolerated; any other low-contrast pair fails the state it appears in.
  *
  * D3: the prototype's secondary greys on the surfaces they sit on (white, the page grey, the red, green and grey status tints, and in
- * the dark theme the dark surfaces). D6: the pressed filter chip's count in the dark theme. D7: the orange "up" links on the
+ * the dark theme the dark surfaces). D6: the pressed filter chip's count (axe reports it only on some runs). D7: the orange "up" links on the
  * conditions checklist (agency and WAPC approval links) in the light theme.
  */
 export const KNOWN_CONTRAST_PAIRS: Readonly<Record<ContrastDefect, readonly ColourPair[]>> = {
@@ -32,7 +32,10 @@ export const KNOWN_CONTRAST_PAIRS: Readonly<Record<ContrastDefect, readonly Colo
     { fg: "#8a8a8a", bg: "#2c2c2a" },
     { fg: "#8a8a8a", bg: "#1f3324" },
   ],
-  D6: [{ fg: "#151514", bg: "#ba5d2e" }],
+  D6: [
+    { fg: "#ffffff", bg: "#d0774c" },
+    { fg: "#151514", bg: "#ba5d2e" },
+  ],
   D7: [
     { fg: "#d65614", bg: "#fce8e6" },
     { fg: "#d65614", bg: "#ffffff" },
