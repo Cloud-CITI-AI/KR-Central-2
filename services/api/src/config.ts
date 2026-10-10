@@ -13,6 +13,7 @@ import {
   PostgresUrl,
   Secret,
   loadConfig,
+  refineNoPlaceholders,
 } from "@kr/config";
 import { z } from "zod";
 
@@ -122,6 +123,19 @@ export const ApiConfigSchema = z
       message: `ENTRA_AUTHORITY_HOST must be ${ENTRA_PUBLIC_AUTHORITY} in staging and production`,
       path: ["ENTRA_AUTHORITY_HOST"],
     },
+  )
+  .refine((c) => c.REQUIRE_MFA_FOR_ADMIN || !(c.APP_ENV === "staging" || c.APP_ENV === "production"), {
+    message: "REQUIRE_MFA_FOR_ADMIN must be true in staging and production",
+    path: ["REQUIRE_MFA_FOR_ADMIN"],
+  })
+  .superRefine(
+    refineNoPlaceholders([
+      "DATABASE_URL",
+      "ENTRA_CLIENT_SECRET",
+      "LOG_PSEUDONYM_SALT",
+      "S3_ACCESS_KEY_ID",
+      "S3_SECRET_ACCESS_KEY",
+    ]),
   )
   .refine((c) => c.ADMIN_MFA_EVIDENCE !== "acrs" || Boolean(c.ENTRA_ADMIN_AUTH_CONTEXT_ID), {
     message: "ADMIN_MFA_EVIDENCE=acrs requires ENTRA_ADMIN_AUTH_CONTEXT_ID",

@@ -12,7 +12,12 @@ import { ApiConfigSchema, ENTRA_PUBLIC_AUTHORITY } from "../../src/config.js";
 import { createTestApp, TEST_ENV, testConfig, type TestApp } from "../helpers/index.js";
 import { freshClientIp } from "../../src/modules/auth/testing.js";
 
-const base = { ...TEST_ENV, PUBLIC_BASE_URL: "https://tracker.example.com", NODE_ENV: "production" };
+const base = {
+  ...TEST_ENV,
+  PUBLIC_BASE_URL: "https://tracker.example.com",
+  NODE_ENV: "production",
+  REQUIRE_MFA_FOR_ADMIN: "true",
+};
 const parse = (env: Record<string, string>) => parseConfig(ApiConfigSchema, { ...base, ...env });
 const PINNED = ["staging", "production"] as const;
 

@@ -13,7 +13,7 @@ const valid = {
   S3_ENDPOINT: "https://storage.example.com",
   S3_BUCKET: "tracker-files",
   S3_ACCESS_KEY_ID: "fake",
-  S3_SECRET_ACCESS_KEY: "fake-secret-key-123456",
+  S3_SECRET_ACCESS_KEY: "sk-test-0123456789abcdef",
 };
 
 describe("API config", () => {
@@ -112,5 +112,46 @@ describe("API config", () => {
       }
     }
     expect(parseConfig(ApiConfigSchema, { ...rest, NODE_ENV: "development" }).APP_ENV).toBe("local");
+  });
+
+  it("refuses the .env.example placeholder secrets in staging and production", () => {
+    const placeholders = {
+      LOG_PSEUDONYM_SALT: "fake-log-salt-change-me",
+      ENTRA_CLIENT_SECRET: "fake-client-secret-change-me",
+      S3_SECRET_ACCESS_KEY: "fake-secret-access-key",
+    };
+    for (const APP_ENV of ["staging", "production"]) {
+      try {
+        parseConfig(ApiConfigSchema, { ...valid, ...placeholders, APP_ENV });
+        expect.unreachable();
+      } catch (e) {
+        expect((e as ConfigError).variables).toEqual(Object.keys(placeholders).sort());
+      }
+      for (const [k, v] of Object.entries({
+        ...placeholders,
+        S3_ACCESS_KEY_ID: "fake-access-key",
+        DATABASE_URL: "postgres://tracker_app:local-app-password@db:5432/tracker",
+      }))
+        expect(() => parseConfig(ApiConfigSchema, { ...valid, [k]: v, APP_ENV }), `${APP_ENV} ${k}`).toThrow(
+          ConfigError,
+        );
+    }
+    expect(parseConfig(ApiConfigSchema, { ...valid, ...placeholders, APP_ENV: "local" }).APP_ENV).toBe("local");
+  });
+
+  it("refuses REQUIRE_MFA_FOR_ADMIN=false in staging and production", () => {
+    for (const APP_ENV of ["staging", "production"]) {
+      try {
+        parseConfig(ApiConfigSchema, { ...valid, APP_ENV, REQUIRE_MFA_FOR_ADMIN: "false" });
+        expect.unreachable();
+      } catch (e) {
+        expect((e as ConfigError).variables).toEqual(["REQUIRE_MFA_FOR_ADMIN"]);
+      }
+      expect(parseConfig(ApiConfigSchema, { ...valid, APP_ENV }).REQUIRE_MFA_FOR_ADMIN).toBe(true);
+    }
+    for (const APP_ENV of ["local", "preview"])
+      expect(
+        parseConfig(ApiConfigSchema, { ...valid, APP_ENV, REQUIRE_MFA_FOR_ADMIN: "false" }).REQUIRE_MFA_FOR_ADMIN,
+      ).toBe(false);
   });
 });

@@ -6,10 +6,12 @@ import {
   ConfigError,
   CsvList,
   HttpsUrl,
+  isPlaceholderValue,
   NodeEnv,
   OptionalVar,
   parseConfig,
   PostgresUrl,
+  refineNoPlaceholders,
 } from "./index.js";
 
 describe("config helpers", () => {
@@ -118,5 +120,48 @@ describe("explicit APP_ENV in production", () => {
     } catch (e) {
       expect((e as ConfigError).variables).toEqual(["APP_ENV", "DB"]);
     }
+  });
+});
+
+describe("placeholder values", () => {
+  it("recognises .env.example placeholders, case-insensitively", () => {
+    for (const v of [
+      "fake-log-salt-change-me",
+      "a-real-looking-thing-CHANGE-ME-later",
+      "fake-secret-access-key",
+      "FAKE-anything",
+      "fake-client-secret-change-me",
+      "postgres://tracker_app:local-app-password@db:5432/tracker",
+      "postgres://tracker_migrator:local-migrator-password@localhost:5432/tracker",
+    ])
+      expect(isPlaceholderValue(v), v).toBe(true);
+  });
+
+  it("accepts a generated secret and a database URL with its own password", () => {
+    for (const v of [
+      "x7Qm2VtR9bLw0sKd4HfZpYc1",
+      "a-fake-but-not-prefixed",
+      "postgres://tracker_app:Zk3pQ9vL@db/tracker",
+    ])
+      expect(isPlaceholderValue(v), v).toBe(false);
+  });
+
+  const Schema = z
+    .object({ APP_ENV: AppEnv, SECRET: z.string(), TOKEN: OptionalVar(z.string()) })
+    .superRefine(refineNoPlaceholders(["SECRET", "TOKEN"]));
+
+  it("refuses placeholders in staging and production only, naming the variables", () => {
+    const env = { SECRET: "fake-x", TOKEN: "change-me" };
+    for (const APP_ENV of ["staging", "production"]) {
+      try {
+        parseConfig(Schema, { ...env, APP_ENV });
+        expect.unreachable();
+      } catch (e) {
+        expect((e as ConfigError).variables).toEqual(["SECRET", "TOKEN"]);
+        expect((e as Error).message).not.toContain("fake-x");
+      }
+    }
+    for (const APP_ENV of ["local", "preview"]) expect(parseConfig(Schema, { ...env, APP_ENV }).SECRET).toBe("fake-x");
+    expect(parseConfig(Schema, { APP_ENV: "production", SECRET: "a1b2c3d4e5f6" }).SECRET).toBe("a1b2c3d4e5f6");
   });
 });

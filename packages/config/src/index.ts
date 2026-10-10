@@ -37,6 +37,59 @@ export const OptionalVar = <T extends z.ZodType>(schema: T) =>
 /** Secrets: at least `min` characters; never logged. */
 export const Secret = (min = 32) => z.string().min(min);
 
+/** The fake values of .env.example (exact match, case-insensitive) beyond the generic markers below. */
+const PLACEHOLDER_VALUES: ReadonlySet<string> = new Set([
+  "fake-client-secret-change-me",
+  "fake-log-salt-change-me",
+  "fake-access-key",
+  "fake-secret-access-key",
+  "fake-backup-access-key",
+  "fake-backup-secret-access-key",
+  "local-app-password",
+  "local-migrator-password",
+  "local-superuser-password",
+  "local-backup-password",
+]);
+
+/** The password part of a postgres URL, or undefined (never throws: a malformed URL is reported by PostgresUrl). */
+function urlPassword(value: string): string | undefined {
+  if (!/^postgres(ql)?:\/\//i.test(value)) return undefined;
+  try {
+    return decodeURIComponent(new URL(value).password);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * True for a known placeholder: a .env.example value, anything containing 'change-me' or starting with 'fake-', or a
+ * postgres URL whose password is one of those. Staging/production refuse these (ADR-0013).
+ */
+export function isPlaceholderValue(value: string): boolean {
+  const matches = (v: string): boolean => {
+    const lower = v.toLowerCase();
+    return lower.includes("change-me") || lower.startsWith("fake-") || PLACEHOLDER_VALUES.has(lower);
+  };
+  const password = urlPassword(value);
+  return matches(value) || (password !== undefined && matches(password));
+}
+
+/**
+ * superRefine callback for a schema with APP_ENV: in staging and production none of `keys` (secrets, access keys,
+ * database URLs) may hold a placeholder. Issues name the variable, never its value.
+ */
+export function refineNoPlaceholders<K extends string>(keys: readonly K[]) {
+  return (config: { readonly APP_ENV: string } & Readonly<Partial<Record<K, unknown>>>, ctx: z.RefinementCtx): void => {
+    if (config.APP_ENV !== "staging" && config.APP_ENV !== "production") return;
+    for (const key of keys) {
+      const value = config[key];
+      if (typeof value === "string" && isPlaceholderValue(value)) {
+        ctx.addIssue({ code: "custom", message: `${key} holds a placeholder value`, path: [key] });
+      }
+    }
+  };
+}
+
 export class ConfigError extends Error {
   constructor(readonly variables: readonly string[]) {
     super(`Invalid configuration: ${variables.join(", ")}`);

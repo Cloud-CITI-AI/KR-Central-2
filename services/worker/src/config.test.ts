@@ -8,7 +8,7 @@ const valid = {
   S3_ENDPOINT: "https://storage.example.com",
   S3_BUCKET: "tracker-files",
   S3_ACCESS_KEY_ID: "fake",
-  S3_SECRET_ACCESS_KEY: "fake-secret-key-123456",
+  S3_SECRET_ACCESS_KEY: "sk-test-0123456789abcdef",
 };
 
 describe("worker config", () => {
@@ -59,5 +59,23 @@ describe("worker config", () => {
       expect((e as ConfigError).variables).toContain("APP_ENV");
     }
     expect(parseConfig(WorkerConfigSchema, { ...rest, NODE_ENV: "development" }).APP_ENV).toBe("local");
+  });
+
+  it("refuses the .env.example placeholder secrets in staging and production", () => {
+    for (const APP_ENV of ["staging", "production"]) {
+      for (const [k, v] of Object.entries({
+        S3_SECRET_ACCESS_KEY: "fake-secret-access-key",
+        S3_ACCESS_KEY_ID: "fake-access-key",
+        ANTHROPIC_API_KEY: "fake-anthropic-key-change-me",
+        DATABASE_URL: "postgres://tracker_app:local-app-password@db:5432/tracker",
+      }))
+        expect(() => parseConfig(WorkerConfigSchema, { ...valid, [k]: v, APP_ENV }), `${APP_ENV} ${k}`).toThrow(
+          ConfigError,
+        );
+    }
+    expect(
+      parseConfig(WorkerConfigSchema, { ...valid, APP_ENV: "local", S3_SECRET_ACCESS_KEY: "fake-secret-access-key" })
+        .APP_ENV,
+    ).toBe("local");
   });
 });

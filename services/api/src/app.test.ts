@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { parseConfig } from "@kr/config";
+import { isPlaceholderValue, parseConfig } from "@kr/config";
 import { ROUTES } from "@kr/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { createTestApp, dummyDb } from "../test/helpers/index.js";
@@ -108,7 +108,15 @@ describe(".env.example parity (CF-3)", () => {
   });
 
   it("holds values the schema accepts (blank means unset)", () => {
-    const env = Object.fromEntries([...example].filter(([k, v]) => v !== "" && k in ApiConfigSchema.shape));
+    const env = Object.fromEntries([...example].filter(([k]) => k in ApiConfigSchema.shape));
     expect(() => parseConfig(ApiConfigSchema, env)).not.toThrow();
+  });
+
+  it("marks every secret and password of the example as a placeholder (refused in staging/production)", () => {
+    const secrets = [...example].filter(
+      ([k, v]) => v !== "" && /SECRET|PASSWORD|SALT|ACCESS_KEY|API_KEY|DATABASE_URL/.test(k),
+    );
+    expect(secrets.length).toBeGreaterThan(8);
+    for (const [k, v] of secrets) expect(isPlaceholderValue(v), k).toBe(true);
   });
 });

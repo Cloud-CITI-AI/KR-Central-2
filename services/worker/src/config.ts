@@ -1,5 +1,15 @@
 /** Worker configuration — the only place that reads process.env (BE-2). Listed in .env.example (CF-3). */
-import { AppEnv, BooleanFromString, LogLevel, NodeEnv, OptionalVar, PostgresUrl, Secret, loadConfig } from "@kr/config";
+import {
+  AppEnv,
+  BooleanFromString,
+  LogLevel,
+  NodeEnv,
+  OptionalVar,
+  PostgresUrl,
+  Secret,
+  loadConfig,
+  refineNoPlaceholders,
+} from "@kr/config";
 import { z } from "zod";
 
 export const WorkerConfigSchema = z
@@ -66,7 +76,8 @@ export const WorkerConfigSchema = z
   .refine((c) => c.APP_ENV === "local" || c.MALWARE_SCAN_MODE === "required", {
     message: "MALWARE_SCAN_MODE=disabled is not allowed outside local",
     path: ["MALWARE_SCAN_MODE"],
-  });
+  })
+  .superRefine(refineNoPlaceholders(["ANTHROPIC_API_KEY", "DATABASE_URL", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"]));
 
 export type WorkerConfig = z.infer<typeof WorkerConfigSchema>;
 
