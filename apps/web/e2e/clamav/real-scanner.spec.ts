@@ -98,32 +98,51 @@ test("without a date in the file name the stamp on page 1 is read", async ({ pag
   await expect(outcome.getByText("Read from Conformance Notification.pdf")).toBeVisible();
 });
 
-// KNOWN PRODUCT DEFECTS D1 and D2 (WP-19; there are no issues yet, so the defect ids reported to the orchestrator stand in for
-// them). These two assert what PRODUCT_SPEC §5.5 and §10.1 say and are marked `test.fail`: the run stays green while the defects
-// stand and goes red the day one is fixed ("expected to fail, but passed"). Then delete that test's `test.fail` line.
+// D2 (the read button sent no Idempotency-Key and stayed off for skipped files) is fixed. D1 is half fixed: the worker now queues
+// the conformance read once the scan passes and the outcome box shows its dates (test below), but no API response names that
+// read, so the zone cannot show its result message; that part is a KNOWN PRODUCT DEFECT (WP-19; the defect id reported to the
+// orchestrator stands in for an issue). Its test asserts what PRODUCT_SPEC §5.5 says and is marked `test.fail`: the run stays
+// green while the defect stands and goes red the day it is fixed ("expected to fail, but passed"). Then delete its `test.fail` line.
 const readDate = addDays(perthToday(), -3);
 const READ_FILE_NAME = `Conformance Notification ${compactDate(readDate)}.pdf`;
 const TAKEN = `Taken from the file name: ${formatDateWithWeekday(readDate)}.`;
 
-test("D1: uploading a Conformance Notification starts the reading by itself (§5.5: 'Uploading a PDF starts a conformance read')", async ({
+test("uploading a Conformance Notification starts the read by itself once the scan has passed: the outcome date appears with no button pressed", async ({
   page,
   signInAs,
 }) => {
-  test.fail(true, "WP-19 defect D1: an upload to 4.2 does not start a conformance read (see the comment above)");
+  const job = await createJob(await signInAs(STAFF));
+  await openTracker(page, job.id);
+  const outcome = page.getByRole("group", { name: "WAPC outcome" });
+  const conformance = card(page, "i4_2");
+  await fileInput(conformance).setInputFiles(await pdfFile("Conformance Notification 2026-07-20.pdf"));
+  await expect(conformance.getByText("Reading the conformed date…")).toBeVisible();
+  // Scan (ClamAV), then the read the worker queued: the job is refetched on the operation back-off, not at the 15 s refresh.
+  await expect(outcome.getByRole("textbox", { name: "Conformed date" })).toHaveValue("2026-07-20", { timeout: 30_000 });
+  await expect(outcome.getByRole("textbox", { name: "WAPC outcome date" })).toHaveValue("2026-10-18");
+  await expect(outcome.getByText("Read from Conformance Notification 2026-07-20.pdf")).toBeVisible();
+  await expect(conformance.getByText("Reading the conformed date…")).toBeHidden();
+  await expect(conformance.getByRole("button", { name: "Read conformed date again" })).toBeEnabled();
+});
+
+test("D1: the zone shows the result message of the read an upload started (§5.5: 'Result message under the zone')", async ({
+  page,
+  signInAs,
+}) => {
+  test.fail(
+    true,
+    "WP-19 defect D1: no API response names the conformance read the worker queues after the scan (see above)",
+  );
   const job = await createJob(await signInAs(STAFF));
   await openTracker(page, job.id);
   const conformance = card(page, "i4_2");
   await fileInput(conformance).setInputFiles(await pdfFile(READ_FILE_NAME));
-  // The upload response is meant to carry the conformance.read operation (contract UploadResult.operation) and the zone says
-  // "Reading the conformed date…" while it runs; the date then appears without anyone pressing a button.
+  // The upload response carries the file.scan operation only; the conformance.read the worker queues afterwards is not
+  // discoverable, so the zone cannot follow it to its message.
   await expect(conformance.getByText(TAKEN)).toBeVisible({ timeout: 30_000 });
 });
 
 test("D2: 'Read conformed date again' reads the date of a clean file (§10.1)", async ({ page, signInAs }) => {
-  test.fail(
-    true,
-    "WP-19 defect D2: the button sends no Idempotency-Key, so the API answers 400 (and it stays disabled when scanning is off)",
-  );
   const job = await createJob(await signInAs(STAFF));
   await openTracker(page, job.id);
   const conformance = card(page, "i4_2");
@@ -131,7 +150,5 @@ test("D2: 'Read conformed date again' reads the date of a clean file (§10.1)", 
   const read = conformance.getByRole("button", { name: "Read conformed date again" });
   await expect(read).toBeEnabled({ timeout: 30_000 });
   await read.click();
-  // Today startConformanceReading is sent without the Idempotency-Key header the route requires: 400, and the card says
-  // "<file> couldn't be sent to be read (Request ID: …)".
   await expect(conformance.getByText(TAKEN)).toBeVisible({ timeout: 30_000 });
 });
