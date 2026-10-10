@@ -11,8 +11,7 @@ import { conformanceNotStartedText, conformanceUnreadableText, fileCountText } f
 import { PanelBox } from "./PanelBox";
 import { SlotZone, type SlotZoneProps } from "./SlotZone";
 import { filesInSlot, isReadable } from "./slotFiles";
-import { useAwaitedConformanceRead } from "./useAwaitedConformanceRead";
-import { useFollowedOperation } from "./useFollowedOperation";
+import { followUpOf, useFollowedOperation } from "./useFollowedOperation";
 import { useStartConformanceReading } from "./useStartConformanceReading";
 import styles from "./Conformance.module.css";
 
@@ -22,9 +21,14 @@ export interface ConformancePanelProps {
   readonly panel: ConformancePanelDefinition;
 }
 
+/**
+ * What the zone is following: the conformance read by id (started by hand, or returned by an upload with scanning off), or the
+ * file.scan of an upload, whose result names the read the worker queued once the scan passed.
+ */
 interface Reading {
-  readonly operationId: string;
   readonly fileName: string;
+  readonly readOperationId: string | null;
+  readonly scanOperationId: string | null;
 }
 
 interface Notice {
@@ -45,12 +49,15 @@ export function ConformancePanel({ job, checkpoint, panel }: ConformancePanelPro
   const start = useStartConformanceReading(job.id);
   const [reading, setReading] = useState<Reading | null>(null);
   const [problem, setProblem] = useState<Notice | null>(null);
-  const operation = useFollowedOperation(reading?.operationId ?? null);
-  const awaited = useAwaitedConformanceRead(job);
+  const scan = useFollowedOperation(reading?.scanOperationId ?? null);
+  const settled = (op: { status: string } | undefined) => op?.status === "succeeded" || op?.status === "failed";
+  // A scan that has not settled is still "reading" (the read follows it); one that queued no read (infected) ends the wait.
+  const readOperationId = reading?.readOperationId ?? followUpOf(scan);
+  const operation = useFollowedOperation(readOperationId);
   const running =
     start.isPending ||
-    awaited.waiting ||
-    (reading !== null && operation?.status !== "succeeded" && operation?.status !== "failed");
+    (reading?.scanOperationId != null && !settled(scan)) ||
+    (readOperationId !== null && !settled(operation));
   const canRead = job.capabilities.includes("conformance.read");
 
   const notice = ((): Notice | null => {
@@ -64,7 +71,7 @@ export function ConformancePanel({ job, checkpoint, panel }: ConformancePanelPro
 
   function follow(started: { id: string }, fileName: string) {
     setProblem(null);
-    setReading({ operationId: started.id, fileName });
+    setReading({ fileName, readOperationId: started.id, scanOperationId: null });
   }
 
   const onUploaded: NonNullable<SlotZoneProps["onUploaded"]> = (stored) => {
@@ -73,13 +80,12 @@ export function ConformancePanel({ job, checkpoint, panel }: ConformancePanelPro
       follow(started.operation, started.file.name);
       return;
     }
-    setReading(null);
-    // The worker queues the read once the scan has passed: wait for it to show in the job.
+    // With scanning on the upload names only its scan; the scan's result names the read the worker queued after it.
     const scanning = stored.findLast((result) => result.operation?.type === "file.scan" && result.file.kind === "pdf");
     if (scanning?.operation) {
       setProblem(null);
-      awaited.begin(scanning.operation.id, scanning.file.id);
-    }
+      setReading({ fileName: scanning.file.name, readOperationId: null, scanOperationId: scanning.operation.id });
+    } else setReading(null);
   };
 
   function read(file: FileMeta) {

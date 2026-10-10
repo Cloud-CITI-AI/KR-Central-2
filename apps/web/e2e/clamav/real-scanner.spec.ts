@@ -98,11 +98,8 @@ test("without a date in the file name the stamp on page 1 is read", async ({ pag
   await expect(outcome.getByText("Read from Conformance Notification.pdf")).toBeVisible();
 });
 
-// D2 (the read button sent no Idempotency-Key and stayed off for skipped files) is fixed. D1 is half fixed: the worker now queues
-// the conformance read once the scan passes and the outcome box shows its dates (test below), but no API response names that
-// read, so the zone cannot show its result message; that part is a KNOWN PRODUCT DEFECT (WP-19; the defect id reported to the
-// orchestrator stands in for an issue). Its test asserts what PRODUCT_SPEC §5.5 says and is marked `test.fail`: the run stays
-// green while the defect stands and goes red the day it is fixed ("expected to fail, but passed"). Then delete its `test.fail` line.
+// Conformance Notification journeys with the real scanner: the upload answers with its file.scan operation, whose result names
+// the conformance read the worker queued after the scan (FileScanResult.followUpOperationId); the zone follows both by id.
 const readDate = addDays(perthToday(), -3);
 const READ_FILE_NAME = `Conformance Notification ${compactDate(readDate)}.pdf`;
 const TAKEN = `Taken from the file name: ${formatDateWithWeekday(readDate)}.`;
@@ -125,24 +122,19 @@ test("uploading a Conformance Notification starts the read by itself once the sc
   await expect(conformance.getByRole("button", { name: "Read conformed date again" })).toBeEnabled();
 });
 
-test("D1: the zone shows the result message of the read an upload started (§5.5: 'Result message under the zone')", async ({
+test("the zone shows the result message of the read an upload started (§5.5: 'Result message under the zone')", async ({
   page,
   signInAs,
 }) => {
-  test.fail(
-    true,
-    "WP-19 defect D1: no API response names the conformance read the worker queues after the scan (see above)",
-  );
   const job = await createJob(await signInAs(STAFF));
   await openTracker(page, job.id);
   const conformance = card(page, "i4_2");
   await fileInput(conformance).setInputFiles(await pdfFile(READ_FILE_NAME));
-  // The upload response carries the file.scan operation only; the conformance.read the worker queues afterwards is not
-  // discoverable, so the zone cannot follow it to its message.
+  // The zone follows the file.scan, then the conformance.read its result names, to the message.
   await expect(conformance.getByText(TAKEN)).toBeVisible({ timeout: 30_000 });
 });
 
-test("D2: 'Read conformed date again' reads the date of a clean file (§10.1)", async ({ page, signInAs }) => {
+test("'Read conformed date again' reads the date of a clean file (§10.1)", async ({ page, signInAs }) => {
   const job = await createJob(await signInAs(STAFF));
   await openTracker(page, job.id);
   const conformance = card(page, "i4_2");
