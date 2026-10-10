@@ -14,3 +14,11 @@ export function filesOutsideSlots(files: readonly FileMeta[], keys: readonly str
 export function isReadable(file: FileMeta): boolean {
   return file.scanStatus === "clean" || file.scanStatus === "skipped";
 }
+
+/**
+ * Whether a file satisfies a requirement chip ("✓ PDF received"): clean, skipped, or still being scanned. An infected file
+ * or one that could not be scanned cannot be opened and has to be removed and uploaded again (§5.5), so it does not count.
+ */
+export function countsAsReceived(file: FileMeta): boolean {
+  return file.scanStatus !== "infected" && file.scanStatus !== "error";
+}

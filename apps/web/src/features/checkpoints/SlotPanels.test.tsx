@@ -1,3 +1,4 @@
+import type { FileMeta } from "@kr/contracts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -13,7 +14,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function withFiles(key: string, files: readonly { name: string; slot: string }[], options?: SyntheticJobOptions) {
+function withFiles(
+  key: string,
+  files: readonly { name: string; slot: string; scanStatus?: FileMeta["scanStatus"] }[],
+  options?: SyntheticJobOptions,
+) {
   const base = syntheticJob(options);
   return withCheckpoint(base, key, {
     files: files.map((f) => syntheticFile(base.id, { ...f, checkpointKey: key })),
@@ -114,6 +119,20 @@ describe("slots panel (6.8 Western Power clearance)", () => {
     expect(screen.getByText("Clearance email (as PDF) required")).toBeInTheDocument();
     expect(screen.getByText("1 file")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clearance.pdf" })).toBeInTheDocument();
+  });
+
+  it.each(["infected", "error"] as const)(
+    "does not turn a chip green for a %s file (it must be removed and uploaded again)",
+    (scanStatus) => {
+      renderCard(withFiles("i6_9", [{ name: "Clearance.pdf", slot: "clr", scanStatus }]), "i6_9");
+      expect(screen.getByText("Clearance PDF required")).toBeInTheDocument();
+      expect(screen.queryByText("✓ Clearance PDF received")).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(["pending", "skipped"] as const)("turns a chip green for a %s file", (scanStatus) => {
+    renderCard(withFiles("i6_9", [{ name: "Clearance.pdf", slot: "clr", scanStatus }]), "i6_9");
+    expect(screen.getByText("✓ Clearance PDF received")).toBeInTheDocument();
   });
 
   it("lists a file whose slot no longer exists under Other files", () => {

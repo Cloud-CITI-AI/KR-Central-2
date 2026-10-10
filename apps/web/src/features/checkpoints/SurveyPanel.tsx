@@ -6,7 +6,7 @@ import { fileCountText } from "./messages";
 import { PanelBox } from "./PanelBox";
 import { RequirementChips } from "./RequirementChips";
 import { SlotZone } from "./SlotZone";
-import { filesInSlot } from "./slotFiles";
+import { countsAsReceived, filesInSlot } from "./slotFiles";
 
 export interface SurveyPanelProps {
   readonly job: JobDetail;
@@ -28,7 +28,7 @@ export function SurveyPanel({ job, checkpoint, panel }: SurveyPanelProps) {
         <RequirementChips
           chips={(slot.requiredKinds ?? []).map((kind) => ({
             label: kind.toUpperCase(),
-            received: files.some((file) => file.kind === kind),
+            received: files.some((file) => file.kind === kind && countsAsReceived(file)),
           }))}
         />
         <FileRows jobId={job.id} checkpointKey={checkpoint.key} files={files} />

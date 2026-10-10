@@ -1,3 +1,4 @@
+import type { FileMeta } from "@kr/contracts";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -11,10 +12,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function survey(names: readonly string[]) {
+function survey(names: readonly string[], scanStatus: FileMeta["scanStatus"] = "clean") {
   const base = syntheticJob();
   return withCheckpoint(base, "i2_0", {
-    files: names.map((name) => syntheticFile(base.id, { name, checkpointKey: "i2_0", slot: "survey" })),
+    files: names.map((name) => syntheticFile(base.id, { name, checkpointKey: "i2_0", slot: "survey", scanStatus })),
   });
 }
 
@@ -40,6 +41,20 @@ describe("survey panel (2.0)", () => {
     expect(screen.getByText("✓ PDF received")).toBeInTheDocument();
     expect(screen.getByText("✓ DWG received")).toBeInTheDocument();
     expect(screen.getByText("2 files")).toBeInTheDocument();
+  });
+
+  it.each(["infected", "error"] as const)(
+    "does not count a %s file as received: it cannot be opened, so the chip stays required",
+    (scanStatus) => {
+      renderCard(survey(["Survey.pdf"], scanStatus), "i2_0");
+      expect(screen.getByText("PDF required")).toBeInTheDocument();
+      expect(screen.queryByText("✓ PDF received")).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(["pending", "skipped"] as const)("counts a %s file as received", (scanStatus) => {
+    renderCard(survey(["Survey.pdf"], scanStatus), "i2_0");
+    expect(screen.getByText("✓ PDF received")).toBeInTheDocument();
   });
 
   it("accepts only PDF and DWG: the picker filter and the client-side check", async () => {

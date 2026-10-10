@@ -6,7 +6,7 @@ import { fileCountText } from "./messages";
 import { PanelBox } from "./PanelBox";
 import { RequirementChips } from "./RequirementChips";
 import { SlotZone } from "./SlotZone";
-import { filesInSlot, filesOutsideSlots } from "./slotFiles";
+import { countsAsReceived, filesInSlot, filesOutsideSlots } from "./slotFiles";
 
 export interface SlotsPanelProps {
   readonly job: JobDetail;
@@ -29,7 +29,10 @@ export function SlotsPanel({ job, checkpoint, panel }: SlotsPanelProps) {
       <RequirementChips
         chips={panel.slots
           .filter((slot) => slot.showRequirementChip)
-          .map((slot) => ({ label: slot.title, received: filesInSlot(checkpoint.files, slot.key).length > 0 }))}
+          .map((slot) => ({
+            label: slot.title,
+            received: filesInSlot(checkpoint.files, slot.key).some(countsAsReceived),
+          }))}
       />
       {panel.slots.map((slot) => (
         <Folder key={slot.key} slot>
