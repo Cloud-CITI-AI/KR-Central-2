@@ -3,7 +3,7 @@ import { jobCapabilitiesFor } from "@kr/contracts";
 import type { FastifyInstance } from "fastify";
 import { requireCapability, resolveJobAccess } from "../../../platform/authz.js";
 import { audit, auditContext, withTransaction } from "../../../platform/audit.js";
-import { assertVersion, setEtag } from "../../../platform/concurrency.js";
+import { assertNoFieldConflict, assertVersion, setEtag } from "../../../platform/concurrency.js";
 import { NotFoundError } from "../../../platform/errors.js";
 import { sendIdempotent, withIdempotency } from "../../../platform/idempotency.js";
 import type { ModuleDeps } from "../../../platform/module.js";
@@ -12,6 +12,9 @@ import { archiveJobRow, lockActiveJob, updateJobRow } from "../data/job-updates.
 import { duplicateJobNumberError, insertJobWithCheckpoints } from "../data/job-writes.js";
 import { planJobUpdate } from "../domain/job-update.js";
 import { loadJobDetail } from "./job-view.js";
+
+/** The audit actions of every writer that bumps `jobs.version` (job PATCH, and the worker's readings). */
+const JOB_WRITE_ACTIONS = ["job.updated", "conformance.date_read", "conditions.extracted"] as const;
 
 export function registerJobRoutes(app: FastifyInstance, deps: ModuleDeps): void {
   defineRoute(app, "createJob", async ({ auth, request, reply, body }) => {
@@ -65,8 +68,14 @@ export function registerJobRoutes(app: FastifyInstance, deps: ModuleDeps): void 
     const detail = await withTransaction(deps.db, async (trx) => {
       const current = await lockActiveJob(trx, params.jobId);
       if (!current) throw new NotFoundError();
-      assertVersion(current.version, expectedVersion);
       const plan = planJobUpdate(current, body);
+      // A stale version still saves when no job field this edit changes was changed since (field-level merge, §14/§15).
+      await assertNoFieldConflict(
+        trx,
+        { jobId: current.id, actions: JOB_WRITE_ACTIONS },
+        { current: current.version, expected: expectedVersion },
+        Object.keys(plan.changes),
+      );
       if (!plan.isNoOp) {
         if (plan.set.job_number !== undefined) {
           const taken = await trx

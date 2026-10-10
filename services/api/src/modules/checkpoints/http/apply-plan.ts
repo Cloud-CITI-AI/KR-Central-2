@@ -6,7 +6,7 @@ import type { FastifyRequest } from "fastify";
 import { audit, auditContext, withTransaction } from "../../../platform/audit.js";
 import type { AuthContext } from "../../../platform/auth-context.js";
 import { requireJobCapability, type JobAccess } from "../../../platform/authz.js";
-import { assertVersion } from "../../../platform/concurrency.js";
+import { assertNoFieldConflict } from "../../../platform/concurrency.js";
 import { NotFoundError } from "../../../platform/errors.js";
 import type { ModuleDeps } from "../../../platform/module.js";
 import { touchJob, loadCheckpointView } from "../../jobs/index.js";
@@ -35,8 +35,13 @@ export function applyCheckpointPlan(o: ApplyOptions): Promise<CheckpointState> {
   return withTransaction(deps.db, async (trx) => {
     const row = await lockCheckpointState(trx, jobId, checkpointKey);
     if (!row) throw new NotFoundError();
-    if (o.expectedVersion !== undefined) assertVersion(row.version, o.expectedVersion);
     const plan = o.plan(row);
+    // A stale version still saves when no field this write changes was changed since (field-level merge, §14/§15).
+    if (o.expectedVersion !== undefined) {
+      const fields = plan.audits.flatMap((a) => Object.keys(a.changes));
+      const scope = { jobId, entity: { type: "checkpoint", id: checkpointKey } };
+      await assertNoFieldConflict(trx, scope, { current: row.version, expected: o.expectedVersion }, fields);
+    }
     if (!plan.isNoOp) {
       await touchJob(trx, jobId);
       await writeCheckpointState(trx, row, plan.set, o.auth.user.id);

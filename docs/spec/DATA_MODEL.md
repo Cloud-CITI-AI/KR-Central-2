@@ -82,7 +82,7 @@ WHERE active`, operations queue/lease/job, audit by job/actor/time.
   audit event in one transaction.
 - Every mutation writes its audit event in the same transaction (`changes` = changed fields only; never file contents or
   tokens).
-- Versioned updates: `UPDATE … SET …, version = version + 1 WHERE id = $1 AND version = $2` → 0 rows ⇒ 412.
+- Versioned updates: `UPDATE … SET …, version = version + 1 WHERE id = $1 AND version = $2` → 0 rows ⇒ 412. The checkpoint, condition and job PATCH routes accept an older `If-Match` when none of the fields the request changes was changed by the writes since (read from the audit trail, one request = one version); a changed field in common, or a trail that cannot account for the versions, is a 412.
 - Mark paid: `paid_at = now(), paid_by, status = 'completed'`; undo: `paid_at = NULL, paid_by = NULL, status = 'not_completed'`.
 - Setting `conformed_date` (manual) sets `conformed_method='manual'`, clears file/stamp text, sets `outcome_date = +90`
   unless provided.

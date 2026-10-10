@@ -198,6 +198,71 @@ describe("updateCheckpoint (real Postgres)", () => {
     expect((await patch(staff, job, "i4_0", { status: "completed" })).statusCode).toBe(200);
   });
 
+  it("saves an edit of other fields made from an older read: two people on one checkpoint lose nothing (200, both stored)", async () => {
+    const job = await fresh();
+    expect((await patch(staff, job, "i8_3", { status: "completed" }, 1)).statusCode).toBe(200);
+    const note = await patch(admin, job, "i8_3", { krNote: "Contribution payable" }, 1);
+    expect(note.statusCode).toBe(200);
+    expect(note.json<State>()).toMatchObject({ status: "completed", krNote: "Contribution payable", version: 3 });
+    const owner = await patch(krAdmin, job, "i8_3", { responsibility: "architect" }, 1);
+    expect(owner.statusCode).toBe(200);
+    expect(await state(job.id, "i8_3")).toMatchObject({
+      status: "completed",
+      kr_note: "Contribution payable",
+      responsibility: "architect",
+      version: 4,
+      updated_by: krAdmin.user.id,
+    });
+    const events = await audits(job.id);
+    expect(events.map((e) => e.entity_id)).toEqual(["i8_3", "i8_3", "i8_3"]);
+    expect(events.map((e) => e.actor_user_id)).toEqual([staff.user.id, admin.user.id, krAdmin.user.id]);
+  });
+
+  it("answers 412 for a stale edit of a field that changed since (nothing written), also through a paid or decision write", async () => {
+    const job = await fresh();
+    await patch(staff, job, "i8_3", { status: "completed", krNote: "first" }, 1);
+    const sameNote = await patch(admin, job, "i8_3", { krNote: "second" }, 1);
+    expect(sameNote.statusCode).toBe(412);
+    expect(sameNote.json()).toMatchObject({ type: "urn:kr:problem:precondition-failed" });
+    const mixed = await patch(admin, job, "i8_3", { responsibility: "kr", status: "not_completed" }, 1);
+    expect(mixed.statusCode).toBe(412);
+    expect(await state(job.id, "i8_3")).toMatchObject({
+      status: "completed",
+      kr_note: "first",
+      responsibility: "client",
+      version: 2,
+    });
+    const paidJob = await fresh();
+    expect(
+      (await apiRequest(t, { method: "PUT", url: `/v1/jobs/${paidJob.id}/checkpoints/i6_2/paid`, as: client }))
+        .statusCode,
+    ).toBe(200);
+    expect((await patch(staff, paidJob, "i6_2", { status: "not_completed" }, 1)).statusCode).toBe(412);
+    expect((await patch(staff, paidJob, "i6_2", { responsibility: "kr" }, 1)).statusCode).toBe(200);
+  });
+
+  it("is 412 when the client's version is ahead, and 200 without a write for a stale edit that changes nothing", async () => {
+    const job = await fresh();
+    await patch(staff, job, "i8_3", { status: "completed" }, 1);
+    expect((await patch(staff, job, "i8_3", { krNote: "x" }, 3)).statusCode).toBe(412);
+    const same = await patch(admin, job, "i8_3", { status: "completed" }, 1);
+    expect(same.statusCode).toBe(200);
+    expect(same.json<State>().version).toBe(2);
+    expect((await audits(job.id)).length).toBe(1);
+  });
+
+  it("fails closed: a version moved without an audit trail it can read is a 412, never a guess", async () => {
+    const job = await fresh();
+    await t.db
+      .updateTable("checkpoint_states")
+      .set((eb) => ({ version: eb("version", "+", 1) }))
+      .where("job_id", "=", job.id)
+      .where("checkpoint_key", "=", "i8_3")
+      .execute();
+    expect((await patch(staff, job, "i8_3", { krNote: "x" }, 1)).statusCode).toBe(412);
+    expect((await patch(staff, job, "i8_3", { krNote: "x" }, 2)).statusCode).toBe(200);
+  });
+
   it("rejects an empty body, unknown fields, bad values and an unknown checkpoint with 400", async () => {
     const job = await fresh();
     for (const body of [

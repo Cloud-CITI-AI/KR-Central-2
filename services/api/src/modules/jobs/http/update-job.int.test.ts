@@ -148,6 +148,46 @@ describe("updateJob (real Postgres)", () => {
     expect(edit.json<Detail>()).toMatchObject({ approvalExpiry: "2028-01-01", version: version + 1 });
   });
 
+  it("saves an edit of other job fields made from an older read, and answers 412 for a field that changed since", async () => {
+    const job = await fresh();
+    expect((await patch(staff, job, { approvalDate: "2026-09-01" }, 1)).statusCode).toBe(200);
+    const expiry = await patch(admin, job, { approvalExpiry: "2028-01-01", address: "9 New Road" }, 1);
+    expect(expiry.statusCode).toBe(200);
+    expect(expiry.json<Detail>()).toMatchObject({
+      approvalDate: "2026-09-01",
+      approvalExpiry: "2028-01-01",
+      version: 3,
+    });
+    const sameField = await patch(krAdmin, job, { approvalDate: "2026-10-01" }, 1);
+    expect(sameField.statusCode).toBe(412);
+    const viaConformed = await patch(staff, job, { conformedDate: "2026-09-01" }, 3);
+    expect(viaConformed.statusCode).toBe(200);
+    expect((await patch(admin, job, { outcomeDate: "2027-01-01" }, 3)).statusCode).toBe(412);
+    expect(await row(job.id)).toMatchObject({ approval_date: "2026-09-01", address: "9 New Road", version: 4 });
+  });
+
+  it("counts the worker's reading of a conformed date as a write of those fields only", async () => {
+    const job = await fresh();
+    await t.db
+      .updateTable("jobs")
+      .set({ conformed_date: "2026-03-16", conformed_method: "text", outcome_date: "2026-06-14", version: 2 })
+      .where("id", "=", job.id)
+      .execute();
+    await t.db
+      .insertInto("audit_events")
+      .values({
+        actor_type: "system",
+        action: "conformance.date_read",
+        entity_type: "job",
+        entity_id: job.id,
+        job_id: job.id,
+        changes: JSON.stringify({ conformedDate: { from: null, to: "2026-03-16" } }),
+      })
+      .execute();
+    expect((await patch(staff, job, { approvalExpiry: "2028-01-01" }, 1)).statusCode).toBe(200);
+    expect((await patch(staff, job, { conformedDate: "2026-04-01" }, 1)).statusCode).toBe(412);
+  });
+
   it("lets exactly one of two concurrent edits with the same version win", async () => {
     const job = await fresh();
     const results = await Promise.all([patch(staff, job, { address: "one" }), patch(admin, job, { address: "two" })]);

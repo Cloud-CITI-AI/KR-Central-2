@@ -183,6 +183,56 @@ describe("updateCondition (real Postgres)", () => {
     expect(await row(condition.id)).toMatchObject({ kr_comment: "a", version: 2 });
   });
 
+  it("saves the other person's comment made from an older read: KR and client comments on one condition both stay", async () => {
+    const { job, condition } = await fresh();
+    const kr = await patch(staff, job, condition, { krComment: "KR: power design lodged" }, '"1"');
+    expect(kr.statusCode).toBe(200);
+    const cleo = await patch(client, job, condition, { clientComment: "Client: thanks, will pay" }, '"1"');
+    expect(cleo.statusCode).toBe(200);
+    expect(cleo.json<Condition>()).toMatchObject({
+      krComment: "KR: power design lodged",
+      clientComment: "Client: thanks, will pay",
+      version: 3,
+    });
+    expect(await row(condition.id)).toMatchObject({
+      kr_comment: "KR: power design lodged",
+      client_comment: "Client: thanks, will pay",
+      version: 3,
+      updated_by: client.user.id,
+    });
+    const tick = await patch(admin, job, condition, { isCleared: true, responsibility: "client" }, '"1"');
+    expect(tick.statusCode).toBe(200);
+    expect(await row(condition.id)).toMatchObject({ is_cleared: true, responsibility: "client", version: 4 });
+  });
+
+  it("answers 412 when the same field changed since the client's version, with nothing written", async () => {
+    const { job, condition } = await fresh();
+    await patch(client, job, condition, { clientComment: "Cleo's note" }, '"1"');
+    await patch(staff, job, condition, { krComment: "KR note", isCleared: true }, '"2"');
+    const sameComment = await patch(architect, job, condition, { clientComment: "Architect's note" }, '"1"');
+    expect(sameComment.statusCode).toBe(412);
+    expect(sameComment.json()).toMatchObject({ type: "urn:kr:problem:precondition-failed" });
+    const sameTick = await patch(admin, job, condition, { isCleared: false, krComment: "other" }, '"2"');
+    expect(sameTick.statusCode).toBe(412);
+    expect(await row(condition.id)).toMatchObject({
+      client_comment: "Cleo's note",
+      kr_comment: "KR note",
+      is_cleared: true,
+      version: 3,
+    });
+  });
+
+  it("treats choosing an agency as changing the agency, and the guess flag with it", async () => {
+    const { job, condition } = await fresh();
+    await t.db.updateTable("conditions").set({ agency_guessed: true }).where("id", "=", condition.id).execute();
+    await patch(staff, job, condition, { agency: "Water Corporation" }, '"1"');
+    const confirmed = await patch(admin, job, condition, { agencyConfirmed: true }, '"1"');
+    expect(confirmed.statusCode).toBe(200);
+    expect(confirmed.json<Condition>().version).toBe(2);
+    expect((await patch(admin, job, condition, { agency: "Western Power" }, '"1"')).statusCode).toBe(412);
+    expect((await patch(admin, job, condition, { responsibility: "client" }, '"1"')).statusCode).toBe(200);
+  });
+
   it("a superseded condition, another job's condition and an unknown id are 404", async () => {
     const { job, condition } = await fresh();
     const other = await fresh();
