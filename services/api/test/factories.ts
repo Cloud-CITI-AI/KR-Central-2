@@ -23,6 +23,8 @@ export interface UserOverrides {
   readonly isGuest?: boolean;
   readonly email?: string | null;
   readonly displayName?: string;
+  /** The IdP verified the email at the latest sign-in (default true: a normal account). */
+  readonly emailVerified?: boolean;
 }
 
 export interface JobOverrides {
@@ -81,6 +83,7 @@ export function createFactories(db: Db, seed: number = seedFromTestFile()) {
           display_name: o.displayName ?? faker.person.fullName(),
           role,
           is_guest: o.isGuest ?? role === "external",
+          email_verified: o.emailVerified ?? true,
           status: o.status ?? "active",
         })
         .returningAll()

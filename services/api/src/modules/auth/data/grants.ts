@@ -16,6 +16,18 @@ export async function countActivatableGrants(trx: Transaction<Database>, email: 
   return Number(row.n);
 }
 
+/** Active grants bound to this user on jobs that are not archived. */
+export async function countActiveGrantsOf(trx: Transaction<Database>, userId: string): Promise<number> {
+  const row = await trx
+    .selectFrom("access_grants")
+    .select((eb) => eb.fn.countAll<string>().as("n"))
+    .where("user_id", "=", userId)
+    .where("status", "=", "active")
+    .where("job_id", "in", openJobs(trx))
+    .executeTakeFirstOrThrow();
+  return Number(row.n);
+}
+
 /** Activate them and bind them to the user id for good: a later email change does not move access. */
 export function activateGrants(
   trx: Transaction<Database>,

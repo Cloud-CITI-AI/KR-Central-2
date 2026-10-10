@@ -10,7 +10,7 @@ import { revokeAllForUser } from "../../../platform/session.js";
 import type { Identity } from "../domain/claims.js";
 import { assignRole, isFirstAdminEligible } from "../domain/roles.js";
 import { claimFirstAdmin } from "./bootstrap.js";
-import { activateGrants, countActivatableGrants } from "./grants.js";
+import { activateGrants, countActivatableGrants, countActiveGrantsOf } from "./grants.js";
 
 export interface SignInPolicy {
   readonly now: Date;
@@ -53,6 +53,7 @@ async function upsertUser(trx: Transaction<Database>, id: Identity, policy: Sign
       display_name: id.displayName,
       role,
       is_guest: id.isGuest,
+      email_verified: id.emailVerified,
       last_sign_in_at: policy.now,
     })
     .onConflict((oc) =>
@@ -62,6 +63,7 @@ async function upsertUser(trx: Transaction<Database>, id: Identity, policy: Sign
           email: id.email,
           display_name: id.displayName,
           is_guest: id.isGuest,
+          email_verified: id.emailVerified,
           last_sign_in_at: policy.now,
           ...(demote ? { role: "external" as const, version: sql<number>`users.version + 1` } : {}),
         })
@@ -130,6 +132,21 @@ async function provision(trx: Transaction<Database>, id: Identity, policy: SignI
       entityId: user.id,
       changes: { role: { from: "staff", to: "admin" } },
     });
+  }
+
+  // An account whose email the IdP does not vouch for (xms_edov=false) may not use grants: refuse and say why. One
+  // bound while the email was verified stays bound to the user id, but this sign-in must not reach it, so the
+  // refusal is committed together with the end of every session of the user (and the flag above, which keeps new
+  // grants from binding).
+  if (!id.emailVerified && (await countActiveGrantsOf(trx, user.id)) > 0) {
+    await revokeAllForUser(trx, user.id, "role_changed", { now: () => policy.now });
+    await audit(trx, ctx, {
+      action: "auth.signin_refused",
+      entityType: "user",
+      entityId: user.id,
+      changes: { reason: { from: null, to: "unverified_email" } },
+    });
+    return { ok: false, reason: "unverified_email" };
   }
 
   let grantsActivated = 0;

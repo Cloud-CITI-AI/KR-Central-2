@@ -1,6 +1,7 @@
 /**
- * What a new grant starts as (PRODUCT_SPEC §3.4, §6). A person who already has exactly one external account under that
- * email is bound at once and the grant is Active; otherwise it waits as Pending until their first sign-in (WP-07).
+ * What a new grant starts as (PRODUCT_SPEC §3.4, §6). A person who already has exactly one VERIFIED external account
+ * under that email (the caller passes only those) is bound at once and the grant is Active; otherwise it waits as
+ * Pending until a sign-in whose email the IdP verified (WP-07).
  * Two accounts with the same email are ambiguous: nothing is bound, so no one gains access by a guess.
  */
 export interface GrantPlan {

@@ -9,13 +9,18 @@ export interface GrantListRow {
   readonly invitedByName: string | null;
 }
 
-/** Ids of the external accounts that carry this email (`email` is citext: the match ignores case). */
+/**
+ * Ids of the external accounts that carry this email (`email` is citext: the match ignores case) AND whose latest
+ * sign-in had it verified by the IdP (xms_edov). A grant must never bind to an unverified address: the guest's email
+ * may be mutable or unproven (PRODUCT_SPEC §3.4), so such a grant waits as pending until a verified sign-in.
+ */
 export async function findExternalAccountIds(trx: Transaction<Database>, email: string): Promise<string[]> {
   const rows = await trx
     .selectFrom("users")
     .select("id")
     .where("email", "=", email)
     .where("role", "=", "external")
+    .where("email_verified", "=", true)
     .execute();
   return rows.map((r) => r.id);
 }

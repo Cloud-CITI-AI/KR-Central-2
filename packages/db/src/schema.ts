@@ -27,6 +27,8 @@ export interface UsersTable {
   display_name: string;
   role: ColumnType<GlobalRoleValue, GlobalRoleValue | undefined, GlobalRoleValue>;
   is_guest: boolean;
+  /** Email of the latest sign-in verified by the IdP (xms_edov); false until proven. Grants bind only when true. */
+  email_verified: ColumnType<boolean, boolean | undefined, boolean>;
   status: ColumnType<"active" | "disabled", "active" | "disabled" | undefined, "active" | "disabled">;
   last_sign_in_at: Timestamp | null;
   created_at: GeneratedTimestamp;
