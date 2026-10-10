@@ -1,6 +1,8 @@
 /* prototype .dcard and .dc-* (the progress bar is .bar.dc-bar there) */
 .card {
   display: grid;
+  /* a grid item: without this a long unbroken word makes the card (and the page) wider than the screen */
+  min-width: 0;
   gap: 6px;
   align-content: start;
   padding: 12px 14px;
@@ -59,6 +61,8 @@
 .meta {
   color: var(--ink-2);
   font-size: 12.5px;
+  /* a client name with no spaces must wrap, like the address line */
+  overflow-wrap: anywhere;
 }
 .bar {
   display: flex;
@@ -160,6 +164,11 @@
 .more {
   color: var(--ink-3);
   font-size: 12.5px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar i {
+    transition: none;
+  }
 }
 @media print {
   .card {
