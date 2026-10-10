@@ -1,4 +1,5 @@
 /** downloadJobPackage (PRODUCT_SPEC §5.8): every servable file of the job as one streamed zip laid out like the page. */
+import { objectKeyFor } from "@kr/storage";
 import { ZipArchive } from "archiver";
 import type { Readable } from "node:stream";
 import type { FastifyBaseLogger, FastifyInstance } from "fastify";
@@ -9,7 +10,7 @@ import { defineRoute } from "../../../platform/routes.js";
 import { loadPackageRows } from "../data/package.js";
 import { contentDispositionFor } from "../domain/content-headers.js";
 import { buildJobSummary } from "../domain/job-summary.js";
-import { planPackage, type PackagePlan } from "../domain/package-layout.js";
+import { omitMissing, planPackage, type PackagePlan } from "../domain/package-layout.js";
 
 /** Resolves when archiver has written the entry called `name`; rejects if the archive fails first. */
 function appendEntry(
@@ -75,7 +76,20 @@ export function registerPackageRoutes(app: FastifyInstance, deps: ModuleDeps): v
     const { job } = access;
     const rows = await loadPackageRows(deps.db, job.id, access.capabilities.includes("fee_proposal.view"));
     const now = deps.clock.now();
-    const plan = planPackage({ jobNumber: job.job_number, address: job.address }, rows.files, rows.conditions);
+    const planned = planPackage({ jobNumber: job.job_number, address: job.address }, rows.files, rows.conditions);
+    // One listing before any byte is sent: a storage outage answers 503 here, and an object that is gone is named in
+    // Job summary.txt instead of stopping the zip half way (spec 5.8: the zip is how to get all the files).
+    const present = new Set<string>();
+    for await (const object of deps.storage.list(objectKeyFor(job.id, ""))) present.add(object.key);
+    const { plan, missing } = omitMissing(planned, present);
+    for (const entry of planned.entries) {
+      if (!present.has(entry.file.storageKey)) {
+        request.log.error(
+          { event: "file_object_missing", fileId: entry.file.id, inPackage: true },
+          "A clean file has no stored object",
+        );
+      }
+    }
     const summary = buildJobSummary({
       job: {
         jobNumber: job.job_number,
@@ -88,6 +102,7 @@ export function registerPackageRoutes(app: FastifyInstance, deps: ModuleDeps): v
       states: rows.states,
       conditions: rows.conditions,
       notes: rows.notes,
+      missingFiles: missing,
       now,
     });
     // A bulk read of client documents: one audit row for the whole package (single files are not audited).
@@ -97,7 +112,10 @@ export function registerPackageRoutes(app: FastifyInstance, deps: ModuleDeps): v
         entityType: "job",
         entityId: job.id,
         jobId: job.id,
-        changes: { fileCount: { from: null, to: plan.entries.length } },
+        changes: {
+          fileCount: { from: null, to: plan.entries.length },
+          ...(missing.length > 0 ? { missingCount: { from: null, to: missing.length } } : {}),
+        },
       }),
     );
     const archive = new ZipArchive({ zlib: { level: 6 } });

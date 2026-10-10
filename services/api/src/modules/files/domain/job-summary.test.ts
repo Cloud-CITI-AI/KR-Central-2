@@ -127,4 +127,26 @@ describe("buildJobSummary", () => {
     expect(text).not.toContain("WAPC CONDITIONS");
     expect(text).not.toContain("JOB NOTES");
   });
+
+  it("lists files whose stored object is missing, right after the download line", () => {
+    const text = lines({
+      ...base,
+      missingFiles: ["01 Preliminaries/2.0 Site Feature Survey/Survey.pdf", "Plan.pdf"],
+    });
+    expect(text.slice(0, 9)).toEqual([
+      "S-0001 – 1 Example Street, Testville – Sample Developments Pty Ltd (Survey-Strata)",
+      "Downloaded 28 Sep 2026, 3:50 pm",
+      "",
+      "FILES NOT INCLUDED (2)",
+      "  These files could not be read from storage, so they are not in this zip. Ask KR Surveys to restore them.",
+      "  01 Preliminaries/2.0 Site Feature Survey/Survey.pdf",
+      "  Plan.pdf",
+      "",
+      "01 PRELIMINARIES",
+    ]);
+  });
+
+  it("has no such section when nothing is missing", () => {
+    expect(buildJobSummary({ ...base, missingFiles: [] })).not.toContain("FILES NOT INCLUDED");
+  });
 });

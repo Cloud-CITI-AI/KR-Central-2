@@ -52,6 +52,8 @@ export interface SummaryInput {
   readonly conditions: readonly SummaryCondition[];
   /** Oldest first. */
   readonly notes: readonly SummaryNote[];
+  /** Zip paths (without the top folder) of files whose stored object could not be found; listed so nothing is silent. */
+  readonly missingFiles?: readonly string[];
   readonly now: Date;
 }
 
@@ -61,6 +63,15 @@ export function buildJobSummary(input: SummaryInput): string {
   const { job } = input;
   const subdivisionType = SUBDIVISION_TYPES.find((t) => t === job.subdivisionType) ?? null;
   const lines = [jobDisplayText({ ...job, subdivisionType }), `Downloaded ${formatPerthDateTime(input.now)}`, ""];
+  const missing = input.missingFiles ?? [];
+  if (missing.length > 0) {
+    lines.push(
+      `FILES NOT INCLUDED (${missing.length})`,
+      "  These files could not be read from storage, so they are not in this zip. Ask KR Surveys to restore them.",
+      ...missing.map((path) => `  ${path}`),
+      "",
+    );
+  }
   if (job.conformedDate) {
     lines.push(
       `Conformed date: ${formatDateLong(job.conformedDate)}`,

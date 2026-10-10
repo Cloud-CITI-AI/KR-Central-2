@@ -99,3 +99,19 @@ export function planPackage(
   }
   return { zipName: zipFileName(job.jobNumber), summaryPath, entries };
 }
+
+/**
+ * Drops the entries whose object is not in storage (`present` holds the keys that are) and names them by their path in
+ * the zip without the top folder, for the "files not included" section of Job summary.txt.
+ */
+export function omitMissing(
+  plan: PackagePlan,
+  present: ReadonlySet<string>,
+): { readonly plan: PackagePlan; readonly missing: readonly string[] } {
+  const entries = plan.entries.filter((e) => present.has(e.file.storageKey));
+  if (entries.length === plan.entries.length) return { plan, missing: [] };
+  const missing = plan.entries
+    .filter((e) => !present.has(e.file.storageKey))
+    .map((e) => e.path.split("/").slice(1).join("/"));
+  return { plan: { ...plan, entries }, missing };
+}

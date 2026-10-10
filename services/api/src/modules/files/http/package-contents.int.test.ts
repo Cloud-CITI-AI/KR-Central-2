@@ -1,3 +1,4 @@
+import { StorageUnavailableError } from "@kr/storage";
 import { createMemoryStorage } from "@kr/storage/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFactories, type Factories } from "../../../../test/factories.js";
@@ -134,6 +135,97 @@ describe("downloadJobPackage contents (real Postgres, in-memory storage)", () =>
       actor_user_id: staff.user.id,
     });
     expect(audits[0]?.changes).toEqual({ fileCount: { from: null, to: 1 } });
+  });
+
+  describe("a file whose stored object is gone", () => {
+    it("is skipped and named in Job summary.txt, the rest of the zip is complete, and the audit row counts both", async () => {
+      const job = await f.makeJob({ jobNumber: "PC-0008" });
+      await seedFile(t, f, {
+        jobId: job.id,
+        data: pdfBytes(50, "keep"),
+        name: "Keep.pdf",
+        checkpointKey: "i2_0",
+        slot: "survey",
+      });
+      const lost = await seedFile(t, f, {
+        jobId: job.id,
+        data: pdfBytes(50, "lost"),
+        name: "Lost.pdf",
+        checkpointKey: "i3_0p",
+        slot: "proposal",
+      });
+      await seedFile(t, f, {
+        jobId: job.id,
+        data: pdfBytes(50, "last"),
+        name: "Last.pdf",
+        checkpointKey: "i11_0",
+        slot: "photos",
+      });
+      await t.storage.delete(lost.storage_key);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const res = await download(job.id);
+        expect(res.statusCode).toBe(200);
+        const zip = await readZip(res.rawPayload);
+        expect([...zip.keys()].map((k) => k.split("/").pop())).toEqual(["Job summary.txt", "Keep.pdf", "Last.pdf"]);
+        const summary =
+          zip
+            .get([...zip.keys()][0] ?? "")
+            ?.toString("utf8")
+            .split("\r\n") ?? [];
+        expect(summary.slice(3, 7)).toEqual([
+          "FILES NOT INCLUDED (1)",
+          "  These files could not be read from storage, so they are not in this zip. Ask KR Surveys to restore them.",
+          "  02 WAPC Approval/3.0 WAPC Proposal/Lost.pdf",
+          "",
+        ]);
+      }
+      expect(t.logLines()).toContainEqual(
+        expect.objectContaining({ event: "file_object_missing", fileId: lost.id, inPackage: true }),
+      );
+      expect(t.logLines().filter((l) => l.event === "package_failed")).toEqual([]);
+      const audits = await t.db.selectFrom("audit_events").selectAll().where("job_id", "=", job.id).execute();
+      expect(audits.map((a) => a.changes)).toEqual([
+        { fileCount: { from: null, to: 2 }, missingCount: { from: null, to: 1 } },
+        { fileCount: { from: null, to: 2 }, missingCount: { from: null, to: 1 } },
+      ]);
+    });
+
+    it("every object missing still gives a zip with its summary", async () => {
+      const job = await f.makeJob({ jobNumber: "PC-0009" });
+      const only = await seedFile(t, f, {
+        jobId: job.id,
+        data: pdfBytes(),
+        name: "Only.pdf",
+        checkpointKey: "i2_0",
+        slot: "survey",
+      });
+      await t.storage.delete(only.storage_key);
+      const zip = await readZip((await download(job.id)).rawPayload);
+      expect([...zip.keys()].map((k) => k.split("/").pop())).toEqual(["Job summary.txt"]);
+    });
+
+    it("answers 503 and writes no audit row when storage cannot be listed", async () => {
+      const base = createMemoryStorage();
+      const local = await createTestApp({
+        storage: {
+          ...base,
+          list: () => ({
+            [Symbol.asyncIterator]: () => ({
+              next: () => Promise.reject(new StorageUnavailableError(new Error("down"))),
+            }),
+          }),
+        },
+      });
+      const lf = createFactories(local.db, 503);
+      const user = await signIn(local, await lf.makeUser({ role: "staff" }));
+      const job = await lf.makeJob({ jobNumber: "PC-0010" });
+      const res = await apiRequest(local, { url: `/v1/jobs/${job.id}/package`, as: user });
+      expect(res.statusCode).toBe(503);
+      expect(res.headers["retry-after"]).toBe("5");
+      expect(res.json()).toMatchObject({ type: "urn:kr:problem:storage-unavailable" });
+      expect(await local.db.selectFrom("audit_events").select("id").where("job_id", "=", job.id).execute()).toEqual([]);
+      await local.close();
+    });
   });
 
   describe("streaming", () => {

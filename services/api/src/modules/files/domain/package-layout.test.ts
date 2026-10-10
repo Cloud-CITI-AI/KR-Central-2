@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { entryName, planPackage, zipFileName, type PackageCondition, type PackageFile } from "./package-layout.js";
+import {
+  entryName,
+  omitMissing,
+  planPackage,
+  zipFileName,
+  type PackageCondition,
+  type PackageFile,
+} from "./package-layout.js";
 
 const job = { jobNumber: "S-0001", address: "1 Example Street, Testville" };
 const TOP = "S-0001 – 1 Example Street, Testville";
@@ -111,5 +118,24 @@ describe("zipFileName", () => {
   it("uses the job number only, made safe for a file name", () => {
     expect(zipFileName("S-0042")).toBe("S-0042 – subdivision files.zip");
     expect(zipFileName("A/B 1")).toBe("A B 1 – subdivision files.zip");
+  });
+});
+
+describe("omitMissing", () => {
+  const present = file("Survey.pdf", { checkpointKey: "i2_0" });
+  const gone = file("Letter.pdf", { checkpointKey: "i3_0p" });
+  const plan = planPackage(job, [present, gone], []);
+
+  it("keeps the files whose object exists and names the others by their zip path without the top folder", () => {
+    const result = omitMissing(plan, new Set([present.storageKey]));
+    expect(result.plan.entries.map((e) => e.file.id)).toEqual([present.id]);
+    expect(result.plan.zipName).toBe(plan.zipName);
+    expect(result.plan.summaryPath).toBe(plan.summaryPath);
+    expect(result.missing).toEqual(["02 WAPC Approval/3.0 WAPC Proposal/Letter.pdf"]);
+  });
+
+  it("changes nothing when every object exists", () => {
+    const all = new Set([present.storageKey, gone.storageKey]);
+    expect(omitMissing(plan, all)).toEqual({ plan, missing: [] });
   });
 });
