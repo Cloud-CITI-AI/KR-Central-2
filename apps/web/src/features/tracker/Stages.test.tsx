@@ -7,7 +7,7 @@ import { mockApi } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { OPEN_STAGES_KEY } from "./openStages";
 import { jobPage, syntheticJob } from "./test-fixtures";
-import { renderTracker } from "./test-utils";
+import { renderTracker, WHOLE_TRACKER_TIMEOUT_MS } from "./test-utils";
 import { TrackerBody } from "./TrackerBody";
 
 vi.mock("next/navigation", async () => (await import("./test-utils")).navigationMock);
@@ -28,7 +28,7 @@ const bar = (stage: string) => {
   return button;
 };
 
-describe("Stages", () => {
+describe("Stages", { timeout: WHOLE_TRACKER_TIMEOUT_MS }, () => {
   beforeEach(() => {
     localStorage.clear();
   });

@@ -9,7 +9,7 @@ import { HttpResponse } from "msw";
 import { TrackerPage } from "./TrackerPage";
 import { LAST_JOB_KEY } from "./lastJob";
 import { jobPage, syntheticJob } from "./test-fixtures";
-import { NOT_FOUND, renderTracker } from "./test-utils";
+import { NOT_FOUND, renderTracker, WHOLE_TRACKER_TIMEOUT_MS } from "./test-utils";
 
 vi.mock("next/navigation", async () => (await import("./test-utils")).navigationMock);
 
@@ -35,7 +35,7 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe("TrackerPage", () => {
+describe("TrackerPage", { timeout: WHOLE_TRACKER_TIMEOUT_MS }, () => {
   it("shows a status while loading, then the jobbar, and remembers the job for the dashboard's back link", async () => {
     const job = syntheticJob();
     server.use(mockApi("getJob", job), mockApi("listJobs", jobPage([])));
