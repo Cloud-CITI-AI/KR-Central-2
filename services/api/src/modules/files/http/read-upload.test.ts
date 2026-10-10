@@ -11,7 +11,7 @@ import {
   PayloadTooLargeError,
   UnsupportedMediaTypeError,
 } from "../../../platform/errors.js";
-import { discard, readUpload } from "./read-upload.js";
+import { discard, isMultipartParseError, readUpload } from "./read-upload.js";
 
 const JOB = "6f9b6c3e-2f0b-4c44-8d6a-0d3a5f1c9b10";
 const PDF = Buffer.concat([Buffer.from("%PDF-1.7\n%\xe2\xe3\xcf\xd3\n", "latin1"), Buffer.alloc(200)]);
@@ -139,5 +139,29 @@ describe("discard", () => {
     expect(lines.map((l) => JSON.parse(l) as { event?: string })).toContainEqual(
       expect.objectContaining({ event: "orphan_object", key: "jobs/x/y" }),
     );
+  });
+});
+
+describe("isMultipartParseError", () => {
+  it("recognises busboy and premature-close failures of the request body", () => {
+    for (const message of [
+      "Multipart: Boundary not found",
+      "Unexpected end of multipart data",
+      "Unexpected end of form",
+      "Malformed part header",
+    ]) {
+      expect(isMultipartParseError(new Error(message))).toBe(true);
+    }
+    expect(
+      isMultipartParseError(Object.assign(new Error("Premature close"), { code: "ERR_STREAM_PREMATURE_CLOSE" })),
+    ).toBe(true);
+  });
+
+  it("leaves storage, database, limit and non-error values alone", () => {
+    expect(isMultipartParseError(new Error("connect ECONNREFUSED 127.0.0.1:9000"))).toBe(false);
+    expect(isMultipartParseError(Object.assign(new Error("boom"), { code: "ECONNRESET" }))).toBe(false);
+    expect(isMultipartParseError(new PayloadTooLargeError())).toBe(false);
+    expect(isMultipartParseError("Multipart: Boundary not found")).toBe(false);
+    expect(isMultipartParseError(undefined)).toBe(false);
   });
 });

@@ -43,6 +43,24 @@ function fieldErrors(error: z.ZodError): FieldError[] {
   return error.issues.map((i) => ({ path: i.path.join(".") || "fields", message: i.message }));
 }
 
+/** What busboy and Node streams say when the client's body is not valid multipart or ends early. */
+const PARSE_MESSAGES = [
+  "Multipart: Boundary not found",
+  "Unexpected end of multipart data",
+  "Unexpected end of form",
+  "Malformed part header",
+  "Malformed urlencoded form",
+  "Missing Content-Type",
+  "Part terminator not found",
+];
+
+/** True for a failure of the multipart body itself (not a storage, database or limit error). */
+export function isMultipartParseError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if ((error as { code?: unknown }).code === "ERR_STREAM_PREMATURE_CLOSE") return true;
+  return PARSE_MESSAGES.some((m) => error.message.startsWith(m));
+}
+
 /**
  * Throws the problem for the first failed check. When the object was already written (a later part of the request
  * was wrong, or the caller's transaction failed) the caller removes it with `discard`.
@@ -77,6 +95,9 @@ export async function readUpload(o: ReadUploadOptions): Promise<StoredUpload> {
     }
   } catch (error) {
     if (stored) await discard(o.storage, o.log, stored.storageKey);
+    // A body that is not valid multipart, or ends early, is the client's mistake (§14), not a server failure.
+    if (isMultipartParseError(error))
+      throw new BadRequestError({ detail: "The request could not be parsed.", cause: error });
     throw error;
   }
   if (!stored) throw new BadRequestError({ errors: [{ path: "file", message: "Choose a file to upload." }] });
