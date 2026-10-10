@@ -38,3 +38,9 @@ Releases are prepared by release-please from Conventional Commits.
 - Web: a status change that can't be saved says so for a lost connection and for a rate limit (429), instead of "Reload the page and try again".
 - Web: the dashboard shows one banner, announced to screen readers, when the jobs or counts can't be loaded or refreshed, with the connectivity wording, the request id and "may be out of date" when cached cards are showing.
 - API contract: `startConditionsExtraction` and `startConformanceReading` declare the required `Idempotency-Key` header (OpenAPI regenerated); the web client now sends it for conformance readings.
+- The email viewer shows the parsed message (Subject/From/To/Cc/Date, a rule, the body) for .eml, Outlook .msg and pasted emails instead of the raw MIME source or "can't be previewed", and every email dialog has "Download original". `EmailMeta` gains a nullable `bodyText` (null until the file is scanned clean or skipped).
+- "Open in new tab" and any other button-styled link use the ink colour, not the browser's link blue.
+- A missing, archived, forbidden or malformed job answers HTTP 404 inside the one signed-in shell (one header, one h1, one main) instead of nesting a second shell with a 200; unknown routes show the signed-in shell too.
+- Page titles name the page: "Dashboard", "<job number> – <address>" and "Page not found".
+- The audit trail's Job column shows the job number (`AuditEvent.jobNumber`, also for archived jobs) in the accent link colour instead of a UUID prefix.
+- Admin pages have a Dashboard button, the header logo links to the dashboard, and the Users and Audit trail tabs use the ink colour.
