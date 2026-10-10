@@ -62,6 +62,18 @@ describe("SummaryPanels", () => {
     expect(within(key).queryByRole("button")).toBeNull();
   });
 
+  it("lays the status key out as the prototype does: the panel itself is the grid, its heading and four rows its direct children", () => {
+    renderTracker(<SummaryPanels job={syntheticJob()} />);
+    const key = screen.getByRole("region", { name: "Status key" });
+    expect([...key.children].map((child) => child.tagName)).toEqual(["H2", "DIV", "DIV", "DIV", "DIV"]);
+    expect(key.children[1]).toHaveTextContent("Completed");
+    expect(key.children[4]).toHaveTextContent("KR progress claim");
+    // the progress panel keeps its own, unchanged structure: the heading, then the ring and the dates inside wrappers
+    const progress = screen.getByRole("region", { name: "Subdivision progress" });
+    expect(progress.children[0]?.tagName).toBe("H2");
+    expect(progress.querySelector(":scope > h2 + div")).not.toBeNull();
+  });
+
   it("holds only progress and the two approval date inputs, and no other control", () => {
     const { container } = renderTracker(<SummaryPanels job={syntheticJob()} />);
     const inputs = [...container.querySelectorAll("input, select, textarea, button")];

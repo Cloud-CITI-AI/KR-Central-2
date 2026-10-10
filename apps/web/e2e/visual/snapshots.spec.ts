@@ -75,6 +75,29 @@ for (const viewport of VIEWPORTS) {
         await expect(page).toHaveScreenshot(name("tracker"), { fullPage: true, mask: volatile(page) });
       });
 
+      test("summary panels, with the status key", async ({ page, signInAs }) => {
+        const { blank } = await demoJobs(await signInAs(STAFF));
+        await page.goto(`/jobs/${blank}`);
+        const progress = page.getByRole("region", { name: "Subdivision progress" });
+        const key = page.getByRole("region", { name: "Status key" });
+        await expect(key).toBeVisible();
+        // As in the prototype (blank-03): the heading's rule spans the whole panel, and the four rows share the panel's height.
+        const heading = await key.getByRole("heading", { name: "Status key" }).boundingBox();
+        const panel = await key.boundingBox();
+        const last = await key.locator(":scope > div").last().boundingBox();
+        if (!heading || !panel || !last) throw new Error("the status key is not laid out");
+        expect(Math.abs(heading.width - (panel.width - 34))).toBeLessThanOrEqual(1);
+        if (viewport.name === "desktop") {
+          const beside = await progress.boundingBox();
+          expect(Math.abs((beside?.height ?? 0) - panel.height)).toBeLessThanOrEqual(1);
+          expect(panel.y + panel.height - (last.y + last.height)).toBeLessThanOrEqual(16);
+        }
+        await expect(page.locator("div").filter({ has: progress }).filter({ has: key }).last()).toHaveScreenshot(
+          name("summary"),
+          { mask: volatile(page) },
+        );
+      });
+
       test("document viewer", async ({ page, signInAs }) => {
         const { withFile } = await demoJobs(await signInAs(STAFF));
         await page.goto(`/jobs/${withFile}`);

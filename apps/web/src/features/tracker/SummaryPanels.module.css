@@ -86,6 +86,8 @@
   border-color: var(--grey-line);
   color: var(--grey-ink);
 }
+/* the status key panel itself (prototype `.panel.legend`): a grid whose heading is blockified, so its rule spans the panel, and whose
+   rows stretch to share the panel's height when the progress panel beside it is taller */
 .legend {
   display: grid;
   gap: 7px;
@@ -115,7 +117,7 @@
   background: var(--grey-bg);
   border-color: var(--grey-line);
 }
-.paykey {
+.legend > .paykey {
   flex-wrap: wrap;
   gap: 6px 14px;
 }
