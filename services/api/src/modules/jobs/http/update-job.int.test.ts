@@ -88,6 +88,24 @@ describe("updateJob (real Postgres)", () => {
     expect(res.json<Detail>().summary.alerts.map((a) => a.text)).toEqual(["WAPC approval expired Sun, 1 Mar 2026"]);
   });
 
+  it("answers 400 with a field error for a date outside 1900-2199 and writes nothing", async () => {
+    const job = await fresh();
+    for (const [field, value] of [
+      ["conformedDate", "0001-01-01"],
+      ["approvalExpiry", "0050-06-15"],
+      ["conformedDate", "9999-12-31"],
+      ["outcomeDate", "2200-01-01"],
+    ] as const) {
+      const res = await patch(staff, job, { [field]: value });
+      expect(res.statusCode, `${field} ${value}`).toBe(400);
+      expect(res.json()).toMatchObject({
+        type: "urn:kr:problem:validation",
+        errors: [{ path: field, message: "Date must be between 1900-01-01 and 2199-12-31" }],
+      });
+    }
+    expect(await row(job.id)).toMatchObject({ approval_expiry: null, conformed_date: null, version: 1 });
+  });
+
   it("refuses a client, an architect and callers who cannot see the job, and changes nothing", async () => {
     const job = await fresh();
     expect((await patch(client, job, { address: "x" })).statusCode).toBe(403);

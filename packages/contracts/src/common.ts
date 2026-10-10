@@ -5,8 +5,15 @@ import { z } from "zod";
 
 export const Uuid = z.uuid().meta({ description: "UUID identifier", example: "0f8fad5b-d9cb-469f-a165-70867728950e" });
 
+/** Earliest/latest business date accepted: keeps date maths and Postgres timestamptz casts in range. */
+export const ISO_DATE_MIN = "1900-01-01";
+export const ISO_DATE_MAX = "2199-12-31";
+
 export const IsoDate = z.iso
   .date()
+  .refine((d) => d >= ISO_DATE_MIN && d <= ISO_DATE_MAX, {
+    message: `Date must be between ${ISO_DATE_MIN} and ${ISO_DATE_MAX}`,
+  })
   .meta({ description: "Calendar date (yyyy-mm-dd), Australia/Perth business date", example: "2026-06-14" });
 
 export const IsoDateTime = z.iso

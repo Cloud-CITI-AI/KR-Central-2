@@ -20,6 +20,16 @@ describe("dates", () => {
     expect(() => addDays("bad", 1)).toThrow(RangeError);
   });
 
+  it("treats years below 100 as the year they say, not 19xx", () => {
+    expect(isIsoDate("0001-01-01")).toBe(true);
+    expect(isIsoDate("0050-06-15")).toBe(true);
+    expect(isIsoDate("0001-02-29")).toBe(false);
+    expect(isIsoDate("0000-02-29")).toBe(true); // year 0 is divisible by 400
+    expect(isIsoDate("0100-02-29")).toBe(false); // year 100 is not a leap year
+    expect(addDays("0001-01-01", 1)).toBe("0001-01-02");
+    expect(addDays("0050-06-15", 1)).toBe("0050-06-16");
+  });
+
   it("sets the outcome date 90 days after conformance", () => {
     expect(outcomeDateFor("2026-03-16")).toBe("2026-06-14");
     expect(addDays("2024-02-28", 1)).toBe("2024-02-29");
