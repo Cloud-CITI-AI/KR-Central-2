@@ -2,7 +2,9 @@ import { expect, test } from "../fixtures";
 import { createJob } from "../harness/jobs";
 import { STAFF } from "../harness/users";
 import { dwgFile, pdfFile, pngFile, textFile } from "../support/documents";
+import { installUpsert } from "../support/polyfills";
 import { card, fileInput, openTracker } from "../support/tracker";
+import { expectFirstPageDrawn } from "../support/viewer";
 
 // PRODUCT_SPEC §5.5 (drop zones, file rows), §11 (files) and §11.1 (document viewer), through the real API, worker and pdf.js.
 
@@ -11,6 +13,7 @@ test("staff upload the survey PDF and DWG, open the PDF in the viewer, and remov
   signInAs,
   apiAs,
 }) => {
+  await installUpsert(page);
   const job = await createJob(await apiAs(STAFF));
   await signInAs(STAFF);
   await openTracker(page, job.id);
@@ -32,6 +35,7 @@ test("staff upload the survey PDF and DWG, open the PDF in the viewer, and remov
   const viewer = page.getByRole("dialog", { name: "feature-survey.pdf" });
   await expect(viewer).toBeVisible();
   await expect(viewer.locator("canvas")).toHaveCount(2);
+  await expectFirstPageDrawn(viewer);
   await expect(viewer.getByText("1 of 2", { exact: true })).toBeVisible();
   await viewer.getByRole("button", { name: "Next file" }).click();
   await expect(page.getByRole("dialog", { name: "feature-survey.dwg" })).toContainText(

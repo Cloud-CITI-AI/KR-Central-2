@@ -4,6 +4,8 @@ import { createJob, grantAccess, patchCheckpoint, waitForOperation } from "../ha
 import { ARCHITECT_GUEST, CLIENT_GUEST, FIRST_MEMBER, STAFF } from "../harness/users";
 import { expectAccessible } from "../support/a11y";
 import { decisionLetter, dwgFile, emlFile, pdfFile, pngFile } from "../support/documents";
+import { installUpsert } from "../support/polyfills";
+import { expectFirstPageDrawn } from "../support/viewer";
 import { card, openTracker } from "../support/tracker";
 
 // WCAG 2.2 AA (PRODUCT_SPEC §12) on every page and dialog a person can reach, in both themes, at desktop width and at 390 px.
@@ -27,6 +29,7 @@ for (const viewport of VIEWPORTS) {
         await page.addInitScript((value) => {
           localStorage.setItem("kr-theme", value);
         }, theme);
+        await installUpsert(page);
       });
       const at = (state: string): string => `${theme} ${viewport.name}: ${state}`;
 
@@ -110,7 +113,7 @@ for (const viewport of VIEWPORTS) {
         await expectAccessible(page, at("tracker with the conditions checklist"));
 
         await card(page, "i2_0").getByRole("button", { name: "feature-survey.pdf", exact: true }).click();
-        await expect(page.getByRole("dialog", { name: "feature-survey.pdf" }).locator("canvas").first()).toBeVisible();
+        await expectFirstPageDrawn(page.getByRole("dialog", { name: "feature-survey.pdf" }));
         // D4 (e2e/a11y/known-defects.spec.ts): the page scroller is not keyboard focusable.
         await expectAccessible(page, at("document viewer, PDF"), ["scrollable-region-focusable"]);
         await page.getByRole("dialog").getByRole("button", { name: "Next file" }).click();

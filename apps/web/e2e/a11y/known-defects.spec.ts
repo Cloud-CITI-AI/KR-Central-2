@@ -2,6 +2,7 @@ import { expect, test } from "../fixtures";
 import { createJob } from "../harness/jobs";
 import { STAFF } from "../harness/users";
 import { violationsOn } from "../support/a11y";
+import { expectFirstPageDrawn } from "../support/viewer";
 import { pdfFile } from "../support/documents";
 import { card, openTracker } from "../support/tracker";
 
@@ -36,4 +37,29 @@ test("D4: the PDF viewer's page area can be scrolled with the keyboard", async (
   await card(page, "i2_0").getByRole("button", { name: "feature-survey.pdf", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "feature-survey.pdf" }).locator("canvas").first()).toBeVisible();
   expect(await violationsOn(page, { only: ["scrollable-region-focusable"] })).toEqual([]);
+});
+
+// Known product defect D5: pdf.js 6 needs `Map.prototype.getOrInsertComputed` (ES2026), which browsers before roughly early 2026 lack
+// (the Chromium 141 preinstalled in some sandboxes among them): there the viewer says "Page 1 couldn't be drawn." for every PDF. The
+// product should ship the legacy pdf.js build or a polyfill. This test uses no polyfill; it expects to fail only in a browser that lacks
+// the method, so on a current browser it passes as an ordinary test.
+test("D5: the PDF viewer draws pages in a browser without Map.getOrInsertComputed", async ({
+  page,
+  signInAs,
+  apiAs,
+}) => {
+  const staff = await apiAs(STAFF);
+  const job = await createJob(staff);
+  const file = await pdfFile("feature-survey.pdf", [["Synthetic feature survey"]]);
+  await staff.upload(
+    job.id,
+    { checkpointKey: "i2_0", slot: "survey" },
+    { name: file.name, bytes: file.buffer, type: file.mimeType },
+  );
+  await signInAs(STAFF);
+  await openTracker(page, job.id);
+  const supported = await page.evaluate(() => "getOrInsertComputed" in Map.prototype);
+  test.fail(!supported, "D5: this browser lacks Map.getOrInsertComputed, which pdf.js 6 needs (see the comment above)");
+  await card(page, "i2_0").getByRole("button", { name: "feature-survey.pdf", exact: true }).click();
+  await expectFirstPageDrawn(page.getByRole("dialog", { name: "feature-survey.pdf" }));
 });
