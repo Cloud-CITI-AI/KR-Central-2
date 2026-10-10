@@ -47,6 +47,20 @@ describe("planPackage", () => {
     ]);
   });
 
+  it("gives text and email files with a dangerous extension a .txt name in the zip", () => {
+    expect(
+      paths([
+        file("evil.vbe", { checkpointKey: "i13_notif", kind: "text" }),
+        file("Invoice.pdf.exe", { checkpointKey: "i13_notif", kind: "text" }),
+        file("shortcut.url", { checkpointKey: "i4_3", kind: "email" }),
+      ]),
+    ).toEqual([
+      `${TOP}/02 WAPC Approval/4.3 Queries from WAPC/Query emails/shortcut.url.txt`,
+      `${TOP}/09 Landgate/12.2 Notification and Documents/evil.vbe.txt`,
+      `${TOP}/09 Landgate/12.2 Notification and Documents/Invoice.pdf.exe.txt`,
+    ]);
+  });
+
   it("puts condition evidence under the condition's agency stage, before that stage's checkpoints", () => {
     const conditions: PackageCondition[] = [
       { id: "c2", number: 2, agency: "Western Power" },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitiseFileName } from "./index.js";
+import { sanitiseFileName, servedFileName } from "./index.js";
 
 describe("sanitiseFileName", () => {
   it.each([
@@ -50,5 +50,25 @@ describe("sanitiseFileName", () => {
 
   it("drops trailing dots and spaces exposed by truncation", () => {
     expect(sanitiseFileName(`${"a".repeat(250)}. . . . . .pdf`)).toBe(`${"a".repeat(250)}.pdf`);
+  });
+});
+
+describe("servedFileName", () => {
+  it.each([
+    ["evil.vbe", "text", "evil.vbe.txt"],
+    ["shortcut.url", "text", "shortcut.url.txt"],
+    ["Invoice.pdf.exe", "text", "Invoice.pdf.exe.txt"],
+    ["notes", "text", "notes.txt"],
+    ["a.TXT", "text", "a.TXT"],
+    ["d.csv", "text", "d.csv"],
+    ["r.md", "text", "r.md"],
+    ["run.psm1", "email", "run.psm1.txt"],
+    ["Query.txt", "email", "Query.txt"],
+    ["mail.eml", "email", "mail.eml"],
+    ["mail.MSG", "email", "mail.MSG"],
+    ["evil.vbe", "pdf", "evil.vbe"],
+    ["Plan.pdf", "pdf", "Plan.pdf"],
+  ] as const)("%j (%s) is served as %j", (name, kind, expected) => {
+    expect(servedFileName(name, kind)).toBe(expected);
   });
 });

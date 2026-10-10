@@ -55,6 +55,21 @@ describe("getFileContent (real Postgres, in-memory storage)", () => {
     });
   });
 
+  it("downloads a text file stored under a dangerous extension as .txt", async () => {
+    const file = await seedFile(t, f, {
+      jobId,
+      data: textBytes("[InternetShortcut]\r\n"),
+      name: "shortcut.url",
+      kind: "text",
+      contentType: "text/plain",
+    });
+    const res = await content(client, file.id, "?disposition=attachment");
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-disposition"]).toBe(
+      `attachment; filename="shortcut.url.txt"; filename*=UTF-8''shortcut.url.txt`,
+    );
+  });
+
   describe("headers (PRODUCT_SPEC 11)", () => {
     it("a PDF is inline, no-store, nosniff and sized, with an RFC 5987 file name and no sandbox CSP", async () => {
       const data = pdfBytes(500);

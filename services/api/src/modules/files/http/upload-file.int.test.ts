@@ -280,6 +280,38 @@ describe("uploadFile (real Postgres, in-memory storage)", () => {
     ).toBe("text");
   });
 
+  it("refuses text under a script, shortcut, registry or executable name (415) and stores nothing", async () => {
+    const job = await fresh();
+    const condition = await f.makeCondition({ jobId: job.id, number: 1, agency: "Western Power" });
+    const before = (await storedKeys(t)).length;
+    const bodies: [string, string][] = [
+      ["evil.vbe", "#@~^AAAAAA==\\r\n"],
+      ["shortcut.url", "[InternetShortcut]\r\nURL=file://attacker.example/share/x\r\n"],
+      ["update.reg", "Windows Registry Editor Version 5.00\r\n"],
+      ["run.psm1", "function Get-Thing { 1 }\r\n"],
+      ["Invoice.pdf.exe", "plain text"],
+    ];
+    for (const [name, text] of bodies) {
+      const res = await uploadFile(t, {
+        jobId: job.id,
+        as: architect,
+        fields: { conditionId: condition.id },
+        file: { name, data: Buffer.from(text) },
+      });
+      expect(res.statusCode, name).toBe(415);
+      expect(problem(res).detail, name).toBe("Text files must be .txt, .csv or .md");
+    }
+    expect(await filesOf(job.id)).toEqual([]);
+    expect(await storedKeys(t)).toHaveLength(before);
+    const ok = await uploadFile(t, {
+      jobId: job.id,
+      as: architect,
+      fields: { conditionId: condition.id },
+      file: { name: "evidence.txt", data: Buffer.from("plain text") },
+    });
+    expect(ok.statusCode).toBe(201);
+  });
+
   it("answers 413 above UPLOAD_MAX_BYTES, accepts exactly the limit and stores nothing for the refused one", async () => {
     const local = await createTestApp({ config: testConfig({ UPLOAD_MAX_BYTES: "1024" }) });
     const lf = createFactories(local.db, 103);

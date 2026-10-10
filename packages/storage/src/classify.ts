@@ -1,7 +1,7 @@
 /**
  * Content sniffing for uploads (ADR-0011, PRODUCT_SPEC §11): decides what an upload really is from its first bytes.
  * The declared type and the file extension are never trusted; the name is only used where bytes cannot tell
- * (.msg vs other OLE files, .eml vs plain text, csv/md vs txt) and to refuse script extensions on text.
+ * (.msg vs other OLE files, .eml vs plain text, csv/md vs txt); text is accepted only under a .txt, .csv or .md name.
  */
 import { fileTypeFromBuffer } from "file-type";
 import type { FileKind } from "@kr/workflow";
@@ -46,6 +46,8 @@ const MAIL_HEADERS = new Set(
     " ",
   ),
 );
+
+const TEXT_NAME_REJECTION = "Text files must be .txt, .csv or .md";
 
 const reject = (rejected: string): ContentRejection => ({ rejected });
 const extensionOf = (fileName: string): string => /\.([^./\\]+)$/.exec(fileName)?.[1]?.toLowerCase() ?? "";
@@ -98,9 +100,12 @@ function classifyText(head: Uint8Array, fileName: string): ClassifyResult {
   const extension = extensionOf(fileName);
   if (body.startsWith("#!") || SCRIPT_EXTENSIONS.has(extension)) return reject("Scripts are not accepted");
   if (extension === "eml" && looksLikeRfc822(body)) return accepted("email", "message/rfc822", "eml");
+  // Text is TXT, CSV or MD (spec §11): an allow-list, because a deny-list of script names is never complete
+  // (.vbe, .url, .reg, .psm1, .exe ... are all UTF-8 text that something on the recipient's machine will run).
   if (extension === "csv") return accepted("text", "text/csv", "csv");
   if (extension === "md") return accepted("text", "text/markdown", "md");
-  return accepted("text", "text/plain", "txt");
+  if (extension === "txt") return accepted("text", "text/plain", "txt");
+  return reject(TEXT_NAME_REJECTION);
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   safeName,
   type FileKind,
 } from "@kr/workflow";
+import { servedFileName } from "@kr/storage";
 
 export interface PackageFile {
   readonly id: string;
@@ -78,7 +79,10 @@ export function planPackage(
   const summaryPath = uniquePath(used, `${top}/Job summary.txt`);
   const entries: PlannedEntry[] = [];
   const add = (file: PackageFile, folder: string) => {
-    entries.push({ file, path: uniquePath(used, `${top}/${folder}/${entryName(file.name)}`) });
+    entries.push({
+      file,
+      path: uniquePath(used, `${top}/${folder}/${entryName(servedFileName(file.name, file.kind))}`),
+    });
   };
   for (const stage of STAGES) {
     // Evidence of the conditions that belong to this stage's agency comes first, as on the page.

@@ -4,6 +4,7 @@
  */
 import { PROBLEM_TYPES } from "@kr/contracts";
 import type { FileRow } from "@kr/db";
+import { servedFileName } from "@kr/storage";
 import type { FileKind } from "@kr/workflow";
 import { AppError, ConflictError } from "../../../platform/errors.js";
 
@@ -58,7 +59,7 @@ export function contentHeadersFor(
   const disposition = requested === "inline" && INLINE_KINDS.has(file.kind) ? "inline" : "attachment";
   return {
     contentType: file.kind === "text" ? "text/plain; charset=utf-8" : file.content_type,
-    contentDisposition: contentDispositionFor(disposition, file.original_name),
+    contentDisposition: contentDispositionFor(disposition, servedFileName(file.original_name, file.kind)),
     contentSecurityPolicy: file.kind === "pdf" ? null : SANDBOX_CSP,
   };
 }

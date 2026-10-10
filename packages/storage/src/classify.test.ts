@@ -31,7 +31,7 @@ describe("classifyContent accepts", () => {
     ["text", Buffer.from("héllo ✓\n"), "n.txt", "text", "text/plain", "txt"],
     ["CSV", Buffer.from("a,b\n1,2\n"), "d.CSV", "text", "text/csv", "csv"],
     ["Markdown", Buffer.from("# Title\n"), "r.md", "text", "text/markdown", "md"],
-    ["UTF-8 BOM text", bytes([0xef, 0xbb, 0xbf], "notes"), "n", "text", "text/plain", "txt"],
+    ["UTF-8 BOM text", bytes([0xef, 0xbb, 0xbf], "notes"), "n.txt", "text", "text/plain", "txt"],
   ] as const)("%s", async (_label, head, name, kind, contentType, extension) => {
     expect(await classifyContent(head, name)).toEqual({ kind, contentType, extension });
   });
@@ -51,9 +51,14 @@ describe("classifyContent accepts", () => {
 
   it("keeps email headers as text unless the name is .eml", async () => {
     expect(await classifyContent(Buffer.from(EML), "mail.txt")).toMatchObject({ kind: "text" });
-    expect(await classifyContent(Buffer.from("Hi: there\nNote: x\n"), "a.eml")).toMatchObject({ kind: "text" });
-    expect(await classifyContent(Buffer.from("From: a\nbroken line\nTo: b"), "a.eml")).toMatchObject({ kind: "text" });
-    expect(await classifyContent(Buffer.from(" From: a"), "a.eml")).toMatchObject({ kind: "text" });
+  });
+
+  it("refuses an .eml that is not an RFC 822 message (text is TXT, CSV or MD only)", async () => {
+    for (const text of ["Hi: there\nNote: x\n", "From: a\nbroken line\nTo: b", " From: a"]) {
+      expect(await classifyContent(Buffer.from(text), "a.eml")).toEqual({
+        rejected: "Text files must be .txt, .csv or .md",
+      });
+    }
   });
 });
 
@@ -78,6 +83,45 @@ describe("classifyContent treats UTF-8 text without NUL as text even when it sta
 
   it("still rejects a magic followed by invalid UTF-8", async () => {
     expect(await classifyContent(bytes("BM", [0xff, 0xfe, 0xfd]), "a.txt")).toHaveProperty("rejected");
+  });
+});
+
+describe("classifyContent accepts text only under a text name (TXT, CSV, MD)", () => {
+  it.each([
+    "evil.vbe",
+    "evil.vbs.vbe",
+    "script.jse",
+    "a.wsh",
+    "a.wsf",
+    "a.wsc",
+    "shortcut.url",
+    "update.reg",
+    "x.scf",
+    "setup.inf",
+    "run.psm1",
+    "run.psd1",
+    "do.command",
+    "app.desktop",
+    "x.appref-ms",
+    "Invoice.pdf.exe",
+    "x.lnk",
+    "x.jar",
+    "x.docm",
+    "notes",
+    "notes.",
+    "a.log",
+    ".txt.bak",
+  ])("refuses plain text named %j", async (name) => {
+    const body = Buffer.from("[InternetShortcut]\r\nURL=file://attacker.example/share/x\r\n");
+    expect(await classifyContent(body, name)).toEqual({ rejected: "Text files must be .txt, .csv or .md" });
+  });
+
+  it.each(["a.txt", "A.TXT", "evil.vbe.txt", "d.csv", "r.md", "Plan notes.v2.md"])("accepts %j", async (name) => {
+    expect(await classifyContent(Buffer.from("hello\n"), name)).toMatchObject({ kind: "text" });
+  });
+
+  it("still names scripts as scripts", async () => {
+    expect(await classifyContent(Buffer.from("x"), "a.ps1")).toEqual({ rejected: "Scripts are not accepted" });
   });
 });
 

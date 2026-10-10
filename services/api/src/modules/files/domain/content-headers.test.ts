@@ -115,3 +115,19 @@ describe("parseRange", () => {
     expect(() => parseRange("bytes=0-", 0)).toThrow(RangeNotSatisfiableError);
   });
 });
+
+describe("contentHeadersFor with a dangerous extension on a text file stored before the allow-list", () => {
+  it("serves it under a .txt name so it can never run from a download", () => {
+    const h = contentHeadersFor(file("text", "text/plain", "evil.vbe"), "attachment");
+    expect(h.contentDisposition).toBe(`attachment; filename="evil.vbe.txt"; filename*=UTF-8''evil.vbe.txt`);
+  });
+
+  it("leaves the name of other kinds and of proper text files alone", () => {
+    expect(contentHeadersFor(file("pdf", "application/pdf", "Plan.pdf"), "inline").contentDisposition).toContain(
+      'filename="Plan.pdf"',
+    );
+    expect(contentHeadersFor(file("text", "text/plain", "notes.txt"), "inline").contentDisposition).toContain(
+      'filename="notes.txt"',
+    );
+  });
+});

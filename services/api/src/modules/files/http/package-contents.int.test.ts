@@ -2,7 +2,7 @@ import { createMemoryStorage } from "@kr/storage/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFactories, type Factories } from "../../../../test/factories.js";
 import { apiRequest, createTestApp, signIn, type SignedIn, type TestApp } from "../../../../test/helpers/index.js";
-import { pdfBytes, readZip, seedFile } from "../testing.js";
+import { pdfBytes, readZip, seedFile, textBytes } from "../testing.js";
 
 describe("downloadJobPackage contents (real Postgres, in-memory storage)", () => {
   let t: TestApp;
@@ -35,6 +35,20 @@ describe("downloadJobPackage contents (real Postgres, in-memory storage)", () =>
     }
     const names = [...(await entries(job.id)).keys()].map((k) => k.split("/").pop());
     expect(names).toEqual(["Job summary.txt", "Plan.pdf", "plan (2).PDF", "Plan (3).pdf"]);
+  });
+
+  it("zips a text file stored under a dangerous extension as .txt", async () => {
+    const job = await f.makeJob({ jobNumber: "PC-0003A" });
+    await seedFile(t, f, {
+      jobId: job.id,
+      data: textBytes("x"),
+      name: "evil.vbe",
+      kind: "text",
+      contentType: "text/plain",
+    });
+    await seedFile(t, f, { jobId: job.id, data: pdfBytes(), name: "Plan.pdf" });
+    const names = [...(await entries(job.id)).keys()].map((k) => k.split("/").pop());
+    expect(names).toEqual(["Job summary.txt", "evil.vbe.txt", "Plan.pdf"]);
   });
 
   it("leaves out evidence of superseded conditions", async () => {
