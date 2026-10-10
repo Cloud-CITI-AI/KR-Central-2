@@ -65,6 +65,16 @@ describe("readUpload", () => {
     expect(await keys(storage)).toEqual([stored.storageKey]);
   });
 
+  it("puts back the %22, %0D and %0A a browser put in the file name, keeping quotes and dropping line breaks", async () => {
+    for (const [sent, expected] of [
+      ["quo%22te;name=evil.pdf", 'quo"te;name=evil.pdf'],
+      ["name%0D%0AX-Injected: 1.pdf", "nameX-Injected: 1.pdf"],
+    ] as const) {
+      const stored = await readUpload(options(createMemoryStorage(), [...SLOT, file(PDF, sent)]));
+      expect(stored.originalName).toBe(expected);
+    }
+  });
+
   it("refuses a request that is not multipart (415)", async () => {
     await expect(readUpload({ ...options(createMemoryStorage(), []), request: request([], false) })).rejects.toThrow(
       UnsupportedMediaTypeError,

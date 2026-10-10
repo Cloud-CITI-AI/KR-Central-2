@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitiseFileName, servedFileName } from "./index.js";
+import { decodeMultipartFileName, sanitiseFileName, servedFileName } from "./index.js";
 
 describe("sanitiseFileName", () => {
   it.each([
@@ -70,5 +70,25 @@ describe("servedFileName", () => {
     ["Plan.pdf", "pdf", "Plan.pdf"],
   ] as const)("%j (%s) is served as %j", (name, kind, expected) => {
     expect(servedFileName(name, kind)).toBe(expected);
+  });
+});
+
+describe("decodeMultipartFileName", () => {
+  it.each([
+    ["quo%22te;name=evil.pdf", 'quo"te;name=evil.pdf'],
+    ["name%0D%0AX-Injected: 1.pdf", "name\r\nX-Injected: 1.pdf"],
+    ["a%0Ab%0d.pdf", "a\nb\r.pdf"],
+    ["%22quoted%22.pdf", '"quoted".pdf'],
+    ["100%.pdf", "100%.pdf"],
+    ["50%25 off.pdf", "50%25 off.pdf"],
+    ["%2e%2e%2fx.pdf", "%2e%2e%2fx.pdf"],
+    ["plain.pdf", "plain.pdf"],
+  ])("%j -> %j", (input, expected) => {
+    expect(decodeMultipartFileName(input)).toBe(expected);
+  });
+
+  it("then sanitising keeps quotes readable and drops line breaks", () => {
+    expect(sanitiseFileName(decodeMultipartFileName("quo%22te;name=evil.pdf"))).toBe('quo"te;name=evil.pdf');
+    expect(sanitiseFileName(decodeMultipartFileName("name%0D%0AX-Injected: 1.pdf"))).toBe("nameX-Injected: 1.pdf");
   });
 });

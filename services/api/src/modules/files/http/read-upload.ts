@@ -4,7 +4,14 @@
  */
 import { randomUUID } from "node:crypto";
 import { UploadFields } from "@kr/contracts";
-import { SNIFF_BYTES, classifyContent, objectKeyFor, sanitiseFileName, type ContentClassification } from "@kr/storage";
+import {
+  SNIFF_BYTES,
+  classifyContent,
+  decodeMultipartFileName,
+  objectKeyFor,
+  sanitiseFileName,
+  type ContentClassification,
+} from "@kr/storage";
 import type { ObjectStorage } from "@kr/storage";
 import type { MultipartFile } from "@fastify/multipart";
 import type { FastifyBaseLogger, FastifyRequest } from "fastify";
@@ -110,7 +117,7 @@ async function storeFile(
   fields: z.output<typeof UploadFields>,
   target: UploadTarget,
 ): Promise<StoredUpload> {
-  const originalName = sanitiseFileName(part.filename);
+  const originalName = sanitiseFileName(decodeMultipartFileName(part.filename));
   const cap: CapState = { exceeded: false, bytes: 0 };
   const tooLarge = `${originalName} is larger than ${formatLimit(o.maxBytes)}.`;
   const { head, stream } = await peek(capBytes(part.file, o.maxBytes, cap, tooLarge), SNIFF_BYTES);

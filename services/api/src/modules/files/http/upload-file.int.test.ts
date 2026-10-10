@@ -280,6 +280,23 @@ describe("uploadFile (real Postgres, in-memory storage)", () => {
     ).toBe("text");
   });
 
+  it("keeps a quote in a file name readable and never lets a line break into a header", async () => {
+    const job = await fresh();
+    // A browser sends " as %22 and CR/LF as %0D/%0A in the multipart filename (HTML spec).
+    const quoted = await slotUpload(job.id, staff, "i2_0", "survey", "quo%22te;name=evil.pdf", pdfBytes());
+    expect(quoted.statusCode).toBe(201);
+    const meta = quoted.json<UploadBody>().file;
+    expect(meta.name).toBe('quo"te;name=evil.pdf');
+    await t.db.updateTable("files").set({ scan_status: "clean" }).where("id", "=", meta.id).execute();
+    const download = await apiRequest(t, { url: `/v1/files/${meta.id}/content?disposition=attachment`, as: staff });
+    expect(download.headers["content-disposition"]).toBe(
+      `attachment; filename="quo_te;name=evil.pdf"; filename*=UTF-8''quo%22te%3Bname%3Devil.pdf`,
+    );
+    const injected = await slotUpload(job.id, staff, "i2_0", "survey", "name%0D%0AX-Injected: 1.pdf", pdfBytes());
+    expect(injected.statusCode).toBe(201);
+    expect(injected.json<UploadBody>().file.name).toBe("nameX-Injected: 1.pdf");
+  });
+
   it("accepts an 8-bit .eml in a non-UTF-8 charset into the 4.3 email slot", async () => {
     const job = await fresh();
     const data = Buffer.from(
