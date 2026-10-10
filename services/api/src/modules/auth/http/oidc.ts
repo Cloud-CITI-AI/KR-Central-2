@@ -30,8 +30,30 @@ export interface OidcClient {
 
 type OidcConfig = Pick<
   ApiConfig,
-  "APP_ENV" | "ENTRA_TENANT_ID" | "ENTRA_CLIENT_ID" | "ENTRA_CLIENT_SECRET" | "ENTRA_AUTHORITY_HOST" | "PUBLIC_BASE_URL"
+  | "APP_ENV"
+  | "ENTRA_TENANT_ID"
+  | "ENTRA_CLIENT_ID"
+  | "ENTRA_CLIENT_SECRET"
+  | "ENTRA_AUTHORITY_HOST"
+  | "PUBLIC_BASE_URL"
+  | "REQUIRE_MFA_FOR_ADMIN"
+  | "ADMIN_MFA_EVIDENCE"
+  | "ENTRA_ADMIN_AUTH_CONTEXT_ID"
 >;
+
+/**
+ * The OIDC `claims` request parameter. Entra puts `acrs` into the ID token only for an app that requests that
+ * Conditional Access authentication context, so with ADMIN_MFA_EVIDENCE=acrs the sign-in asks for it (ADR-0002,
+ * railway.md E10/G2); otherwise every admin would be refused "Multi-factor sign-in required". Undefined when MFA
+ * evidence is not by `acrs`, or not required at all (then no user is challenged for the context).
+ */
+export function authorizationClaims(
+  config: Pick<OidcConfig, "REQUIRE_MFA_FOR_ADMIN" | "ADMIN_MFA_EVIDENCE" | "ENTRA_ADMIN_AUTH_CONTEXT_ID">,
+): string | undefined {
+  const context = config.ENTRA_ADMIN_AUTH_CONTEXT_ID;
+  if (!config.REQUIRE_MFA_FOR_ADMIN || config.ADMIN_MFA_EVIDENCE !== "acrs" || context === undefined) return undefined;
+  return JSON.stringify({ id_token: { acrs: { essential: true, value: context } } });
+}
 
 export function redirectUri(config: Pick<ApiConfig, "PUBLIC_BASE_URL">): string {
   return new URL("/api/v1/auth/callback", config.PUBLIC_BASE_URL).toString();
@@ -67,6 +89,7 @@ export function createOidcClient(config: OidcConfig, clock: Clock): OidcClient {
       codeVerifier: client.randomPKCECodeVerifier(),
     }),
     async authorizationUrl(secrets) {
+      const claims = authorizationClaims(config);
       return client.buildAuthorizationUrl(await configuration(), {
         redirect_uri: redirectUri(config),
         scope: "openid profile email",
@@ -75,6 +98,7 @@ export function createOidcClient(config: OidcConfig, clock: Clock): OidcClient {
         nonce: secrets.nonce,
         code_challenge: await client.calculatePKCECodeChallenge(secrets.codeVerifier),
         code_challenge_method: "S256",
+        ...(claims === undefined ? {} : { claims }),
       });
     },
     async exchange(callback, secrets) {
