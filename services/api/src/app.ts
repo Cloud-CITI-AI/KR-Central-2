@@ -10,6 +10,7 @@ import { MODULES } from "./modules/index.js";
 import { registerCsrf } from "./platform/csrf.js";
 import { registerErrorHandling } from "./platform/errors.js";
 import { registerHealthRoutes } from "./platform/health.js";
+import { registerInputGuard } from "./platform/input-guard.js";
 import type { ApiModule, ModuleDeps } from "./platform/module.js";
 import { trackOperations } from "./platform/routes.js";
 import { registerRateLimits } from "./platform/rate-limit.js";
@@ -79,6 +80,7 @@ export async function buildApp(deps: ModuleDeps, opts: BuildAppOptions = {}): Pr
   await registerSessionAuth(app, deps);
   registerRateLimits(app, deps);
   registerCsrf(app, deps);
+  registerInputGuard(app);
   registerHealthRoutes(app, deps);
   for (const mod of opts.modules ?? MODULES) {
     await app.register(async (scope) => {

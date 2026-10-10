@@ -52,6 +52,15 @@ describe("toProblem", () => {
     expect(toProblem(new TooManyRequestsError(0), rid).headers).toEqual({ "retry-after": "1" });
   });
 
+  it.each(["22021", "22P05"])("maps Postgres %s (text Postgres cannot store, e.g. NUL) to a 400, not a 500", (code) => {
+    const pgError = Object.assign(new Error("invalid byte sequence for encoding UTF8: 0x00"), { code });
+    expect(toProblem(pgError, rid, "/v1/x").problem).toMatchObject({
+      status: 400,
+      type: PROBLEM_TYPES.validation,
+      detail: "The request could not be parsed.",
+    });
+  });
+
   it("answers unknown errors with a generic 500 and no internals", () => {
     const secret = new Error("select * from users where password = 'hunter2'");
     const { problem } = toProblem(secret, rid, "/v1/x");

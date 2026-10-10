@@ -20,10 +20,14 @@ export const IsoDateTime = z.iso
   .datetime({ offset: true })
   .meta({ description: "Instant (RFC 3339)", example: "2026-09-28T03:50:56.543Z" });
 
+/** Postgres text cannot hold U+0000; the API's input guard refuses it everywhere, and these schemas say so too. */
+const noNul = (value: string) => !value.includes("\0");
+const NO_NUL = { message: "Must not contain NUL (U+0000) characters" } as const;
+
 /** Trimmed single-line text. */
-export const ShortText = (max: number) => z.string().trim().min(1).max(max);
+export const ShortText = (max: number) => z.string().trim().min(1).max(max).refine(noNul, NO_NUL);
 /** Trimmed multi-line text that may be empty. */
-export const LongText = (max: number) => z.string().max(max);
+export const LongText = (max: number) => z.string().max(max).refine(noNul, NO_NUL);
 
 /** Opaque pagination cursor. */
 export const Cursor = z

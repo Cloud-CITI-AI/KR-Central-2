@@ -111,6 +111,12 @@ function fieldPath(instancePath: string, context: string): string {
   return path === "" ? context : path;
 }
 
+/** Postgres 22021 (invalid byte sequence for encoding, e.g. NUL in text) and 22P05 (NUL in jsonb). */
+function isUntranslatableText(error: unknown): boolean {
+  const code = typeof error === "object" && error !== null ? (error as { code?: unknown }).code : undefined;
+  return code === "22021" || code === "22P05";
+}
+
 export interface MappedProblem {
   readonly problem: Problem;
   readonly headers: Readonly<Record<string, string>>;
@@ -143,6 +149,10 @@ export function toProblem(error: unknown, requestId: string, instance?: string):
       message: v.message ?? "Invalid value",
     }));
     return { headers: {}, problem: base(400, PROBLEM_TYPES.validation, "Validation failed", { errors }) };
+  }
+  if (isUntranslatableText(error)) {
+    // Backstop for text Postgres cannot store (U+0000): client input never produces a 5xx. The input guard names the field first.
+    return toProblem(new BadRequestError({ detail: MALFORMED_DETAIL }), requestId, instance);
   }
   if (typeof error === "object" && error !== null && !isResponseSerializationError(error)) {
     const { statusCode, code } = error as Partial<FastifyError>;
