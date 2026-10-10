@@ -86,6 +86,50 @@ describe("classifyContent treats UTF-8 text without NUL as text even when it sta
   });
 });
 
+describe("classifyContent accepts an 8-bit .eml in a non-UTF-8 charset (spec 10.3, 11)", () => {
+  const latin1 = (body: string, extra = "") =>
+    Buffer.from(
+      "From: Alex <alex@example.test>\r\nTo: sam@example.test\r\nSubject: Caf\xe9\r\n" +
+        "MIME-Version: 1.0\r\nContent-Type: text/plain; charset=iso-8859-1\r\n" +
+        `Content-Transfer-Encoding: 8bit\r\n${extra}\r\n${body}`,
+      "latin1",
+    );
+
+  it("accepts latin1 bytes under an .eml name", async () => {
+    const head = latin1("Caf\xe9 au lait for the synthetic job.\r\n");
+    expect(await classifyContent(head, "latin1.eml")).toEqual({
+      kind: "email",
+      contentType: "message/rfc822",
+      extension: "eml",
+    });
+  });
+
+  it("accepts Windows-1252 and a head cut mid-line", async () => {
+    expect(await classifyContent(latin1("Price \x80 12\r\n"), "a.EML")).toMatchObject({ kind: "email" });
+    const cut = latin1("x").subarray(0, 70);
+    expect(await classifyContent(cut, "a.eml")).toMatchObject({ kind: "email" });
+  });
+
+  it("still refuses NUL and binary control bytes, non-mail text and other names", async () => {
+    expect(await classifyContent(latin1("a\0b"), "a.eml")).toHaveProperty("rejected");
+    expect(await classifyContent(latin1("a\x01b"), "a.eml")).toHaveProperty("rejected");
+    expect(await classifyContent(Buffer.from("Caf\xe9 au lait, no headers\r\n", "latin1"), "a.eml")).toHaveProperty(
+      "rejected",
+    );
+    // A non-UTF-8 message under a text name is still binary data: only .eml carries charsets.
+    expect(await classifyContent(latin1("Caf\xe9"), "a.txt")).toEqual({
+      rejected: "Not a recognised file type (binary data, not UTF-8 text)",
+    });
+  });
+
+  it("still refuses an executable renamed .eml", async () => {
+    expect(await classifyContent(bytes("MZ", [0x90, 0xff], zeros(100)), "a.eml")).toHaveProperty("rejected");
+    expect(await classifyContent(bytes("MZ", [0x90, 0xff, 0xfe]), "a.eml")).toMatchObject({
+      rejected: expect.stringMatching(/Executable|not accepted|binary/) as string,
+    });
+  });
+});
+
 describe("classifyContent accepts text only under a text name (TXT, CSV, MD)", () => {
   it.each([
     "evil.vbe",

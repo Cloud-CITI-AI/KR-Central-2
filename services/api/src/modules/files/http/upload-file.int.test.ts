@@ -280,6 +280,24 @@ describe("uploadFile (real Postgres, in-memory storage)", () => {
     ).toBe("text");
   });
 
+  it("accepts an 8-bit .eml in a non-UTF-8 charset into the 4.3 email slot", async () => {
+    const job = await fresh();
+    const data = Buffer.from(
+      "From: Sam <sam@example.test>\r\nTo: kr@example.test\r\nSubject: Caf\xe9 query\r\n" +
+        "MIME-Version: 1.0\r\nContent-Type: text/plain; charset=iso-8859-1\r\n" +
+        "Content-Transfer-Encoding: 8bit\r\n\r\nCaf\xe9 au lait for the synthetic job.\r\n",
+      "latin1",
+    );
+    const res = await slotUpload(job.id, staff, "i4_3", "email", "latin1.eml", data);
+    expect(res.statusCode).toBe(201);
+    expect(res.json<UploadBody>().file).toMatchObject({
+      kind: "email",
+      name: "latin1.eml",
+      contentType: "message/rfc822",
+    });
+    expect((await storedKeys(t)).length).toBeGreaterThan(0);
+  });
+
   it("refuses text under a script, shortcut, registry or executable name (415) and stores nothing", async () => {
     const job = await fresh();
     const condition = await f.makeCondition({ jobId: job.id, number: 1, agency: "Western Power" });

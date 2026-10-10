@@ -90,7 +90,21 @@ function decodeUtf8(head: Uint8Array): string | undefined {
   }
 }
 
+/** Bytes no mail message contains: NUL and C0 controls other than tab, LF, CR, form feed and ESC (ISO-2022 charsets). */
+const isBinaryControl = (b: number): boolean =>
+  b <= 0x08 || b === 0x0b || (b >= 0x0e && b <= 0x1a) || (b >= 0x1c && b <= 0x1f) || b === 0x7f;
+
+/**
+ * An .eml may be 8-bit in any charset (spec §10.3: "charset"), so it is not required to be UTF-8: the header block is
+ * ASCII whatever the body uses, so it is checked on a latin1 view of the bytes. NUL and control bytes still reject it.
+ */
+function isRfc822Message(head: Uint8Array): boolean {
+  if (head.some(isBinaryControl)) return false;
+  return looksLikeRfc822(Buffer.from(head.buffer, head.byteOffset, head.byteLength).toString("latin1").trimStart());
+}
+
 function classifyText(head: Uint8Array, fileName: string): ClassifyResult {
+  if (extensionOf(fileName) === "eml" && isRfc822Message(head)) return accepted("email", "message/rfc822", "eml");
   const text = decodeUtf8(head);
   if (text === undefined) return reject("Not a recognised file type (binary data, not UTF-8 text)");
   if (head.includes(0)) return reject("Not a recognised file type (binary data)");
