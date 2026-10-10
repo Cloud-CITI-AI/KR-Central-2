@@ -8,7 +8,7 @@ import { PROFILE } from "./budgets";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: "**/*.spec.ts",
+  testMatch: "web-vitals.spec.ts",
   outputDir: "../test-results/perf",
   globalSetup: "../e2e/global-setup.ts",
   // One page at a time: parallel loads would compete for the CPU being measured.
