@@ -15,6 +15,10 @@ const mod: ApiModule = {
       if (query.q === "boom") throw new Error("connection to 10.0.0.5 refused (password=hunter2)");
       throw new ForbiddenError({ detail: "Not for you." });
     });
+    defineRoute(app, "getJob", ({ auth }) => {
+      markAuthzChecked(auth);
+      throw new ForbiddenError();
+    });
     defineRoute(app, "createNote", ({ auth }) => {
       markAuthzChecked(auth);
       return Promise.reject(new Error("unreachable"));
@@ -61,6 +65,28 @@ describe("error responses over HTTP (signed in)", () => {
     expect(res.statusCode).toBe(404);
     expect(res.headers["content-type"]).toContain("application/problem+json");
     expect(res.json()).toMatchObject({ type: "urn:kr:problem:not-found", instance: "/v1/nope" });
+  });
+
+  it("answers a path parameter over the length limit with a problem+json 414 and the request id, never the raw path", async () => {
+    const long = "a".repeat(600);
+    for (const headers of [{ cookie: me.cookie }, {}]) {
+      const res = await t.app.inject({ url: `/v1/jobs/${long}`, headers });
+      expect(res.statusCode).toBe(414);
+      expect(res.headers["content-type"]).toContain("application/problem+json");
+      const body = res.json<Record<string, unknown>>();
+      expect(body).toMatchObject({ type: "urn:kr:problem:uri-too-long", status: 414 });
+      expect(body.requestId).toBe(res.headers["x-request-id"]);
+      expect(body).not.toHaveProperty("code");
+      expect(res.body).not.toContain("aaaa");
+    }
+  });
+
+  it("answers malformed percent-encoding in a path with a problem+json 400 that does not echo it", async () => {
+    const res = await t.app.inject({ url: "/v1/jobs/%E0%A4%A" });
+    expect(res.statusCode).toBe(400);
+    expect(res.headers["content-type"]).toContain("application/problem+json");
+    expect(res.json()).toMatchObject({ type: "urn:kr:problem:validation", requestId: res.headers["x-request-id"] });
+    expect(res.body).not.toContain("%E0");
   });
 
   it("accepts JSON bodies only: text/plain is 415 rather than a validation error", async () => {

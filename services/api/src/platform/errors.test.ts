@@ -106,4 +106,21 @@ describe("toProblem", () => {
     expect(problem).toMatchObject({ status: 400, detail: "The request could not be parsed." });
     expect(JSON.stringify(problem)).not.toContain("token");
   });
+
+  it("maps Fastify's path-parameter length error (414) to a problem that does not echo the path", () => {
+    const path = `/v1/jobs/${"a".repeat(600)}`;
+    const tooLong = Object.assign(new Error(`'${path}' is exceeding the max param length`), {
+      statusCode: 414,
+      code: "FST_ERR_MAX_PARAM_LENGTH",
+    });
+    const { problem } = toProblem(tooLong, rid);
+    expect(problem).toEqual({
+      type: PROBLEM_TYPES.uriTooLong,
+      title: "URI too long",
+      status: 414,
+      detail: "A value in the address is too long.",
+      requestId: rid,
+    });
+    expect(JSON.stringify(problem)).not.toContain("aaaa");
+  });
 });

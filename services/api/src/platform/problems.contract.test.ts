@@ -47,6 +47,8 @@ describe("platform problem responses match the Problem schema in openapi.yaml", 
           body: "x",
         }),
     ],
+    ["414 path parameter too long", 414, () => t.app.inject({ url: `/v1/jobs/${"a".repeat(600)}` })],
+    ["400 malformed percent-encoding in the path", 400, () => t.app.inject({ url: "/v1/jobs/%E0%A4%A" })],
     ["429 rate limited", 429, () => apiRequest(t, { url: "/test/whoami", as: me })],
   ];
 

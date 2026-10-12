@@ -116,6 +116,7 @@ export const PROBLEM_TYPES = {
   preconditionRequired: "urn:kr:problem:precondition-required",
   payloadTooLarge: "urn:kr:problem:payload-too-large",
   unsupportedMediaType: "urn:kr:problem:unsupported-media-type",
+  uriTooLong: "urn:kr:problem:uri-too-long",
   fileNotReady: "urn:kr:problem:file-not-ready",
   fileRejected: "urn:kr:problem:file-rejected",
   rateLimited: "urn:kr:problem:rate-limited",

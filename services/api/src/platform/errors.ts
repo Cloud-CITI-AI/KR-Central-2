@@ -5,7 +5,7 @@
  */
 import { PROBLEM_TYPES, type Problem, type ProblemType } from "@kr/contracts";
 import { StorageUnavailableError } from "@kr/storage";
-import type { FastifyError, FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { hasZodFastifySchemaValidationErrors, isResponseSerializationError } from "fastify-type-provider-zod";
 
 export interface FieldError {
@@ -84,6 +84,11 @@ export class PayloadTooLargeError extends AppError {
     super(413, PROBLEM_TYPES.payloadTooLarge, "Payload too large", opts);
   }
 }
+export class UriTooLongError extends AppError {
+  constructor(opts?: AppErrorOptions) {
+    super(414, PROBLEM_TYPES.uriTooLong, "URI too long", opts);
+  }
+}
 export class UnsupportedMediaTypeError extends AppError {
   constructor(opts?: AppErrorOptions) {
     super(415, PROBLEM_TYPES.unsupportedMediaType, "Unsupported media type", opts);
@@ -108,6 +113,7 @@ export const STORAGE_RETRY_AFTER_SECONDS = 5;
 
 const INTERNAL_TITLE = "Internal server error";
 const MALFORMED_DETAIL = "The request could not be parsed.";
+const TOO_LONG_DETAIL = "A value in the address is too long.";
 
 /** "/items/0/name" → "items.0.name"; empty (request-level issue) → the request part (body, query …). */
 function fieldPath(instancePath: string, context: string): string {
@@ -173,6 +179,8 @@ export function toProblem(error: unknown, requestId: string, instance?: string):
     const { statusCode, code } = error as Partial<FastifyError>;
     if (statusCode === 413) return toProblem(new PayloadTooLargeError(), requestId, instance);
     if (statusCode === 415) return toProblem(new UnsupportedMediaTypeError(), requestId, instance);
+    // Never echo the path (Fastify's message is "'<raw path>' is exceeding the max param length"), nor use it as `instance`.
+    if (statusCode === 414) return toProblem(new UriTooLongError({ detail: TOO_LONG_DETAIL }), requestId);
     if (typeof statusCode === "number" && statusCode >= 400 && statusCode < 500 && typeof code === "string") {
       return toProblem(new BadRequestError({ detail: MALFORMED_DETAIL }), requestId, instance);
     }
@@ -195,6 +203,16 @@ function describeError(error: unknown): Record<string, unknown> {
 
 export function requestInstance(request: FastifyRequest): string {
   return request.url.split("?")[0] ?? request.url;
+}
+
+/**
+ * Fastify's `frameworkErrors` hook: errors raised before a route is chosen (a path parameter over `maxParamLength`, a
+ * malformed percent-encoding in the path) bypass `setErrorHandler`, and Fastify's own reply would be a raw JSON body that
+ * echoes the path. Answer them as problem+json with the request id. The path is never echoed (no `instance`, no `detail` from it).
+ */
+export function frameworkErrorHandler(error: FastifyError, request: FastifyRequest, reply: FastifyReply): void {
+  const { problem } = toProblem(error, request.id);
+  void reply.code(problem.status).header("x-request-id", request.id).type("application/problem+json").send(problem);
 }
 
 /** Install the problem+json error and not-found handlers on the root instance. */

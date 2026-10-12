@@ -8,7 +8,7 @@ import Fastify, { LogController, type FastifyBaseLogger, type FastifyInstance } 
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { MODULES } from "./modules/index.js";
 import { registerCsrf } from "./platform/csrf.js";
-import { registerErrorHandling } from "./platform/errors.js";
+import { frameworkErrorHandler, registerErrorHandling } from "./platform/errors.js";
 import { registerHealthRoutes } from "./platform/health.js";
 import { registerInputGuard } from "./platform/input-guard.js";
 import type { ApiModule, ModuleDeps } from "./platform/module.js";
@@ -18,6 +18,9 @@ import { registerSecurityHeaders } from "./platform/security-headers.js";
 import { registerSessionAuth } from "./platform/session-auth.js";
 
 export { registeredOperations, unregisteredOperations } from "./platform/routes.js";
+
+/** Longest path parameter the router accepts (ids are UUIDs, job numbers 32 characters); longer is a 414 problem. */
+export const MAX_PARAM_LENGTH = 100;
 
 const REQUEST_ID = /^[A-Za-z0-9._-]{8,64}$/;
 
@@ -48,6 +51,9 @@ export async function buildApp(deps: ModuleDeps, opts: BuildAppOptions = {}): Pr
     trustProxy: trustHops(deps.config.TRUST_PROXY_HOPS),
     // JSON bodies only (100 KB by default); uploads stream through their own limits (UPLOAD_MAX_BYTES).
     bodyLimit: deps.config.JSON_BODY_LIMIT_BYTES,
+    routerOptions: { maxParamLength: MAX_PARAM_LENGTH },
+    // Errors raised before routing (over-long path parameter, malformed path encoding) are problem+json too.
+    frameworkErrors: frameworkErrorHandler,
   });
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
