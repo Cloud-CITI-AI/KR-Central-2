@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { queryKeys } from "@/lib/api";
 import { BannerProvider, useBanners } from "@/lib/banner/BannerProvider";
-import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
+import { handlerFor, mockApi, mockOffline, mockProblem, mockRateLimited } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { createTestQueryClient } from "@/test/render";
 import { syntheticJob } from "./test-fixtures";
@@ -136,6 +136,27 @@ describe("useUpdateJob", () => {
     });
     expect(queryClient.getQueryData<typeof job>(queryKeys.jobs.detail(job.id))?.address).toBe(job.address);
     expect(result.current.banners[0]?.text).toContain("Request ID: req-1");
+  });
+
+  it("says to wait on a 429 and that the server can't be reached on no connection, and rolls back", async () => {
+    const { job, queryClient, result } = setup();
+    server.use(mockRateLimited("updateJob"));
+    await act(async () => {
+      await expect(result.current.update.mutateAsync({ address: "9 Example St" })).rejects.toThrow();
+    });
+    expect(result.current.banners[0]?.text).toBe(
+      "Too many changes – wait a moment and try again. (Request ID: req-429)",
+    );
+    server.use(mockOffline("updateJob"));
+    await act(async () => {
+      await expect(result.current.update.mutateAsync({ address: "9 Example St" })).rejects.toThrow();
+    });
+    await waitFor(() => {
+      expect(result.current.banners[0]?.text).toBe(
+        "Can't reach the server – check your connection. What you see may be out of date, and changes can't be saved.",
+      );
+    });
+    expect(queryClient.getQueryData<typeof job>(queryKeys.jobs.detail(job.id))?.address).toBe(job.address);
   });
 
   it("leaves a 409 to the caller: rolls back without a banner", async () => {

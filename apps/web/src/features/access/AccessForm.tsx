@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { api, ApiProblem, queryKeys } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { saveFailedMessage } from "@/lib/messages";
 import { ACCESS_MESSAGES, ROLE_OPTIONS, addedText, duplicateText, saveFailedText } from "./messages";
 import { useJobChoices } from "./queries";
 import styles from "./AccessForm.module.css";
@@ -48,7 +49,7 @@ export function AccessForm() {
         kind: "error",
         text: duplicate
           ? duplicateText(body.email, jobNumberOf(body.jobId))
-          : saveFailedText(problem instanceof ApiProblem ? problem.requestId : undefined),
+          : saveFailedMessage(problem, saveFailedText),
       });
     },
   });

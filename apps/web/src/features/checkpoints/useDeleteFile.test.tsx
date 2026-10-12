@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { PROBLEM_TYPES, type FileMeta, type JobDetail } from "@kr/contracts";
 import { syntheticJob } from "@/features/tracker/test-fixtures";
 import { queryKeys } from "@/lib/api";
-import { handlerFor, mockProblem } from "@/test/msw/handlers";
+import { handlerFor, mockOffline, mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { syntheticFile } from "./test-fixtures";
 import { renderWithJob } from "./test-utils";
@@ -62,6 +62,19 @@ describe("useDeleteFile with another list of files", () => {
     server.use(mockProblem("deleteFile", 500));
     await userEvent.click(screen.getByRole("button", { name: "remove" }));
     expect(await screen.findByText(/A change couldn't be saved/)).toBeInTheDocument();
+    expect(from.restore).toHaveBeenCalledWith(expect.anything(), file);
+    expect(title()).toBe("restored");
+  });
+
+  it("says the server can't be reached when the removal never arrives, and puts the file back", async () => {
+    const { file, from, title } = setup();
+    server.use(mockOffline("deleteFile"));
+    await userEvent.click(screen.getByRole("button", { name: "remove" }));
+    expect(
+      await screen.findByText(
+        "Can't reach the server – check your connection. What you see may be out of date, and changes can't be saved.",
+      ),
+    ).toBeInTheDocument();
     expect(from.restore).toHaveBeenCalledWith(expect.anything(), file);
     expect(title()).toBe("restored");
   });

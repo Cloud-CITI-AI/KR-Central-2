@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { api, ApiProblem, queryKeys } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
-import { MESSAGES, saveFailedText } from "@/lib/messages";
+import { MESSAGES, saveFailedMessage } from "@/lib/messages";
 import { forgetLastJob } from "./lastJob";
 import { archiveConfirmText } from "./messages";
 
@@ -39,7 +39,7 @@ export function ArchiveJobDialog({ job, open, onClose }: ArchiveJobDialogProps) 
         await queryClient.refetchQueries({ queryKey });
         banners.show("stale", MESSAGES.stale);
       } else {
-        banners.show("save-failed", saveFailedText(error instanceof ApiProblem ? error.requestId : undefined));
+        banners.show("save-failed", saveFailedMessage(error));
       }
     },
   });

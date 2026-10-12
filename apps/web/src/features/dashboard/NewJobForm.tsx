@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { api, ApiProblem, queryKeys } from "@/lib/api";
+import { saveFailedMessage } from "@/lib/messages";
 import { NEW_JOB_MESSAGES, duplicateJobText, saveFailedJobText } from "./messages";
 import styles from "./NewJobForm.module.css";
 
@@ -42,11 +43,10 @@ export function NewJobForm({ onCancel }: NewJobFormProps) {
       router.push(`/jobs/${job.id}`);
     },
     onError: (problem, body) => {
-      const requestId = problem instanceof ApiProblem ? problem.requestId : undefined;
       if (problem instanceof ApiProblem && problem.status === 409) {
         setError(duplicateJobText(body.jobNumber));
         focus("jobNumber");
-      } else setError(saveFailedJobText(requestId));
+      } else setError(saveFailedMessage(problem, saveFailedJobText));
     },
   });
 

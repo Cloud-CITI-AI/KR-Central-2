@@ -5,7 +5,7 @@ import { HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { queryKeys } from "@/lib/api";
 import { expectNoAxeViolations } from "@/test/axe";
-import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
+import { handlerFor, mockApi, mockProblem, mockRateLimited } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { ArchiveJobDialog } from "./ArchiveJobDialog";
 import { LAST_JOB_KEY } from "./lastJob";
@@ -81,5 +81,15 @@ describe("ArchiveJobDialog", () => {
     expect(await screen.findByText(/A change couldn't be saved.*Request ID: req-9/)).toBeInTheDocument();
     expect(onClose).toHaveBeenCalled();
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("on a 429 closes and says to wait, with the request id", async () => {
+    const { onClose } = setup();
+    server.use(mockRateLimited("deleteJob"));
+    await userEvent.click(screen.getByRole("button", { name: "ARCHIVE" }));
+    expect(
+      await screen.findByText("Too many changes – wait a moment and try again. (Request ID: req-429)"),
+    ).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalled();
   });
 });

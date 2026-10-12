@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { api, ApiProblem, queryKeys } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
-import { saveFailedText } from "@/lib/messages";
+import { saveFailedMessage } from "@/lib/messages";
 import { mapCheckpoint } from "./cache";
 import { refreshJob } from "./refreshJob";
 
@@ -54,7 +54,7 @@ export function useDeleteFile(jobId: string, from: string | FileListEdit): UseDe
       } catch (error) {
         if (!(error instanceof ApiProblem && error.status === 404)) {
           queryClient.setQueryData<JobDetail>(queryKey, (job) => job && edit.restore(job, file));
-          banners.show("save-failed", saveFailedText(error instanceof ApiProblem ? error.requestId : undefined));
+          banners.show("save-failed", saveFailedMessage(error));
         }
       } finally {
         setRemoving((ids) => {

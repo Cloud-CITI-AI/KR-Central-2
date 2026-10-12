@@ -8,7 +8,7 @@ import { MESSAGES } from "@/lib/messages";
 import { navigation } from "@/lib/navigation";
 import { expectNoAxeViolations } from "@/test/axe";
 import { syntheticMe } from "@/test/fixtures";
-import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
+import { handlerFor, mockApi, mockOffline, mockProblem, mockRateLimited } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
 import { JobNotes } from "./JobNotes";
@@ -122,6 +122,24 @@ describe("JobNotes", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "That note couldn't be saved. Try again. (Request ID: req-note-1)",
     );
+    expect(textbox()).toHaveValue("Keep me");
+  });
+
+  it("says to wait on a 429 and that the server can't be reached when the request never arrives, keeping the text", async () => {
+    server.use(list(), mockRateLimited("createNote"));
+    renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
+    await userEvent.type(textbox(), "Keep me");
+    await userEvent.click(screen.getByRole("button", { name: "Add note" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Too many changes – wait a moment and try again. (Request ID: req-429)",
+    );
+    server.use(mockOffline("createNote"));
+    await userEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Can't reach the server – check your connection. What you see may be out of date, and changes can't be saved.",
+      );
+    });
     expect(textbox()).toHaveValue("Keep me");
   });
 

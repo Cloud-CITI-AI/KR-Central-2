@@ -3,7 +3,7 @@ import type { CheckpointState, JobDetail } from "@kr/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiProblem, queryKeys } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
-import { MESSAGES, saveFailedText } from "@/lib/messages";
+import { MESSAGES, saveFailedMessage } from "@/lib/messages";
 import { mapCheckpoint } from "./cache";
 import { refreshJob } from "./refreshJob";
 
@@ -80,7 +80,7 @@ export function useCheckpointWrite<TVars>({
         }
         banners.show("stale", MESSAGES.stale);
       } else {
-        banners.show("save-failed", saveFailedText(error instanceof ApiProblem ? error.requestId : undefined));
+        banners.show("save-failed", saveFailedMessage(error));
       }
     },
     onSuccess: (checkpoint) => {

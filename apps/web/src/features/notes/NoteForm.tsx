@@ -4,9 +4,9 @@ import { useRef, useState, type SubmitEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { ApiProblem, draftKey, useDraft } from "@/lib/api";
+import { draftKey, useDraft } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
-import { MESSAGES } from "@/lib/messages";
+import { MESSAGES, saveFailedMessage } from "@/lib/messages";
 import { useSession } from "@/lib/session";
 import { AUDIENCE_OPTIONS, saveFailedText } from "./messages";
 import { useAddNote } from "./queries";
@@ -60,7 +60,7 @@ export function NoteForm({ jobId }: NoteFormProps) {
         text.current?.focus();
       },
       onError: (problem) => {
-        setError(saveFailedText(problem instanceof ApiProblem ? problem.requestId : undefined));
+        setError(saveFailedMessage(problem, saveFailedText));
       },
     });
   };

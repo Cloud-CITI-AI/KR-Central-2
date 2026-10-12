@@ -24,12 +24,17 @@ export function saveFailedText(requestId: string | undefined): string {
 }
 
 /**
- * The save-failure banner text for what actually went wrong: no connection (status 0), rate limited (429) or anything
- * else (reload text with the request id). Connectivity loss has no request id, by definition.
+ * The save-failure text for what actually went wrong, for every write (§5.1, §14): no connection (status 0), rate limited
+ * (429) or anything else, which says `otherwise` (the feature's own wording, the reload text by default) with the request
+ * id. Connectivity loss has no request id, by definition.
  */
-export function saveFailedMessage(error: unknown): string {
-  if (!(error instanceof ApiProblem)) return MESSAGES.saveFailed;
+export function saveFailedMessage(
+  error: unknown,
+  otherwise: (requestId: string | undefined) => string = saveFailedText,
+): string {
+  if (!(error instanceof ApiProblem)) return otherwise(undefined);
   if (error.status === 0) return MESSAGES.offline;
-  const withId = (text: string) => (error.requestId ? `${text} (Request ID: ${error.requestId})` : text);
-  return error.status === 429 ? withId(MESSAGES.tooManyChanges) : saveFailedText(error.requestId);
+  if (error.status === 429)
+    return error.requestId ? `${MESSAGES.tooManyChanges} (Request ID: ${error.requestId})` : MESSAGES.tooManyChanges;
+  return otherwise(error.requestId);
 }

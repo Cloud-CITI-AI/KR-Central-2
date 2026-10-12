@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { z } from "zod";
 import { api, ApiProblem, queryKeys } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
-import { MESSAGES, saveFailedText } from "@/lib/messages";
+import { MESSAGES, saveFailedMessage } from "@/lib/messages";
 
 export type UpdateJobBody = z.output<typeof UpdateJobRequest>;
 
@@ -59,7 +59,7 @@ export function useUpdateJob(jobId: string) {
         queryClient.setQueryData<JobDetail>(queryKey, (job) => job && applyJobEdit(job, body));
         banners.show("stale", MESSAGES.stale);
       } else {
-        banners.show("save-failed", saveFailedText(error instanceof ApiProblem ? error.requestId : undefined));
+        banners.show("save-failed", saveFailedMessage(error));
       }
     },
     onSuccess: (job) => {

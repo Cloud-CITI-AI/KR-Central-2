@@ -17,6 +17,21 @@ export function mockApi(operationId: OperationId, body: unknown, status = 200): 
   );
 }
 
+/** A 429 with `Retry-After` (§14) for `operationId`: problem+json carrying `requestId`. */
+export function mockRateLimited(operationId: OperationId, requestId = "req-429"): HttpHandler {
+  return handlerFor(operationId, () =>
+    HttpResponse.json(
+      { type: PROBLEM_TYPES.rateLimited, title: "Too many requests", status: 429, requestId },
+      { status: 429, headers: { "content-type": "application/problem+json", "retry-after": "30" } },
+    ),
+  );
+}
+
+/** The request never arrives (connection lost): the client sees status 0. */
+export function mockOffline(operationId: OperationId): HttpHandler {
+  return handlerFor(operationId, () => HttpResponse.error());
+}
+
 /** Answer with an RFC 9457 problem (contract shape), e.g. `mockProblem("updateJob", 412, PROBLEM_TYPES.preconditionFailed)`. */
 export function mockProblem(
   operationId: OperationId,

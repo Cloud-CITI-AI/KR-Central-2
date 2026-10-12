@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { useJob } from "@/features/tracker";
 import { queryKeys } from "@/lib/api";
 import { BannerProvider, useBanners } from "@/lib/banner/BannerProvider";
-import { mockApi, mockProblem } from "@/test/msw/handlers";
+import { mockApi, mockOffline, mockProblem, mockRateLimited } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { createTestQueryClient } from "@/test/render";
 import { conditionAt, syntheticConditionJob, withCondition } from "./test-fixtures";
@@ -80,5 +80,30 @@ describe("useUpdateCondition on a 412", () => {
       await expect(result.current.write.mutateAsync({ agency: "WAPC" })).rejects.toThrow();
     });
     expect(cached()).toMatchObject({ agency: "Water Corporation", clientComment: "", version: 2 });
+  });
+});
+
+describe("useUpdateCondition on 429 and no connection", () => {
+  it("says to wait (with the request id) on a 429 and that the server can't be reached when the request never arrives", async () => {
+    const { cached, condition, result } = setup();
+    server.use(mockRateLimited("updateCondition"));
+    await act(async () => {
+      await expect(result.current.write.mutateAsync({ isCleared: true })).rejects.toThrow();
+    });
+    await waitFor(() => {
+      expect(result.current.banners.map((b) => b.text)).toEqual([
+        "Too many changes – wait a moment and try again. (Request ID: req-429)",
+      ]);
+    });
+    server.use(mockOffline("updateCondition"));
+    await act(async () => {
+      await expect(result.current.write.mutateAsync({ isCleared: true })).rejects.toThrow();
+    });
+    await waitFor(() => {
+      expect(result.current.banners.map((b) => b.text)).toEqual([
+        "Can't reach the server – check your connection. What you see may be out of date, and changes can't be saved.",
+      ]);
+    });
+    expect(cached().isCleared).toBe(condition.isCleared);
   });
 });

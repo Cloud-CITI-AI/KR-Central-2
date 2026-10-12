@@ -7,10 +7,12 @@ import { syntheticJob } from "@/features/tracker/test-fixtures";
 import { useJob } from "@/features/tracker";
 import { queryKeys } from "@/lib/api";
 import { BannerProvider, useBanners } from "@/lib/banner/BannerProvider";
-import { mockApi, mockProblem } from "@/test/msw/handlers";
+import { mockApi, mockOffline, mockProblem, mockRateLimited } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { createTestQueryClient } from "@/test/render";
 import { checkpointOf, withCheckpoint } from "./test-utils";
+import { useMarkPaid } from "./usePaid";
+import { useRecordDecision } from "./useRecordDecision";
 import { useUpdateCheckpoint } from "./useUpdateCheckpoint";
 
 function setup(key = "i8_3") {
@@ -87,5 +89,45 @@ describe("useCheckpointWrite on a 412", () => {
     });
     expect(checkpointOf(cached()!, key).krNote).toBe("typed by me");
     expect(job.checkpoints.length).toBeGreaterThan(0);
+  });
+});
+
+describe("useCheckpointWrite on 429 and no connection (every checkpoint write, not only status and KR note)", () => {
+  it("says to wait on a 429 (mark paid) and that the server can't be reached (decision)", async () => {
+    const job = syntheticJob();
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryDefaults(queryKeys.jobs.detail(job.id), { staleTime: Infinity });
+    queryClient.setQueryData(queryKeys.jobs.detail(job.id), job);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <BannerProvider>{children}</BannerProvider>
+      </QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () => ({
+        paid: useMarkPaid(job.id, "i8_3"),
+        decision: useRecordDecision(job.id, "i8_3"),
+        banners: useBanners().banners,
+      }),
+      { wrapper },
+    );
+    server.use(mockRateLimited("markPaid"));
+    await act(async () => {
+      await expect(result.current.paid.mutateAsync(undefined)).rejects.toThrow();
+    });
+    await waitFor(() => {
+      expect(result.current.banners.map((b) => b.text)).toEqual([
+        "Too many changes – wait a moment and try again. (Request ID: req-429)",
+      ]);
+    });
+    server.use(mockOffline("recordDecision"));
+    await act(async () => {
+      await expect(result.current.decision.mutateAsync({ value: "accepted", comment: "" })).rejects.toThrow();
+    });
+    await waitFor(() => {
+      expect(result.current.banners.map((b) => b.text)).toEqual([
+        "Can't reach the server – check your connection. What you see may be out of date, and changes can't be saved.",
+      ]);
+    });
   });
 });

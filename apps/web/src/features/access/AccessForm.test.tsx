@@ -1,12 +1,12 @@
 import { PROBLEM_TYPES } from "@kr/contracts";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { syntheticJobCard } from "@/features/dashboard/test-fixtures";
 import { expectNoAxeViolations } from "@/test/axe";
 import { syntheticMe } from "@/test/fixtures";
-import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
+import { handlerFor, mockApi, mockOffline, mockProblem, mockRateLimited } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
 import { AccessForm } from "./AccessForm";
@@ -130,5 +130,24 @@ describe("AccessForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "That couldn't be saved. Try again. (Request ID: req-acc-1)",
     );
+  });
+
+  it("says to wait on a 429 and that the server can't be reached when the request never arrives", async () => {
+    server.use(jobs(), mockRateLimited("createAccessGrant"));
+    renderWithProviders(<AccessForm />);
+    await ready();
+    await userEvent.type(email(), "a@example.com");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Job" }), open.id);
+    await grant();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Too many changes – wait a moment and try again. (Request ID: req-429)",
+    );
+    server.use(mockOffline("createAccessGrant"));
+    await grant();
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Can't reach the server – check your connection. What you see may be out of date, and changes can't be saved.",
+      );
+    });
   });
 });

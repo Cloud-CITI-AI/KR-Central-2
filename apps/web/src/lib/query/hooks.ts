@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/
 import { api, queryKeys } from "@/lib/api";
 import { ApiProblem } from "@/lib/api/problem";
 import { useBanners } from "@/lib/banner/BannerProvider";
-import { MESSAGES, saveFailedText } from "@/lib/messages";
+import { MESSAGES, saveFailedMessage } from "@/lib/messages";
 
 export interface VersionedMutationOptions<TData, TVars, TResult> {
   /** The cached entity this mutation edits (its refetch also serves the 412 reload). */
@@ -43,7 +43,7 @@ export function useOptimisticVersionedMutation<TData, TVars, TResult = unknown>(
         await queryClient.refetchQueries({ queryKey });
         banners.show("stale", MESSAGES.stale);
       } else {
-        banners.show("save-failed", saveFailedText(error instanceof ApiProblem ? error.requestId : undefined));
+        banners.show("save-failed", saveFailedMessage(error));
       }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),

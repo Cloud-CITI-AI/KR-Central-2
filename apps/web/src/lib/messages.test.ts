@@ -38,4 +38,12 @@ describe("saveFailedMessage (by failure type)", () => {
     expect(saveFailedMessage(new Error("boom"))).toBe(MESSAGES.saveFailed);
     expect(saveFailedMessage(undefined)).toBe(MESSAGES.saveFailed);
   });
+
+  it("keeps connectivity and rate-limit wording but lets a feature word every other failure", () => {
+    const own = (requestId: string | undefined) => `Own text${requestId ? ` (${requestId})` : ""}`;
+    expect(saveFailedMessage(networkProblem(), own)).toBe(MESSAGES.offline);
+    expect(saveFailedMessage(problem(429), own)).toMatch(/^Too many changes/);
+    expect(saveFailedMessage(problem(500), own)).toBe("Own text (req-1)");
+    expect(saveFailedMessage(new Error("boom"), own)).toBe("Own text");
+  });
 });

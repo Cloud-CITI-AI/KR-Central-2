@@ -5,7 +5,7 @@ import { HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import { queryKeys } from "@/lib/api";
 import { expectNoAxeViolations } from "@/test/axe";
-import { handlerFor, mockProblem } from "@/test/msw/handlers";
+import { handlerFor, mockOffline, mockProblem, mockRateLimited } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
 import { NewJobForm } from "./NewJobForm";
@@ -129,6 +129,24 @@ describe("NewJobForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "That couldn't be saved. Try again. (Request ID: req-new-1)",
     );
+  });
+
+  it("says to wait on a 429 and that the server can't be reached when the request never arrives", async () => {
+    setTestUrl("/");
+    server.use(mockRateLimited("createJob"));
+    renderWithProviders(<NewJobForm onCancel={() => undefined} />);
+    await fill({ number: "S-0001", address: "1 Test St", type: "Freehold" });
+    await create();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Too many changes – wait a moment and try again. (Request ID: req-429)",
+    );
+    server.use(mockOffline("createJob"));
+    await create();
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Can't reach the server – check your connection. What you see may be out of date, and changes can't be saved.",
+      );
+    });
   });
 
   it("closes with Cancel", async () => {

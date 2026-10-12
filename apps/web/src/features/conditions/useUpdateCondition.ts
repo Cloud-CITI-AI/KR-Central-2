@@ -3,7 +3,7 @@ import type { Condition, JobDetail } from "@kr/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiProblem, queryKeys } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
-import { MESSAGES, saveFailedText } from "@/lib/messages";
+import { MESSAGES, saveFailedMessage } from "@/lib/messages";
 import { applyConditionEdit, mapCondition, type UpdateConditionBody, type UpdateConditionVars } from "./cache";
 import { refreshJob } from "@/features/checkpoints";
 
@@ -67,7 +67,7 @@ export function useUpdateCondition(jobId: string, conditionId: string) {
         }
         banners.show("stale", MESSAGES.stale);
       } else {
-        banners.show("save-failed", saveFailedText(error instanceof ApiProblem ? error.requestId : undefined));
+        banners.show("save-failed", saveFailedMessage(error));
       }
     },
     onSuccess: (condition) => {

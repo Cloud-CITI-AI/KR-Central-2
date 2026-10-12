@@ -4,7 +4,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
-import { ApiProblem } from "@/lib/api/problem";
+import { ApiProblem, networkProblem } from "@/lib/api/problem";
 import { useBanners } from "@/lib/banner/BannerProvider";
 import { MESSAGES } from "@/lib/messages";
 import { handlerFor, mockApi } from "@/test/msw/handlers";
@@ -156,5 +156,30 @@ describe("useOperation", () => {
 
   it("backs off from 1 s to a 5 s ceiling, counting re-polls from zero", () => {
     expect([0, 1, 2, 3, 4, 10].map(pollDelay)).toEqual([1000, 1500, 2250, 3375, 5000, 5000]);
+  });
+
+  it("says to wait on a 429 and that the server can't be reached on status 0, rolling back both times", async () => {
+    let failure = new ApiProblem({
+      type: PROBLEM_TYPES.rateLimited,
+      title: "Too many requests",
+      status: 429,
+      requestId: "req-429",
+    });
+    renderWithProviders(
+      <Harness mutationFn={() => Promise.reject(failure)} load={() => ({ version: 1, name: "Original" })} />,
+    );
+    await screen.findByText("Original v1");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(
+      await screen.findByText("Too many changes – wait a moment and try again. (Request ID: req-429)"),
+    ).toBeInTheDocument();
+    failure = networkProblem();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(
+      await screen.findByText(
+        "Can't reach the server – check your connection. What you see may be out of date, and changes can't be saved.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Original v1")).toBeInTheDocument();
   });
 });
