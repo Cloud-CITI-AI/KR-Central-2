@@ -61,6 +61,29 @@ describe("emails panel", () => {
     await expectNoAxeViolations(container);
   });
 
+  // PRODUCT_SPEC 5.5: the meta is "From · <email date>". An email without a Date header has no date: the upload time is not one.
+  it("shows no date for an email that has none, instead of the time it was uploaded", () => {
+    const base = syntheticJob();
+    const noDate = (subject: string, from: string | null) =>
+      email(base.id, subject, {
+        email: {
+          parseStatus: "parsed",
+          subject,
+          from,
+          to: null,
+          cc: null,
+          sentAt: null,
+          isPasted: false,
+          bodyText: null,
+        },
+        uploadedAt: "2026-10-01T02:03:00.000Z",
+      });
+    renderCard(withEmails([noDate("No Date header", "Alex Planner"), noDate("No sender either", null)]), "i4_3");
+    expect(screen.getByText("Alex Planner")).toBeInTheDocument();
+    expect(screen.queryByText(/2026|Oct/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/·/)).not.toBeInTheDocument();
+  });
+
   it("lists the emails: count, subject as a button, 'From · date, time', pasted text and a fallback to the file name", async () => {
     const base = syntheticJob();
     const files = [
@@ -72,7 +95,7 @@ describe("emails panel", () => {
           from: null,
           to: null,
           cc: null,
-          sentAt: null,
+          sentAt: "2026-09-29T01:05:00.000Z", // the API stores the paste time as the sent time
           isPasted: true,
           bodyText: null,
         },

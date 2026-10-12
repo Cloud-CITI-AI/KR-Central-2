@@ -15,11 +15,14 @@ export interface EmailRowProps {
   readonly removing: boolean;
 }
 
-/** "From · 28 Sep 2026, 3:50 pm": the sender (or "Pasted text") and when it was sent (or stored). */
+/**
+ * "From · 28 Sep 2026, 3:50 pm" (§5.5): the sender (or "Pasted text") and the email's own date. An email with no Date header (an .eml
+ * without one, a .msg without a submit or delivery time) has no date to show: the time it was uploaded is not the email's date.
+ */
 function metaLine(file: FileMeta): string {
   const { email } = file;
   const from = email?.from ?? (email?.isPasted ? "Pasted text" : null);
-  return [from, formatInstantDateTime(email?.sentAt ?? file.uploadedAt)].filter(Boolean).join(" · ");
+  return [from, email?.sentAt ? formatInstantDateTime(email.sentAt) : null].filter(Boolean).join(" · ");
 }
 
 /** The line that replaces the meta while the email cannot be shown yet, or at all. */
