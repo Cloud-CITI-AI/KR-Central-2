@@ -1,6 +1,7 @@
 .docs {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: 4px;
   margin: 0;
   padding: 0;

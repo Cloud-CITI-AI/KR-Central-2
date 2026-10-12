@@ -1,6 +1,9 @@
 /* prototype .folder, .folder-h, .folder-ic, .n, .slot, .slot-t, .req */
 .folder {
   display: grid;
+  /* one column that may shrink below its content: an unbroken file name (98 characters) otherwise widens the grid, and the page
+     with it, beyond a phone's width (§12: no horizontal scroll) */
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 .head {

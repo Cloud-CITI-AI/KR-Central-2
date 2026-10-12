@@ -140,6 +140,15 @@
   .off .count {
     display: inline;
   }
+  /* an excluded stage keeps its "Not required – no conditions in the Decision Letter" label (§12): it goes on its own line under
+     the name (the name no longer shrinks below its longest word and runs into it) */
+  .off {
+    flex-wrap: wrap;
+  }
+  .off .meta {
+    flex-basis: 100%;
+    margin-left: 21px; /* the chevron (9 px) and the bar's gap (12 px): under the name */
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .chev {
