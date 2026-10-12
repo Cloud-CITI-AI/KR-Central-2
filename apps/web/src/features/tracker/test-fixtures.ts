@@ -83,6 +83,7 @@ export function syntheticJob({
     conditionsSource: null,
     checkpoints,
     conditions,
+    activeOperations: [],
     summary: {
       progress: summariseProgress(input),
       stages: STAGES.map((stage) => summariseStage(stage, input)),

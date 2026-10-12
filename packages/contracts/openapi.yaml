@@ -1465,7 +1465,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "409":
-          description: File not ready or not a conformance PDF
+          description: File not ready or not a conformance PDF, or a reading of this job's
+            conformed date is already queued or running (see
+            JobDetail.activeOperations)
           content:
             application/problem+json:
               schema:
@@ -1561,8 +1563,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "409":
-          description: Conditions exist and replaceExisting is false, or the file is not a
-            ready Decision Letter
+          description: Conditions exist and replaceExisting is false, the file is not a
+            ready Decision Letter, or an extraction for this job is already
+            queued or running (see JobDetail.activeOperations)
           content:
             application/problem+json:
               schema:
@@ -3470,6 +3473,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Condition"
+        activeOperations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActiveOperation"
+          description: "Readings of the Decision Letter or Conformance Notification still
+            queued or running, oldest first. At most one of each type: a second
+            start request is answered 409 while one is active"
         summary:
           type: object
           properties:
@@ -3536,6 +3546,7 @@ components:
         - conditionsSource
         - checkpoints
         - conditions
+        - activeOperations
         - summary
         - capabilities
         - viewerGrantRole
@@ -3898,6 +3909,32 @@ components:
         - version
         - updatedAt
       additionalProperties: false
+    ActiveOperation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+          description: UUID identifier
+          example: 0f8fad5b-d9cb-469f-a165-70867728950e
+        type:
+          type: string
+          enum:
+            - conditions.extract
+            - conformance.read
+        status:
+          type: string
+          enum:
+            - queued
+            - running
+      required:
+        - id
+        - type
+        - status
+      additionalProperties: false
+      description: A conditions extraction or conformed-date reading of this job that
+        is queued or running; poll getOperation with its id
     StageSummary:
       type: object
       properties:

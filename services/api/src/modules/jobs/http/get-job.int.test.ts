@@ -132,6 +132,33 @@ describe("getJob (real Postgres)", () => {
     }
   });
 
+  it("lists the document readings still queued or running as activeOperations, and nothing else (QA r2)", async () => {
+    const job = await f.makeJob();
+    const op = (
+      type: "conditions.extract" | "conformance.read" | "file.scan",
+      status: "queued" | "running" | "succeeded" | "failed",
+    ) =>
+      t.db
+        .insertInto("operations")
+        .values({ job_id: job.id, type, status, payload: JSON.stringify({}) })
+        .returning("id")
+        .executeTakeFirstOrThrow();
+    expect((await get(staff, job.id)).json<Detail>().activeOperations).toEqual([]);
+    const extracting = await op("conditions.extract", "queued");
+    const reading = await op("conformance.read", "running");
+    await op("conditions.extract", "succeeded");
+    await op("conformance.read", "failed");
+    await op("file.scan", "queued");
+    for (const who of [staff, admin]) {
+      const active = (await get(who, job.id)).json<Detail>().activeOperations;
+      expect(active).toEqual([
+        { id: extracting.id, type: "conditions.extract", status: "queued" },
+        { id: reading.id, type: "conformance.read", status: "running" },
+      ]);
+    }
+    expect(JSON.stringify((await get(staff, job.id)).json())).not.toContain("payload");
+  });
+
   it("tells a failed scan the worker will still retry from one that is final (scanRetriesExhausted)", async () => {
     const job = await f.makeJob();
     const retrying = await f.makeFile({ jobId: job.id, checkpointKey: "i2_0", slot: "survey", scanStatus: "error" });

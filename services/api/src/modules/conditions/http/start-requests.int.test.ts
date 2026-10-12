@@ -253,6 +253,70 @@ describe("startConditionsExtraction and startConformanceReading (real Postgres)"
     });
   });
 
+  describe("a second request while one of the same kind is queued or running (QA r2)", () => {
+    const settle = (id: string, status: "succeeded" | "failed") =>
+      t.db.updateTable("operations").set({ status, completed_at: new Date() }).where("id", "=", id).execute();
+
+    it("answers 409 for a second extraction with another Idempotency-Key and queues nothing more", async () => {
+      const job = await fresh();
+      const file = await letter(job);
+      const first = await extract(staff, job, { fileId: file.id });
+      expect(first.statusCode).toBe(202);
+      const second = await extract(staff, job, { fileId: file.id });
+      expect(second.statusCode).toBe(409);
+      expect(second.headers["content-type"]).toContain("application/problem+json");
+      expect(second.json()).toMatchObject({
+        type: "urn:kr:problem:conflict",
+        detail: "The Decision Letter is already being read. Wait for it to finish.",
+      });
+      expect(await operations(job.id)).toHaveLength(1);
+      expect(await audits(job.id, "conditions.%")).toHaveLength(1);
+      // a running one blocks too, and the first request's key still replays its own answer
+      await t.db
+        .updateTable("operations")
+        .set({ status: "running" })
+        .where("id", "=", first.json<Operation>().id)
+        .execute();
+      expect((await extract(staff, job, { fileId: file.id })).statusCode).toBe(409);
+    });
+
+    it("lets the next extraction start once the earlier one has succeeded or failed", async () => {
+      const job = await fresh();
+      const file = await letter(job);
+      for (const status of ["succeeded", "failed"] as const) {
+        const res = await extract(staff, job, { fileId: file.id, replaceExisting: true });
+        expect(res.statusCode).toBe(202);
+        await settle(res.json<Operation>().id, status);
+      }
+      expect(await operations(job.id)).toHaveLength(2);
+    });
+
+    it("answers 409 for a second conformance reading, but one kind does not block the other or another job", async () => {
+      const job = await fresh();
+      const file = await notice(job);
+      const letterFile = await letter(job);
+      expect((await conform(staff, job, { fileId: file.id })).statusCode).toBe(202);
+      const second = await conform(staff, job, { fileId: file.id });
+      expect(second.statusCode).toBe(409);
+      expect(second.json()).toMatchObject({
+        type: "urn:kr:problem:conflict",
+        detail: "The conformed date is already being read. Wait for it to finish.",
+      });
+      expect((await extract(staff, job, { fileId: letterFile.id })).statusCode).toBe(202);
+      const elsewhere = await fresh();
+      expect((await conform(staff, elsewhere, { fileId: (await notice(elsewhere)).id })).statusCode).toBe(202);
+      expect((await operations(job.id)).map((o) => o.type).sort()).toEqual(["conditions.extract", "conformance.read"]);
+    });
+
+    it("lets only one of two simultaneous requests through", async () => {
+      const job = await fresh();
+      const file = await letter(job);
+      const results = await Promise.all([1, 2, 3].map(() => extract(staff, job, { fileId: file.id })));
+      expect(results.map((r) => r.statusCode).sort()).toEqual([202, 409, 409]);
+      expect(await operations(job.id)).toHaveLength(1);
+    });
+  });
+
   describe("startConformanceReading", () => {
     it("queues one conformance.read operation with allowAi from the ai-stamp-reading flag", async () => {
       const job = await fresh();

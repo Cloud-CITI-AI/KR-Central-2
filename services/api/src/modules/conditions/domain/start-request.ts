@@ -58,6 +58,10 @@ const CONFORMANCE: Target = {
 export const NOT_A_DECISION_LETTER =
   'Conditions can only be extracted from the Decision Letter – upload it with "Decision Letter" in the file name.';
 
+/** 409 detail when a reading of the same kind is already queued or running for the job (the tracker shows it as "Reading…"). */
+export const EXTRACTION_IN_PROGRESS = "The Decision Letter is already being read. Wait for it to finish.";
+export const CONFORMANCE_IN_PROGRESS = "The conformed date is already being read. Wait for it to finish.";
+
 /** §5.5 confirm text, used as the 409 detail when `replaceExisting` is missing. */
 export function replaceExistingMessage(count: number): string {
   return `Replace the ${count} existing conditions, including their ticks, comments and evidence?`;

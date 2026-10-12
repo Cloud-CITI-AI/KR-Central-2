@@ -224,6 +224,20 @@ export const Operation = z
   .meta({ id: "Operation" });
 export type Operation = z.infer<typeof Operation>;
 
+/** A document reading the job page must keep showing across a reload (GET /v1/jobs/{id} -> poll GET /v1/operations/{id}). */
+export const ActiveOperation = z
+  .object({
+    id: Uuid,
+    type: z.enum(["conditions.extract", "conformance.read"]),
+    status: z.enum(["queued", "running"]),
+  })
+  .meta({
+    id: "ActiveOperation",
+    description:
+      "A conditions extraction or conformed-date reading of this job that is queued or running; poll getOperation with its id",
+  });
+export type ActiveOperation = z.infer<typeof ActiveOperation>;
+
 export const UploadResult = z
   .object({
     file: FileMeta,
@@ -477,6 +491,10 @@ export const JobDetail = z
     conditionsSource: z.object({ fileId: Uuid, fileName: z.string(), extractedAt: IsoDateTime }).nullable(),
     checkpoints: z.array(CheckpointState).meta({ description: "All 46 checkpoints in workflow order" }),
     conditions: z.array(Condition),
+    activeOperations: z.array(ActiveOperation).meta({
+      description:
+        "Readings of the Decision Letter or Conformance Notification still queued or running, oldest first. At most one of each type: a second start request is answered 409 while one is active",
+    }),
     summary: z.object({
       progress: ProgressSummary,
       stages: z.array(StageSummary),

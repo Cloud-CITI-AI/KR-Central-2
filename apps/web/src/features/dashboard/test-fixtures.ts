@@ -51,6 +51,7 @@ export function syntheticJobDetail(overrides: Partial<JobDetail> = {}): JobDetai
       updatedAt: card.updatedAt,
     })),
     conditions: [],
+    activeOperations: [],
     summary: { progress: card.progress, stages: [], isComplete: false, alerts: [], fileCount: 0 },
     capabilities: ["job.read"],
     viewerGrantRole: null,

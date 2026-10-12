@@ -127,6 +127,7 @@ function parts(o: Partial<JobParts> = {}): JobParts {
       file(ids.evidence, { checkpoint_key: null, slot: null, condition_id: ids.cond, uploaded_by: ids.client }),
     ],
     emails: [],
+    activeOperations: [],
     users: [
       { id: ids.staff, display_name: "Sam Staff" },
       { id: ids.client, display_name: "Cleo Client" },
@@ -223,6 +224,36 @@ describe("buildJobDetail", () => {
     };
     const detail = buildJobDetail(parts({ job: bare, conditions: [], files: [] }), viewer("staff"), NOW);
     expect(detail).toMatchObject({ conformedSource: null, conditionsSource: null, conditions: [] });
+  });
+});
+
+describe("buildJobDetail activeOperations", () => {
+  it("maps the readings still queued or running and drops any other operation row", () => {
+    const op = (
+      id: string,
+      type: "conditions.extract" | "conformance.read" | "file.scan",
+      status: "queued" | "running" | "succeeded",
+    ) => ({
+      id,
+      type,
+      status,
+    });
+    const detail = buildJobDetail(
+      parts({
+        activeOperations: [
+          op("a", "conditions.extract", "queued"),
+          op("b", "conformance.read", "running"),
+          op("c", "file.scan", "queued"),
+          op("d", "conditions.extract", "succeeded"),
+        ],
+      }),
+      viewer("staff"),
+      NOW,
+    );
+    expect(detail.activeOperations).toEqual([
+      { id: "a", type: "conditions.extract", status: "queued" },
+      { id: "b", type: "conformance.read", status: "running" },
+    ]);
   });
 });
 

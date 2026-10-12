@@ -9,8 +9,10 @@ import { sendIdempotent, withIdempotency } from "../../../platform/idempotency.j
 import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
 import { toOperation } from "../../operations/index.js";
-import { countCurrentConditions, findRequestedFile } from "../data/start-requests.js";
+import { countCurrentConditions, findRequestedFile, hasActiveOperation } from "../data/start-requests.js";
 import {
+  CONFORMANCE_IN_PROGRESS,
+  EXTRACTION_IN_PROGRESS,
   rejectConformanceFile,
   rejectExtractionFile,
   replaceExistingMessage,
@@ -52,6 +54,9 @@ export function registerStartRoutes(app: FastifyInstance, deps: ModuleDeps): voi
       async (trx: Transaction<Database>) => {
         const jobId = access.job.id;
         assertAccepted(rejectExtractionFile(await findRequestedFile(trx, jobId, body.fileId), jobId));
+        if (await hasActiveOperation(trx, jobId, "conditions.extract")) {
+          throw new ConflictError({ detail: EXTRACTION_IN_PROGRESS });
+        }
         const existing = await countCurrentConditions(trx, jobId);
         if (existing > 0 && !body.replaceExisting) {
           throw new ConflictError({ detail: replaceExistingMessage(existing) });
@@ -87,6 +92,9 @@ export function registerStartRoutes(app: FastifyInstance, deps: ModuleDeps): voi
       async (trx: Transaction<Database>) => {
         const jobId = access.job.id;
         assertAccepted(rejectConformanceFile(await findRequestedFile(trx, jobId, body.fileId), jobId));
+        if (await hasActiveOperation(trx, jobId, "conformance.read")) {
+          throw new ConflictError({ detail: CONFORMANCE_IN_PROGRESS });
+        }
         const allowAi = deps.flags.isEnabled("ai-stamp-reading");
         const op = await enqueueOperation(trx, {
           jobId,

@@ -377,7 +377,9 @@ export const ROUTES = [
     responses: {
       202: { description: "Queued", schema: S.Operation },
       ...JOB_ERRORS,
-      409: problem("File not ready or not a conformance PDF"),
+      409: problem(
+        "File not ready or not a conformance PDF, or a reading of this job's conformed date is already queued or running (see JobDetail.activeOperations)",
+      ),
     },
   },
   // ------------------------------------------------------------ conditions
@@ -394,7 +396,9 @@ export const ROUTES = [
     responses: {
       202: { description: "Queued", schema: S.Operation },
       ...JOB_ERRORS,
-      409: problem("Conditions exist and replaceExisting is false, or the file is not a ready Decision Letter"),
+      409: problem(
+        "Conditions exist and replaceExisting is false, the file is not a ready Decision Letter, or an extraction for this job is already queued or running (see JobDetail.activeOperations)",
+      ),
     },
   },
   {

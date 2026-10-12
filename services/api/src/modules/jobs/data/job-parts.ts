@@ -50,6 +50,15 @@ export async function loadJobParts(
     .where("files.job_id", "=", jobId)
     .where("files.deleted_at", "is", null)
     .execute();
+  const activeOperations = await db
+    .selectFrom("operations")
+    .select(["id", "type", "status"])
+    .where("job_id", "=", jobId)
+    .where("type", "in", ["conditions.extract", "conformance.read"])
+    .where("status", "in", ["queued", "running"])
+    .orderBy("created_at")
+    .orderBy("id")
+    .execute();
   const userIds = new Set<string>();
   for (const s of states) for (const id of [s.paid_by, s.decided_by]) if (id) userIds.add(id);
   for (const f of files) if (f.uploaded_by) userIds.add(f.uploaded_by);
@@ -72,6 +81,7 @@ export async function loadJobParts(
     conditions,
     files,
     emails,
+    activeOperations,
     users,
     fileNames: new Map(names.map((n) => [n.id, n.original_name])),
   };

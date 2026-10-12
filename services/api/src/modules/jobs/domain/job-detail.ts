@@ -5,7 +5,7 @@
  * (PRODUCT_SPEC §5.4, developer note 2).
  */
 import type { CheckpointState, GrantRole, JobCapability, JobDetail } from "@kr/contracts";
-import type { CheckpointStateRow, ConditionRow, EmailMessageRow, FileRow, JobRow, UserRow } from "@kr/db";
+import type { CheckpointStateRow, ConditionRow, EmailMessageRow, FileRow, JobRow, OperationRow, UserRow } from "@kr/db";
 import {
   CHECKPOINTS,
   STAGES,
@@ -30,6 +30,8 @@ export interface JobParts {
   readonly conditions: readonly ConditionRow[];
   readonly files: readonly FileRow[];
   readonly emails: readonly EmailMessageRow[];
+  /** Conditions extractions and conformed-date readings still queued or running, oldest first. */
+  readonly activeOperations: readonly Pick<OperationRow, "id" | "type" | "status">[];
   readonly users: readonly Named[];
   /** Original names of the conformed and decision-letter files, kept even after the file is removed. */
   readonly fileNames: ReadonlyMap<string, string>;
@@ -130,6 +132,12 @@ export function buildJobDetail(parts: JobParts, viewer: JobViewer, now: Date): J
         : null,
     checkpoints: CHECKPOINTS.map((c) => checkpointOf(parts, view, viewer, stateRow(parts, c.key))),
     conditions,
+    activeOperations: parts.activeOperations.flatMap((o) =>
+      (o.type === "conditions.extract" || o.type === "conformance.read") &&
+      (o.status === "queued" || o.status === "running")
+        ? [{ id: o.id, type: o.type, status: o.status }]
+        : [],
+    ),
     summary: {
       progress: summary.progress,
       stages: STAGES.map((s) => summariseStage(s, view.input)),
