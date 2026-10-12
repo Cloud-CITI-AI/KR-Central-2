@@ -129,6 +129,68 @@ describe("conformance panel", () => {
     expect(screen.getByText("1 file")).toBeInTheDocument();
   });
 
+  describe("after a reload while a reading is queued or running (QA r2)", () => {
+    const reading = (names: string[], status: "queued" | "running" = "running") => {
+      const job = withFiles(names);
+      return {
+        ...job,
+        activeOperations: [{ id: "6f1d3b0e-5c1a-4b64-9d4e-0d8b1a2c3d4e", type: "conformance.read" as const, status }],
+      };
+    };
+
+    it("says 'Reading the conformed date…', disables the read button and shows the result when it ends", async () => {
+      const job = reading(["A.pdf"]);
+      const starts = vi.fn();
+      let polls = 0;
+      renderCard(job, "i4_2");
+      server.use(
+        handlerFor("startConformanceReading", () => {
+          starts();
+          return HttpResponse.json(operation(job.id, "queued"), { status: 202 });
+        }),
+        handlerFor("getOperation", () => {
+          polls += 1;
+          return HttpResponse.json(polls < 2 ? operation(job.id, "running") : operation(job.id, "succeeded", found));
+        }),
+      );
+      expect(screen.getByText("Reading the conformed date…")).toBeInTheDocument();
+      expect(screen.getByRole("button", READ_AGAIN)).toBeDisabled();
+      expect(
+        await screen.findByText("Taken from the file name: Mon, 16 Mar 2026.", {}, { timeout: 4000 }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Reading the conformed date…")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", READ_AGAIN)).toBeEnabled();
+      expect(starts).not.toHaveBeenCalled();
+    });
+
+    it("names the file generically when a resumed reading could not read the PDF", async () => {
+      const job = reading(["A.pdf", "B.pdf"], "queued");
+      renderCard(job, "i4_2");
+      server.use(handlerFor("getOperation", () => HttpResponse.json(operation(job.id, "failed"))));
+      expect(
+        await screen.findByText(
+          "The Conformance Notification couldn't be read. Enter the conformed date below.",
+          {},
+          { timeout: 4000 },
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("shows the server's own words when it refuses a second reading as already running", async () => {
+      const job = withFiles(["A.pdf"]);
+      renderCard(job, "i4_2");
+      server.use(
+        mockProblem("startConformanceReading", 409, PROBLEM_TYPES.conflict, {
+          detail: "The conformed date is already being read. Wait for it to finish.",
+        }),
+      );
+      await userEvent.click(screen.getByRole("button", READ_AGAIN));
+      expect(
+        await screen.findByText("The conformed date is already being read. Wait for it to finish."),
+      ).toBeInTheDocument();
+    });
+  });
+
   describe("with scanning on (the upload answers with its file.scan operation)", () => {
     const SCAN_ID = "7a2e4c1f-6d2b-4c75-8e5f-1e9c2b3d4e5f";
     const READ_ID = "6f1d3b0e-5c1a-4b64-9d4e-0d8b1a2c3d4e";

@@ -8,7 +8,7 @@ import { renderCard, withCheckpoint } from "@/features/checkpoints/test-utils";
 import { expectNoAxeViolations } from "@/test/axe";
 import { handlerFor, mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
-import { extractionOperation, extractionResult, syntheticConditionJob } from "./test-fixtures";
+import { extractionOperation, extractionResult, OPERATION_ID, syntheticConditionJob } from "./test-fixtures";
 
 vi.mock("@/features/viewer", () => ({ useViewer: () => ({ open: vi.fn() }) }));
 
@@ -111,6 +111,67 @@ describe("conditions panel: the folder and the extraction", () => {
     expect(screen.queryByRole("button", { name: "Reading Decision Letter…" })).not.toBeInTheDocument();
     await waitFor(() => {
       expect(jobReads).toBeGreaterThan(0);
+    });
+  });
+
+  describe("after a reload while a reading is queued or running (QA r2)", () => {
+    const running = (job: ReturnType<typeof withFiles>, status: "queued" | "running" = "running") => ({
+      ...job,
+      activeOperations: [{ id: OPERATION_ID, type: "conditions.extract" as const, status }],
+    });
+
+    it("shows 'Reading Decision Letter…' with the button disabled, then the result, without starting anything", async () => {
+      const job = running(withFiles(["Decision Letter.pdf"]));
+      const starts = vi.fn();
+      let polls = 0;
+      renderCard(job, "i5_0");
+      server.use(
+        handlerFor("startConditionsExtraction", () => {
+          starts();
+          return HttpResponse.json(extractionOperation(job.id, "queued"), { status: 202 });
+        }),
+        handlerFor("getOperation", () => {
+          polls += 1;
+          return HttpResponse.json(
+            polls < 2
+              ? extractionOperation(job.id, "running")
+              : extractionOperation(job.id, "succeeded", extractionResult(4)),
+          );
+        }),
+      );
+      expect(screen.getByRole("button", { name: "Reading Decision Letter…" })).toBeDisabled();
+      expect(await screen.findByText("4 conditions extracted", {}, { timeout: 4000 })).toBeInTheDocument();
+      expect(starts).not.toHaveBeenCalled();
+    });
+
+    it("keeps the result on screen after the job is refetched without the finished operation", async () => {
+      const job = running(withFiles(["Decision Letter.pdf"]), "queued");
+      const { served } = renderCard(job, "i5_0");
+      served.job = { ...job, activeOperations: [] };
+      server.use(
+        handlerFor("getOperation", () =>
+          HttpResponse.json(extractionOperation(job.id, "succeeded", extractionResult(2))),
+        ),
+      );
+      expect(await screen.findByText("2 conditions extracted", {}, { timeout: 4000 })).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByRole("button", EXTRACT)).toBeEnabled();
+      });
+      expect(screen.getByText("2 conditions extracted")).toBeInTheDocument();
+    });
+
+    it("says what the server said when it refuses a second extraction as already being read", async () => {
+      const job = withFiles(["Decision Letter.pdf"]);
+      renderCard(job, "i5_0");
+      server.use(
+        mockProblem("startConditionsExtraction", 409, PROBLEM_TYPES.conflict, {
+          detail: "The Decision Letter is already being read. Wait for it to finish.",
+        }),
+      );
+      await userEvent.click(screen.getByRole("button", EXTRACT));
+      expect(
+        await screen.findByText("The Decision Letter is already being read. Wait for it to finish."),
+      ).toBeInTheDocument();
     });
   });
 

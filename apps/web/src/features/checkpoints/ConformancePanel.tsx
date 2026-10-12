@@ -1,6 +1,7 @@
 "use client";
-import type { CheckpointState, FileMeta, JobDetail } from "@kr/contracts";
+import { PROBLEM_TYPES, type CheckpointState, type FileMeta, type JobDetail } from "@kr/contracts";
 import type { ConformancePanel as ConformancePanelDefinition } from "@kr/workflow";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ApiProblem } from "@/lib/api";
@@ -12,6 +13,8 @@ import { PanelBox } from "./PanelBox";
 import { SlotZone, type SlotZoneProps } from "./SlotZone";
 import { filesInSlot, isReadable } from "./slotFiles";
 import { followUpOf, useFollowedOperation } from "./useFollowedOperation";
+import { refreshJob } from "./refreshJob";
+import { useResumedOperation } from "./useResumedOperation";
 import { useStartConformanceReading } from "./useStartConformanceReading";
 import styles from "./Conformance.module.css";
 
@@ -20,6 +23,9 @@ export interface ConformancePanelProps {
   readonly checkpoint: CheckpointState;
   readonly panel: ConformancePanelDefinition;
 }
+
+/** What a failed reading calls its file when this page did not start it (after a reload) and so does not know which PDF it was. */
+const RESUMED_FILE_NAME = "The Conformance Notification";
 
 /**
  * What the zone is following: the conformance read by id (started by hand, or returned by an upload with scanning off), or the
@@ -52,7 +58,10 @@ export function ConformancePanel({ job, checkpoint, panel }: ConformancePanelPro
   const scan = useFollowedOperation(reading?.scanOperationId ?? null);
   const settled = (op: { status: string } | undefined) => op?.status === "succeeded" || op?.status === "failed";
   // A scan that has not settled is still "reading" (the read follows it); one that queued no read (infected) ends the wait.
-  const readOperationId = reading?.readOperationId ?? followUpOf(scan);
+  const queryClient = useQueryClient();
+  // A reading the job already has queued or running (after a reload, or started in another tab) is followed like our own.
+  const resumed = useResumedOperation(job, "conformance.read", start.isPending || reading !== null);
+  const readOperationId = reading?.readOperationId ?? followUpOf(scan) ?? resumed;
   const operation = useFollowedOperation(readOperationId);
   const running =
     start.isPending ||
@@ -61,9 +70,12 @@ export function ConformancePanel({ job, checkpoint, panel }: ConformancePanelPro
   const canRead = job.capabilities.includes("conformance.read");
 
   const notice = ((): Notice | null => {
-    if (problem) return problem;
-    if (!reading || !operation) return null;
-    if (operation.status === "failed") return { text: conformanceUnreadableText(reading.fileName), ok: false };
+    // A refusal because a reading is already running gives way to that reading once the job lists it.
+    if (problem && resumed === null) return problem;
+    if (!operation) return null;
+    if (operation.status === "failed") {
+      return { text: conformanceUnreadableText(reading?.fileName ?? RESUMED_FILE_NAME), ok: false };
+    }
     if (operation.status === "succeeded" && operation.result && "found" in operation.result)
       return { text: operation.result.message, ok: operation.result.found };
     return null;
@@ -96,14 +108,17 @@ export function ConformancePanel({ job, checkpoint, panel }: ConformancePanelPro
       },
       onError: (error) => {
         setReading(null);
+        const refused = error instanceof ApiProblem && error.status === 409;
+        // "Already being read" is the server's own answer (the job now lists that reading, so the page follows it); any
+        // other 409 is a file that is not ready.
+        const inProgress = refused && error.type === PROBLEM_TYPES.conflict && error.detail !== undefined;
         setProblem({
-          text: conformanceNotStartedText(
-            file.name,
-            error instanceof ApiProblem && error.status === 409,
-            error instanceof ApiProblem ? error.requestId : undefined,
-          ),
+          text: inProgress
+            ? error.detail
+            : conformanceNotStartedText(file.name, refused, error instanceof ApiProblem ? error.requestId : undefined),
           ok: false,
         });
+        if (refused) void refreshJob(queryClient);
       },
     });
   }

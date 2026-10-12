@@ -17,4 +17,5 @@ export { filesInSlot } from "./slotFiles";
 export { useAutosaveText } from "./useAutosaveText";
 export { useDeleteFile, type FileListEdit, type UseDeleteFile } from "./useDeleteFile";
 export { useFollowedOperation } from "./useFollowedOperation";
+export { useResumedOperation } from "./useResumedOperation";
 export { useUploadFiles, type UseUploadFiles, type UseUploadFilesOptions } from "./useUploadFiles";

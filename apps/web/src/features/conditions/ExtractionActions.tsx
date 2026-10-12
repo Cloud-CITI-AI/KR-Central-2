@@ -1,10 +1,11 @@
 "use client";
 import type { FileMeta, JobDetail } from "@kr/contracts";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ApiProblem } from "@/lib/api";
 import { cx } from "@/lib/cx";
-import { useFollowedOperation } from "@/features/checkpoints";
+import { refreshJob, useFollowedOperation, useResumedOperation } from "@/features/checkpoints";
 import {
   DECISION_LETTER_ONLY,
   extractedText,
@@ -46,9 +47,13 @@ export function ExtractionActions({ job, pdfs }: ExtractionActionsProps) {
   /** The operation of the extraction being followed. */
   const [following, setFollowing] = useState<string | null>(null);
   const [problem, setProblem] = useState<Line | null>(null);
-  const operation = useFollowedOperation(following);
+  const queryClient = useQueryClient();
+  // A reading the job already has queued or running (after a reload, or started in another tab) is followed like our own.
+  const resumed = useResumedOperation(job, "conditions.extract", start.isPending || following !== null);
+  const followed = following ?? resumed;
+  const operation = useFollowedOperation(followed);
   const running =
-    start.isPending || (following !== null && operation?.status !== "succeeded" && operation?.status !== "failed");
+    start.isPending || (followed !== null && operation?.status !== "succeeded" && operation?.status !== "failed");
   const row = useRef<HTMLDivElement>(null);
   const wasConfirming = useRef(false);
 
@@ -62,8 +67,9 @@ export function ExtractionActions({ job, pdfs }: ExtractionActionsProps) {
   if (!job.capabilities.includes("conditions.extract")) return null;
 
   const lines = ((): Line[] => {
-    if (problem) return [problem];
-    if (!following || !operation) return [];
+    // A refusal because a reading is already running gives way to that reading once the job lists it.
+    if (problem && resumed === null) return [problem];
+    if (!followed || !operation) return [];
     if (operation.status === "failed") {
       // Only a document that could not be read gets the re-save advice; a time limit, a replaced job or a missing
       // file each carry their own message from the worker.
@@ -106,6 +112,8 @@ export function ExtractionActions({ job, pdfs }: ExtractionActionsProps) {
               ? error.detail
               : extractionNotStartedText(file.name, error instanceof ApiProblem ? error.requestId : undefined);
           setProblem({ text, ok: false });
+          // "Already being read": the job now lists that reading, so the page picks it up and follows it.
+          if (error instanceof ApiProblem && error.status === 409) void refreshJob(queryClient);
         },
       },
     );
