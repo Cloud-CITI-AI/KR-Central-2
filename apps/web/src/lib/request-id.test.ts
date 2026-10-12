@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ensureRequestId } from "./request-id";
+import { ensureRequestId, requestIdOf } from "./request-id";
 
 describe("ensureRequestId", () => {
   it("keeps an inert incoming id", () => {
@@ -12,4 +12,13 @@ describe("ensureRequestId", () => {
       expect(ensureRequestId(value)).toMatch(/^[0-9a-f-]{36}$/);
     },
   );
+});
+
+describe("requestIdOf", () => {
+  it("returns a safe id and null for anything else", () => {
+    expect(requestIdOf("req-1234.abcd_EF")).toBe("req-1234.abcd_EF");
+    expect(requestIdOf(undefined)).toBeNull();
+    expect(requestIdOf(["req-1234.abcd_EF", "req-5678.abcd_EF"])).toBeNull();
+    expect(requestIdOf("bad id")).toBeNull();
+  });
 });

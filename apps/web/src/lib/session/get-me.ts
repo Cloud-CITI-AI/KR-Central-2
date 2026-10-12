@@ -2,17 +2,16 @@ import { Me } from "@kr/contracts";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { signInHref } from "@/lib/api/client";
-import { problemFromResponse } from "@/lib/api/problem";
-import { fetchUpstream } from "./upstream";
+import { fetchUpstream, upstreamProblem } from "./upstream";
 
 /**
  * Server-side `GET /v1/me`: calls the private API directly with the browser's cookie (same allowlisted forwarding as the
  * BFF). No session → null. Any other failure throws (error.tsx shows the request id). Memoised per request.
  */
 const loadMe = cache(async (): Promise<{ readonly me: Me | null; readonly returnTo: string }> => {
-  const { response, returnTo } = await fetchUpstream("/v1/me");
+  const { response, returnTo, requestId } = await fetchUpstream("/v1/me");
   if (response.status === 401) return { me: null, returnTo };
-  if (!response.ok) throw await problemFromResponse(response);
+  if (!response.ok) throw await upstreamProblem(response, requestId);
   return { me: Me.parse(await response.json()), returnTo };
 });
 

@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import type { z } from "zod";
 import { signInHref } from "@/lib/api/client";
-import { problemFromResponse } from "@/lib/api/problem";
-import { fetchUpstream } from "./upstream";
+import { fetchUpstream, upstreamProblem } from "./upstream";
 
 /** What the page itself needs of a job (title, existence); the tracker loads the whole job in the browser. */
 const JobSummary = JobDetail.pick({ id: true, jobNumber: true, address: true });
@@ -16,9 +15,9 @@ export type JobSummary = z.output<typeof JobSummary>;
  * sign-in. Memoised per request, so `generateMetadata` and the page share one call.
  */
 export const getJobSummary = cache(async (jobId: string): Promise<JobSummary | null> => {
-  const { response, returnTo } = await fetchUpstream(`/v1/jobs/${encodeURIComponent(jobId)}`);
+  const { response, returnTo, requestId } = await fetchUpstream(`/v1/jobs/${encodeURIComponent(jobId)}`);
   if (response.status === 404) return null;
   if (response.status === 401) redirect(signInHref(returnTo));
-  if (!response.ok) throw await problemFromResponse(response);
+  if (!response.ok) throw await upstreamProblem(response, requestId);
   return JobSummary.parse(await response.json());
 });

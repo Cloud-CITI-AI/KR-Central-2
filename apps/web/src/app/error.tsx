@@ -7,7 +7,11 @@ interface ErrorPageProps {
   readonly reset: () => void;
 }
 
-/** Branded 500 for errors below the root layout. Shows the request id (API problems) or Next's error digest. */
+/**
+ * Branded 500 for errors below the root layout. Shows the request id (API problems) or the error's digest: for a failed API call the
+ * server sets the digest to the request id (lib/session/upstream.ts), and every server render error is logged with its digest and
+ * request id (instrumentation.ts), so the id on the page finds its log line.
+ */
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
   return (
     <StatusPage title="Something went wrong" requestId={error.requestId ?? error.digest}>
