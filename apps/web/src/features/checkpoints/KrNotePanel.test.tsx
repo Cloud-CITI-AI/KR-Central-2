@@ -61,6 +61,28 @@ describe("KR note panel", () => {
     expect(screen.getByLabelText(LABEL)).toHaveValue("Pay the Shire");
   });
 
+  it("saves a note typed over someone else's refreshed note against the version it was typed over (§14, §15)", async () => {
+    const job = syntheticJob();
+    const { served, queryClient } = renderCard(job, "i8_3");
+    const seen = recordSaves(job, served);
+    await userEvent.type(screen.getByLabelText(LABEL), "abc");
+    await waitFor(
+      () => {
+        expect(seen).toHaveLength(1);
+      },
+      { timeout: 3000 },
+    );
+    served.job = withCheckpoint(job, "i8_3", { krNote: "Sam's note", version: 3 });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(job.id) });
+    expect(screen.getByLabelText(LABEL)).toHaveValue("abc");
+    await userEvent.type(screen.getByLabelText(LABEL), "def");
+    await userEvent.tab();
+    await waitFor(() => {
+      expect(seen).toHaveLength(2);
+    });
+    expect(seen[1]).toEqual({ ifMatch: '"2"', body: { krNote: "abcdef" } });
+  });
+
   it("saves on blur at once, trimmed, and not again when nothing changed", async () => {
     const job = syntheticJob();
     const { served } = renderCard(job, "i8_3");

@@ -2,6 +2,8 @@ import type { Condition, FileMeta, JobDetail, UpdateConditionRequest } from "@kr
 import type { z } from "zod";
 
 export type UpdateConditionBody = z.output<typeof UpdateConditionRequest>;
+/** A condition edit; `baseVersion` is the version a typed comment was started over (sent as If-Match instead of the cached one). */
+export type UpdateConditionVars = UpdateConditionBody & { readonly baseVersion?: number | undefined };
 
 /** `job` with the condition `id` replaced by `change(condition)`; every other condition stays the same object. */
 export function mapCondition(job: JobDetail, id: string, change: (condition: Condition) => Condition): JobDetail {

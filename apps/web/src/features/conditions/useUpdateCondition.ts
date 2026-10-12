@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiProblem, queryKeys } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
 import { MESSAGES, saveFailedText } from "@/lib/messages";
-import { applyConditionEdit, mapCondition, type UpdateConditionBody } from "./cache";
+import { applyConditionEdit, mapCondition, type UpdateConditionBody, type UpdateConditionVars } from "./cache";
 import { refreshJob } from "@/features/checkpoints";
 
 /** `condition` with the comments `body` sets: the only fields kept when a save is refused as stale. */
@@ -34,13 +34,17 @@ export function useUpdateCondition(jobId: string, conditionId: string) {
   const pendingWrites = () => queryClient.isMutating({ mutationKey });
   const conditionIn = (job: JobDetail | undefined) => job?.conditions.find((c) => c.id === conditionId);
 
-  return useMutation<Condition, Error, UpdateConditionBody, { previous: Condition | undefined }>({
+  return useMutation<Condition, Error, UpdateConditionVars, { previous: Condition | undefined }>({
     mutationKey,
     scope: { id: mutationKey.join("-") },
-    mutationFn: (body) => {
+    mutationFn: ({ baseVersion, ...body }) => {
       const current = conditionIn(queryClient.getQueryData<JobDetail>(queryKey));
       if (!current) throw new ConditionGone("The condition is not loaded any more");
-      return api("updateCondition", { params: { jobId, conditionId }, body, ifMatch: current.version });
+      return api("updateCondition", {
+        params: { jobId, conditionId },
+        body,
+        ifMatch: baseVersion ?? current.version,
+      });
     },
     onMutate: async (body) => {
       await queryClient.cancelQueries({ queryKey });

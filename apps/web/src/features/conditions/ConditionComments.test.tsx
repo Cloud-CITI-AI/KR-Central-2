@@ -99,6 +99,53 @@ describe("condition comments", () => {
     });
   });
 
+  it("saves a comment typed over someone else's refreshed text against the version it was typed over (§14, §15)", async () => {
+    const job = threeConditions();
+    const { served, queryClient } = renderCard(job, "i5_0");
+    const calls = serveUpdates(served);
+    await userEvent.type(client(1), "abc");
+    await waitFor(
+      () => {
+        expect(calls).toHaveLength(1);
+      },
+      { timeout: 3000 },
+    );
+    expect(calls[0]?.ifMatch).toBe('"1"');
+    // Still in the field: someone else saves the same comment (version 3) and the background refresh brings it in.
+    served.job = withCondition(served.job, conditionAt(job, 0).id, { clientComment: "Sam's text", version: 3 });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(job.id) });
+    expect(client(1)).toHaveValue("abc");
+    await userEvent.type(client(1), "def");
+    await userEvent.tab();
+    await waitFor(() => {
+      expect(calls).toHaveLength(2);
+    });
+    // Version 2 is the one "abc" made: the API answers 412 for it, so Sam's text is not overwritten without a word.
+    expect(calls[1]).toMatchObject({ body: { clientComment: "abcdef" }, ifMatch: '"2"' });
+  });
+
+  it("sends the refreshed version when only another field changed while a comment was typed", async () => {
+    const job = threeConditions();
+    const { served, queryClient } = renderCard(job, "i5_0");
+    const calls = serveUpdates(served);
+    await userEvent.type(client(1), "abc");
+    await waitFor(
+      () => {
+        expect(calls).toHaveLength(1);
+      },
+      { timeout: 3000 },
+    );
+    served.job = withCondition(served.job, conditionAt(job, 0).id, { isCleared: true, version: 3 });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(job.id) });
+    await userEvent.type(client(1), "def");
+    await userEvent.tab();
+    await waitFor(() => {
+      expect(calls).toHaveLength(2);
+    });
+    // The comment on the server is still the one this field saved, so the refreshed version is the one to build on.
+    expect(calls[1]).toMatchObject({ body: { clientComment: "abcdef" }, ifMatch: '"3"' });
+  });
+
   it("shows the saved text again, with the save-failed banner, when a comment could not be saved", async () => {
     const job = threeConditions();
     renderCard(job, "i5_0");

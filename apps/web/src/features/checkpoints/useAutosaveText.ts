@@ -11,7 +11,13 @@ export interface UseAutosaveTextOptions {
    * Save `text`. Called only when it differs from `value`. Return the write's promise (settled either way) so the field
    * keeps what was typed until the write is over, then shows `value` again: the saved text, or the old one after a rollback.
    */
-  readonly onSave: (text: string) => Promise<unknown>;
+  readonly onSave: (text: string, baseVersion?: number) => Promise<unknown>;
+  /**
+   * The version of the thing `value` belongs to (condition, checkpoint). With it the save is sent against the version the
+   * text was typed over, not the one a background refresh brought in meanwhile: someone else's change to this same text
+   * then answers 412 instead of being overwritten without a word (§14, §15), while a change to another field still merges.
+   */
+  readonly version?: number;
   /** Quiet time after typing before it saves (§5.5: 700 ms). */
   readonly delayMs?: number;
   /**
@@ -36,7 +42,13 @@ export interface UseAutosaveText {
  * and restored into the field after sign-in: saved at once when the saved text is still the one it was typed over, otherwise
  * left in the field for the person to check, because someone else changed it meanwhile.
  */
-export function useAutosaveText({ value, onSave, delayMs = 700, draftKey }: UseAutosaveTextOptions): UseAutosaveText {
+export function useAutosaveText({
+  value,
+  version,
+  onSave,
+  delayMs = 700,
+  draftKey,
+}: UseAutosaveTextOptions): UseAutosaveText {
   const banners = useBanners();
   const [text, setText] = useState(value);
   const [editing, setEditing] = useState(false);
@@ -49,6 +61,7 @@ export function useAutosaveText({ value, onSave, delayMs = 700, draftKey }: UseA
   const inField = useRef(false);
   const running = useRef(0);
   const confirmed = useRef(value);
+  const confirmedVersion = useRef(version);
   const lastSent = useRef<string | null>(null);
 
   useEffect(() => {
@@ -56,14 +69,19 @@ export function useAutosaveText({ value, onSave, delayMs = 700, draftKey }: UseA
     save.current = onSave;
     // An optimistic update changes `value` while a write runs, and so can someone else's change while the person types: the
     // text a draft was typed over is the last one seen in an idle field, or the one the person's own last save made.
-    if (running.current === 0 && (!inField.current || value === lastSent.current)) confirmed.current = value;
+    if (running.current === 0 && (!inField.current || value === lastSent.current)) {
+      confirmed.current = value;
+      confirmedVersion.current = version;
+    }
   });
 
   const flush = (next: string) => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     if (next === saved.current) return;
-    const write = save.current(next);
+    // Writes of this field run one after the other, each from the version the one before made: only a first write goes
+    // against the version the text was typed over.
+    const write = save.current(next, running.current === 0 ? confirmedVersion.current : undefined);
     lastSent.current = next;
     running.current += 1;
     setWrites((n) => n + 1);

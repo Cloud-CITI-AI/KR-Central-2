@@ -8,14 +8,14 @@ import { useSession } from "@/lib/session";
 import { VisuallyHidden } from "@/components/ui/VisuallyHidden";
 import type { ConditionPermissions } from "./capabilities";
 import { useAutosaveText } from "@/features/checkpoints";
-import type { UpdateConditionBody } from "./cache";
+import type { UpdateConditionVars } from "./cache";
 import styles from "./ConditionCard.module.css";
 
 export interface ConditionEditorProps {
   readonly condition: Condition;
   readonly permissions: ConditionPermissions;
   /** Saves one change; resolves when the write is over, whether it worked or was rolled back. */
-  readonly save: (body: UpdateConditionBody) => Promise<unknown>;
+  readonly save: (body: UpdateConditionVars) => Promise<unknown>;
 }
 
 interface CommentFieldProps {
@@ -24,15 +24,18 @@ interface CommentFieldProps {
   readonly draft: readonly [conditionId: string, field: "krComment" | "clientComment"];
   readonly number: number;
   readonly value: string;
+  /** The version of the condition `value` belongs to. */
+  readonly version: number;
   readonly editable: boolean;
-  readonly onSave: (text: string) => Promise<unknown>;
+  readonly onSave: (text: string, baseVersion?: number) => Promise<unknown>;
 }
 
 /** One comment: autosaves 700 ms after typing and on blur, and is never replaced under the cursor (§5.6, §15). */
-function CommentField({ label, draft, number, value, editable, onSave }: CommentFieldProps) {
+function CommentField({ label, draft, number, value, version, editable, onSave }: CommentFieldProps) {
   const { user } = useSession();
   const field = useAutosaveText({
     value,
+    version,
     onSave,
     ...(editable ? { draftKey: draftKey(user.id, "condition", ...draft) } : {}),
   });
@@ -101,16 +104,18 @@ export function ConditionEditor({ condition, permissions, save }: ConditionEdito
           draft={[condition.id, "krComment"]}
           number={number}
           value={condition.krComment}
+          version={condition.version}
           editable={permissions.edit}
-          onSave={(krComment) => save({ krComment })}
+          onSave={(krComment, baseVersion) => save({ krComment, baseVersion })}
         />
         <CommentField
           label="Client comment"
           draft={[condition.id, "clientComment"]}
           number={number}
           value={condition.clientComment}
+          version={condition.version}
           editable={permissions.comment}
-          onSave={(clientComment) => save({ clientComment })}
+          onSave={(clientComment, baseVersion) => save({ clientComment, baseVersion })}
         />
       </div>
     </div>

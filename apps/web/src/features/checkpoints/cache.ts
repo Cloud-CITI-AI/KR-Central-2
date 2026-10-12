@@ -3,6 +3,8 @@ import { STAGES, effectiveState, isJobComplete, summariseProgress, summariseStag
 import type { z } from "zod";
 
 export type UpdateCheckpointBody = z.output<typeof UpdateCheckpointRequest>;
+/** A checkpoint edit; `baseVersion` is the version a typed note was started over (sent as If-Match instead of the cached one). */
+export type UpdateCheckpointVars = UpdateCheckpointBody & { readonly baseVersion?: number | undefined };
 
 /** `job` with the checkpoint `key` replaced by `change(checkpoint)`; every other checkpoint stays the same object. */
 export function mapCheckpoint(

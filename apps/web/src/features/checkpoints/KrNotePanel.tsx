@@ -26,9 +26,10 @@ export function KrNotePanel({ job, checkpoint, panel }: KrNotePanelProps) {
   const canEdit = job.capabilities.includes("checkpoint.kr_note.edit");
   const field = useAutosaveText({
     value: checkpoint.krNote,
+    version: checkpoint.version,
     ...(canEdit ? { draftKey: draftKey(user.id, job.id, checkpoint.key, "krNote") } : {}),
-    onSave: (krNote) => {
-      return update.mutateAsync({ krNote }).catch(() => undefined);
+    onSave: (krNote, baseVersion) => {
+      return update.mutateAsync({ krNote, baseVersion }).catch(() => undefined);
     },
   });
   return (
