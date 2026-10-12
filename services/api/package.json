@@ -6,7 +6,7 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --conditions=@kr/source src/main.ts",
+    "dev": "tsx watch --env-file-if-exists=../../.env --conditions=@kr/source src/main.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint . --max-warnings=0 && node ../../scripts/check-module-boundaries.mjs src/modules",

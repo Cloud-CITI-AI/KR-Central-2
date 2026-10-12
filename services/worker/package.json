@@ -6,7 +6,7 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --conditions=@kr/source src/main.ts",
+    "dev": "PORT=8081 tsx watch --env-file-if-exists=../../.env --conditions=@kr/source src/main.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint . --max-warnings=0",

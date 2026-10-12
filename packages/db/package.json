@@ -35,7 +35,8 @@
     "test:mutation": "stryker run",
     "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build",
     "db:migration:lint": "squawk -c .squawk.toml --exclude-path=0001_initial_schema.sql migrations/*.sql && squawk -c .squawk.toml --exclude=prefer-robust-stmts,prefer-bigint-over-int,prefer-bigint-over-smallint,prefer-text-field,adding-foreign-key-constraint migrations/0001_initial_schema.sql",
-    "db:migrate": "node dist/migrate-cli.js",
+    "db:bootstrap": "node --env-file-if-exists=../../.env dist/bootstrap-cli.js",
+    "db:migrate": "node --env-file-if-exists=../../.env dist/migrate-cli.js",
     "db:migration:new": "node scripts/new-migration.mjs"
   },
   "dependencies": {

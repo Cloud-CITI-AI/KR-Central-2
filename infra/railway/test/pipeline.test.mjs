@@ -156,3 +156,25 @@ test("docker-compose.yml: clamd gets KR_STACK_HOST as its bind address and the w
   assert.match(dockerfile, /ENTRYPOINT \["\/usr\/local\/bin\/kr-entrypoint\.sh"\]/);
   assert.match(read("infra/clamav/clamd.conf"), /^TCPAddr ::$/m, "Railway default stays `::`");
 });
+
+// ---- README "Local development" (BUG 6) -----------------------------------------------------------------------------
+
+test("README local development: bootstraps the roles and every dev/db script loads the root .env", () => {
+  const readme = read("README.md");
+  const steps = /## Local development\n[\s\S]*?```sh\n([\s\S]*?)```/.exec(readme)?.[1] ?? "";
+  const order = ["pnpm db:up", "pnpm build", "db:bootstrap", "db:migrate", "pnpm dev"].map((s) => steps.indexOf(s));
+  assert.ok(order.every((i) => i >= 0) && order.every((v, i) => i === 0 || v > order[i - 1]), steps);
+  const envFlag = "--env-file-if-exists=../../.env";
+  const script = (pkg, name) => JSON.parse(read(`${pkg}/package.json`)).scripts[name];
+  assert.match(script("packages/db", "db:bootstrap"), new RegExp(`${envFlag} dist/bootstrap-cli\\.js`));
+  assert.match(script("packages/db", "db:migrate"), new RegExp(`${envFlag} dist/migrate-cli\\.js`));
+  for (const pkg of ["services/api", "services/worker"]) assert.ok(script(pkg, "dev").includes(envFlag), pkg);
+  // api and worker read the same root .env, whose PORT is the api's: the worker's health endpoint needs its own.
+  assert.match(script("services/worker", "dev"), /^PORT=8081 tsx watch /);
+  // Next re-runs node with the flag copied into NODE_OPTIONS, where --env-file is not allowed: the web script loads it itself.
+  assert.equal(script("apps/web", "dev"), "node ../../scripts/dev/web.mjs");
+  assert.match(
+    read("scripts/dev/web.mjs"),
+    /process\.loadEnvFile\(new URL\("\.\.\/\.\.\/\.env", import\.meta\.url\)\)/,
+  );
+});

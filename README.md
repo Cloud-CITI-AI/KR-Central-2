@@ -36,12 +36,20 @@ Requirements: Node 24 (`.nvmrc`), pnpm 11 (`corepack enable`), Docker.
 
 ```sh
 pnpm install --frozen-lockfile
-cp .env.example .env            # fill in local values; never commit .env
+grep -vE '^[A-Z0-9_]+=[[:space:]]*(#.*)?$' .env.example > .env   # local values; never commit .env
 pnpm db:up                      # Postgres 17, S3 mock, ClamAV
 pnpm build                      # workspace packages run from dist/ at runtime
+pnpm --filter @kr/db db:bootstrap   # creates the tracker_migrator and tracker_app roles; safe to repeat
 pnpm --filter @kr/db db:migrate
-pnpm dev
+pnpm dev                        # web :3000, api :8080, worker health :8081
 ```
+
+`.env` is copied without the blank optional variables (an empty value is not the same as unset and fails config validation).
+The `db:*` and `dev` scripts of `@kr/db`, `@kr/api`, `@kr/worker` and `@kr/web` read the root `.env` themselves; a variable
+already set in your shell wins over the file. Sign-in needs a real Entra tenant or the mock IdP (see below).
+
+A Docker host without IPv6 (no `/proc/net/if_inet6`, some sandboxes and CI containers) cannot bind `::`: run
+`KR_STACK_HOST=0.0.0.0 pnpm db:up` (ClamAV) and set `HOST=0.0.0.0` in `.env` (api and worker).
 
 Quality gate before every push: `pnpm verify` (lint, typecheck, unit, integration, contract, build).
 End-to-end tests: `pnpm test:e2e` (Playwright; set `E2E_CHROMIUM_PATH` if browsers cannot be downloaded).
