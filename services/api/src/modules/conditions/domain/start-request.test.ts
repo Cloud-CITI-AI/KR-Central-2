@@ -17,6 +17,7 @@ const letter: RequestedFile = {
   original_name: "WAPC Decision Letter.pdf",
   kind: "pdf",
   scan_status: "clean",
+  scan_retries_exhausted: false,
   deleted_at: null,
 };
 const DELETED = new Date("2026-03-02T01:00:00Z");
@@ -59,9 +60,14 @@ describe("rejectExtractionFile", () => {
       type: PROBLEM_TYPES.fileNotReady,
       detail: "WAPC Decision Letter.pdf is still being checked for viruses. Try again in a moment.",
     });
-    expect(rejectExtractionFile({ ...letter, scan_status: "error" }, JOB)).toEqual({
+    expect(rejectExtractionFile({ ...letter, scan_status: "error", scan_retries_exhausted: true }, JOB)).toEqual({
       type: PROBLEM_TYPES.fileNotReady,
       detail: "WAPC Decision Letter.pdf couldn't be checked for viruses – remove it and upload it again",
+    });
+    // the hourly sweep will still scan it again: the same answer as for a file being scanned, not "upload it again"
+    expect(rejectExtractionFile({ ...letter, scan_status: "error", scan_retries_exhausted: false }, JOB)).toEqual({
+      type: PROBLEM_TYPES.fileNotReady,
+      detail: "WAPC Decision Letter.pdf is still being checked for viruses. Try again in a moment.",
     });
     expect(rejectExtractionFile({ ...letter, scan_status: "infected" }, JOB)).toEqual({
       type: PROBLEM_TYPES.fileRejected,

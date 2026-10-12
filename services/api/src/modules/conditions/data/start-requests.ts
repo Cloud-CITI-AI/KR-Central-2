@@ -11,7 +11,17 @@ export function findRequestedFile(
 ): Promise<RequestedFile | undefined> {
   return trx
     .selectFrom("files")
-    .select(["id", "job_id", "checkpoint_key", "slot", "original_name", "kind", "scan_status", "deleted_at"])
+    .select([
+      "id",
+      "job_id",
+      "checkpoint_key",
+      "slot",
+      "original_name",
+      "kind",
+      "scan_status",
+      "scan_retries_exhausted",
+      "deleted_at",
+    ])
     .where("id", "=", fileId)
     .where("job_id", "=", jobId)
     .executeTakeFirst();

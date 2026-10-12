@@ -19,7 +19,7 @@ describe("startConditionsExtraction and startConformanceReading (real Postgres)"
   };
   const letter = (
     job: Pick<JobRow, "id">,
-    o: { name?: string; scanStatus?: "pending" | "clean" | "infected" | "error" } = {},
+    o: { name?: string; scanStatus?: "pending" | "clean" | "infected" | "error"; scanRetriesExhausted?: boolean } = {},
   ) =>
     f.makeFile({
       jobId: job.id,
@@ -27,6 +27,7 @@ describe("startConditionsExtraction and startConformanceReading (real Postgres)"
       slot: "decision",
       name: o.name ?? "WAPC Decision Letter.pdf",
       ...(o.scanStatus ? { scanStatus: o.scanStatus } : {}),
+      ...(o.scanRetriesExhausted ? { scanRetriesExhausted: true } : {}),
     });
   const notice = (job: Pick<JobRow, "id">, scanStatus: "pending" | "clean" = "clean") =>
     f.makeFile({ jobId: job.id, checkpointKey: "i4_2", slot: "conformance", name: "notice.pdf", scanStatus });
@@ -141,7 +142,8 @@ describe("startConditionsExtraction and startConformanceReading (real Postgres)"
       const wrongName = await letter(job, { name: "approval.pdf" });
       const pending = await letter(job, { scanStatus: "pending" });
       const infected = await letter(job, { scanStatus: "infected" });
-      const unscanned = await letter(job, { scanStatus: "error" });
+      const unscanned = await letter(job, { scanStatus: "error", scanRetriesExhausted: true });
+      const retrying = await letter(job, { scanStatus: "error" });
       const deleted = await letter(job);
       await t.db.updateTable("files").set({ deleted_at: new Date() }).where("id", "=", deleted.id).execute();
       const elsewhere = await letter(other);
@@ -169,6 +171,13 @@ describe("startConditionsExtraction and startConformanceReading (real Postgres)"
         ],
         [
           pending.id,
+          {
+            type: "urn:kr:problem:file-not-ready",
+            detail: "WAPC Decision Letter.pdf is still being checked for viruses. Try again in a moment.",
+          },
+        ],
+        [
+          retrying.id,
           {
             type: "urn:kr:problem:file-not-ready",
             detail: "WAPC Decision Letter.pdf is still being checked for viruses. Try again in a moment.",

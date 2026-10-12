@@ -18,7 +18,15 @@ import {
 
 export type RequestedFile = Pick<
   FileRow,
-  "id" | "job_id" | "checkpoint_key" | "slot" | "original_name" | "kind" | "scan_status" | "deleted_at"
+  | "id"
+  | "job_id"
+  | "checkpoint_key"
+  | "slot"
+  | "original_name"
+  | "kind"
+  | "scan_status"
+  | "scan_retries_exhausted"
+  | "deleted_at"
 >;
 
 export interface Rejection {
@@ -90,9 +98,12 @@ function judge(file: RequestedFile | undefined, jobId: string, target: Target): 
         detail: `${name} is still being checked for viruses. Try again in a moment.`,
       };
     case "error":
+      // While the hourly sweep will still scan it again the file is not lost, so do not ask for a re-upload (§11, §5.5).
       return {
         type: PROBLEM_TYPES.fileNotReady,
-        detail: `${name} couldn't be checked for viruses – remove it and upload it again`,
+        detail: file.scan_retries_exhausted
+          ? `${name} couldn't be checked for viruses – remove it and upload it again`
+          : `${name} is still being checked for viruses. Try again in a moment.`,
       };
     case "infected":
       return { type: PROBLEM_TYPES.fileRejected, detail: `${name} was blocked because it failed the virus scan.` };
