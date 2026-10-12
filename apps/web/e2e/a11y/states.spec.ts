@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "../fixtures";
-import { createJob, grantAccess, patchCheckpoint, waitForOperation } from "../harness/jobs";
+import { createJob, getJob, grantAccess, patchCheckpoint, waitForOperation } from "../harness/jobs";
 import { ARCHITECT_GUEST, CLIENT_GUEST, FIRST_MEMBER, STAFF } from "../harness/users";
 import { expectAccessible } from "../support/a11y";
 import { decisionLetter, dwgFile, emlFile, pdfFile, pngFile } from "../support/documents";
@@ -8,7 +8,7 @@ import { expectFirstPageDrawn } from "../support/viewer";
 import { card, openTracker } from "../support/tracker";
 
 // WCAG 2.2 AA (PRODUCT_SPEC §12) on every page and dialog a person can reach, in both themes, at desktop width and at 390 px.
-// The one known defect left in these states is the pressed filter chip and the conditions links (D6, D7), tracked by e2e/a11y/known-defects.spec.ts.
+// No known defect is carved out: colour contrast is held to the whole rule too, including the open and cleared conditions and the amber countdown.
 
 const THEMES = ["light", "dark"] as const;
 const VIEWPORTS = [
@@ -109,6 +109,9 @@ for (const viewport of VIEWPORTS) {
         await approval.getByRole("button", { name: "Extract conditions from Decision Letter" }).click();
         await expect(approval.getByText("2 conditions extracted")).toBeVisible();
         await expectAccessible(page, at("tracker with the conditions checklist"));
+        await approval.getByRole("checkbox", { name: /Condition 1/ }).click();
+        await expect(approval.getByText("1 of 2 cleared")).toBeVisible();
+        await expectAccessible(page, at("tracker with a cleared condition"));
 
         await card(page, "i2_0").getByRole("button", { name: "feature-survey.pdf", exact: true }).click();
         await expectFirstPageDrawn(page.getByRole("dialog", { name: "feature-survey.pdf" }));
@@ -140,6 +143,24 @@ for (const viewport of VIEWPORTS) {
         await page.goto("/jobs/00000000-0000-4000-8000-000000000000");
         await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
         await expectAccessible(page, at("page not found"));
+      });
+
+      test("tracker with the amber countdown (outcome within 14 days)", async ({ page, signInAs, apiAs }) => {
+        const staff = await apiAs(STAFF);
+        const job = await createJob(staff);
+        // Conformed 2026-07-20 puts the outcome date at 2026-10-18: six days after the fixed browser clock, so the tiles are amber.
+        await staff.patch(
+          `/v1/jobs/${job.id}`,
+          { conformedDate: "2026-07-20" },
+          `"${(await getJob(staff, job.id)).version.toString()}"`,
+        );
+        await signInAs(STAFF);
+        await page.clock.setFixedTime(new Date("2026-10-12T04:00:00Z"));
+        await openTracker(page, job.id);
+        await expect(page.getByRole("timer")).toContainText("until outcome date – Sun, 18 Oct 2026");
+        await expect(page.getByRole("timer").locator("[data-state]")).toHaveAttribute("data-state", "soon");
+        await settle(page);
+        await expectAccessible(page, at("tracker, amber countdown"));
       });
 
       test("admin pages", async ({ page, signInAs }) => {

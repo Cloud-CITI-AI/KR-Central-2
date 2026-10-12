@@ -22,6 +22,11 @@ are changed from the prototype so every text/surface pair reaches 4.5:1 (WCAG 2.
 | `--grey-ink` (light) | `#6d6c69` (4.37 on grey-bg)  | `#64635f` | The "Not required" chip, stage count and swatch text. Now 5.0:1 on `--grey-bg`.                                                                    |
 | `--ink-3` (dark)     | `#8a8a8a` (3.91 on green-bg) | `#9d9d9d` | 3.9 to 4.2:1 on the red, green, grey and accent tints (the checkpoint number on a red card). Now 4.97:1 or more; still darker than dark `--ink-2`. |
 
+**Link ink (known defect D7).** `--accent` (`#d65614`) is 4.03:1 on white and 3.42:1 on the red tint, so orange _text_ (the
+conditions checklist's agency and "up" links, "go to" links, the "reset to 90 days" link) uses `--accent-ink` instead: `#b5410e`
+in light, `#ee8450` in dark, 4.5:1 or more on every surface and tint in both themes (a unit test pins it). `--accent` stays for
+fills, borders and the focus ring.
+
 | Token                                         | Light                                                                                                                               | Dark                              | Used for                                                                 |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------ |
 | `--bg`                                        | `#61625d`                                                                                                                           | `#141618`                         | Page background (under the noise texture `--tex`)                        |

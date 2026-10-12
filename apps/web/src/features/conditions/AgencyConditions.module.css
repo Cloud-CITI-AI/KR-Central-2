@@ -21,6 +21,6 @@
 }
 .up {
   margin-left: auto;
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: 12.5px;
 }

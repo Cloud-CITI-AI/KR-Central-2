@@ -53,6 +53,17 @@ describe("design tokens", () => {
     it.each([
       ["light", lightColors],
       ["dark", darkColors],
+    ] as const)(
+      "keeps the accent link ink (D7) at 4.5:1 or more on every %s surface, tints included",
+      (_theme, colors) => {
+        for (const surface of surfaces)
+          expect(ratio(colors.accentInk, colors[surface]), `accentInk on ${surface}`).toBeGreaterThanOrEqual(4.5);
+      },
+    );
+
+    it.each([
+      ["light", lightColors],
+      ["dark", darkColors],
     ] as const)("keeps the status ink on its own %s tint at 4.5:1 or more", (_theme, colors) => {
       for (const status of ["red", "green", "grey"] as const)
         expect(ratio(colors[`${status}Ink`], colors[`${status}Bg`]), status).toBeGreaterThanOrEqual(4.5);

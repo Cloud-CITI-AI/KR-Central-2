@@ -32,25 +32,30 @@
 }
 /*
  * Pressed states use the primary-button colours (white on #c04a10 in light, dark ink on the lighter accent in dark)
- * because the prototype's white on #d65614 is 4.03:1, below WCAG AA (§12, not overridable).
+ * because the prototype's white on #d65614 is 4.03:1, below WCAG AA (§12, not overridable). The pressed chip's count sits on
+ * a solid tile (not a translucent overlay, which gave 3.26:1 and 4.08:1): white on #8a3208 (8.3:1) in light, #f2f2f0 on
+ * #151514 (16:1) in dark.
  */
 .filter,
 .types {
   --on-ink: #fff;
   --pressed-bg: var(--accent-hover);
-  --count-bg: rgba(255, 255, 255, 0.25);
+  --count-bg: #8a3208;
+  --count-ink: #fff;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) :is(.filter, .types) {
     --on-ink: var(--on-status);
     --pressed-bg: var(--accent);
-    --count-bg: rgba(0, 0, 0, 0.2);
+    --count-bg: #151514;
+    --count-ink: #f2f2f0;
   }
 }
 :root[data-theme="dark"] :is(.filter, .types) {
   --on-ink: var(--on-status);
   --pressed-bg: var(--accent);
-  --count-bg: rgba(0, 0, 0, 0.2);
+  --count-bg: #151514;
+  --count-ink: #f2f2f0;
 }
 .filter {
   display: grid;
@@ -130,7 +135,7 @@
 }
 .chip[aria-pressed="true"] .chipCount {
   background: var(--count-bg);
-  color: var(--on-ink);
+  color: var(--count-ink);
 }
 @media print {
   .head {

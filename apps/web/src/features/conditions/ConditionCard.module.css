@@ -54,14 +54,14 @@
   border: 0;
   background: none;
   padding: 0;
-  color: var(--accent);
+  color: var(--accent-ink);
   cursor: pointer;
   font: inherit;
   font-size: 12.5px;
 }
 .goTo {
   margin-left: auto;
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: 12.5px;
 }
 .text {

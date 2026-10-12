@@ -18,6 +18,7 @@
   --brand: #141618;
   --brand-ink: #ffffff;
   --accent: #d65614;
+  --accent-ink: #b5410e;
   --accent-soft: #fbe9df;
   --red-bg: #fce8e6;
   --red-line: #efbcb6;
@@ -53,6 +54,7 @@
     --line: #34373b;
     --brand: #0d0e10;
     --accent: #e8743a;
+    --accent-ink: #ee8450;
     --accent-soft: #3d2619;
     --red-bg: #3a2320;
     --red-line: #6a3a33;
@@ -88,6 +90,7 @@
   --line: #34373b;
   --brand: #0d0e10;
   --accent: #e8743a;
+  --accent-ink: #ee8450;
   --accent-soft: #3d2619;
   --red-bg: #3a2320;
   --red-line: #6a3a33;
