@@ -205,6 +205,9 @@ the images to GHCR, attests them and uploads the digests). Settings of the `rele
 - **Required reviewers: none.** The human gate is merging the release pull request (and `production` approval later). A
   reviewer here would block `release-please` on every push to `main`.
 - **Variable** `RELEASE_APP_CLIENT_ID` and **secret** `RELEASE_APP_PRIVATE_KEY`, from the App below.
+- **Repository variable** `RELEASE_APP_SLUG` (Settings, Secrets and variables, Actions, Variables; not in the environment,
+  because `playbook-guard` has no environment): the App's slug, the name in its URL `github.com/apps/<slug>`.
+  `playbook-guard` compares the pull request author with `<slug>[bot]`.
 
 **Why an App.** GitHub starts no `pull_request` workflows for pushes and pull requests made with `GITHUB_TOKEN`. A release
 pull request opened with it never receives `ci / verify`, `security / scan` and `playbook-guard`, which the org ruleset
@@ -225,9 +228,15 @@ Create the App once (an organisation owner, GitHub, Settings, Developer settings
    it is never committed, pasted or logged).
 5. If the org ruleset restricts who may push or open pull requests, add the App to the bypass list **only** for what
    release-please needs (create and update `release-please--branches--*`, create tags); it needs no bypass of the required
-   checks, which now run on its pull request. `playbook-guard` treats a `release-please--branches--*` pull request opened by a
-   bot of this repository as a release pull request (no agent label or template; it may change only `CHANGELOG.md`,
-   `package.json` and `.release-please-manifest.json`).
+   checks, which now run on its pull request.
+6. Save the App's slug as the **repository variable** `RELEASE_APP_SLUG`. `playbook-guard` treats a pull request as a
+   release pull request only when all of these hold: its author is exactly `<RELEASE_APP_SLUG>[bot]`, its head branch is
+   `release-please--branches--*` in this repository, and it carries neither an `AI-Agent:` commit trailer nor the
+   `agent-authored` label. A release pull request needs no agent label or template and may change only `CHANGELOG.md`,
+   `.release-please-manifest.json` and the `"version"` line of `package.json`. If the variable is unset nothing is exempt,
+   so the release pull request is then treated as bot work and fails the label and trailer check: set it before the first
+   release. Any other bot (an agent's GitHub App, say) that names its branch `release-please--branches--x` stays an agent
+   pull request: the `AGENTS_ENABLED` kill switch, the label and trailer check and the template check all apply.
 
 Settings, Actions, General, Workflow permissions: with the App token the box
 **Allow GitHub Actions to create and approve pull requests** is **not needed** and should stay off (least privilege). It

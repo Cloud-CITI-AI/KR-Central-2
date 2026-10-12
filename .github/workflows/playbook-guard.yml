@@ -28,17 +28,22 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          RELEASE_APP_SLUG: ${{ vars.RELEASE_APP_SLUG }}
         run: |
           agent=false
           if [[ "$AUTHOR_TYPE" == "Bot" && "$AUTHOR" != "renovate[bot]" && "$AUTHOR" != "dependabot[bot]" ]]; then agent=true; fi
           if [[ ",$LABELS," == *",agent-authored,"* ]]; then agent=true; fi
           if git log --format=%B "$BASE..$HEAD" | grep -qiE '^AI-Agent:'; then trailer=true; else trailer=false; fi
           if [[ "$trailer" == "true" ]]; then agent=true; fi
-          # The release-please PR (opened with the release GitHub App's token so that checks run on it) is a bot PR of
-          # the repository itself, not agent work: no label or AI-Agent trailer, and no PR template. It may only touch
-          # the version files (checked below), so a look-alike branch name cannot carry other changes.
+          # The release-please PR (opened with the release GitHub App's token so that checks run on it) is the release
+          # App's own PR, not agent work: no label or AI-Agent trailer, no PR template. The exemption is pinned to that
+          # App's bot login (vars.RELEASE_APP_SLUG, empty means no exemption) and is never granted to a PR that carries
+          # the AI-Agent trailer or the agent-authored label, so another bot cannot borrow the branch name to skip the
+          # kill switch, N5 or the template check. The release PR may only touch the version files (checked below).
           release=false
-          if [[ "$AUTHOR_TYPE" == "Bot" && "$HEAD_REF" == release-please--branches--* && "$HEAD_REPO" == "$GITHUB_REPOSITORY" ]]; then
+          if [[ -n "$RELEASE_APP_SLUG" && "$AUTHOR" == "${RELEASE_APP_SLUG}[bot]" && "$AUTHOR_TYPE" == "Bot" \
+            && "$HEAD_REF" == release-please--branches--* && "$HEAD_REPO" == "$GITHUB_REPOSITORY" \
+            && "$trailer" == "false" && ",$LABELS," != *",agent-authored,"* ]]; then
             release=true; agent=false
           fi
           echo "release=$release" >> "$GITHUB_OUTPUT"
@@ -83,6 +88,11 @@ jobs:
           bad=$(git diff --name-only "$BASE" "$HEAD" | grep -vE '^(CHANGELOG\.md|package\.json|\.release-please-manifest\.json)$' || true)
           if [[ -n "$bad" ]]; then
             echo "::error::A release-please PR may change only CHANGELOG.md, package.json and .release-please-manifest.json:"; echo "$bad"; exit 1
+          fi
+          # package.json may change only its "version" line (not scripts such as `verify`).
+          badpkg=$(git diff -U0 "$BASE" "$HEAD" -- package.json | grep -E '^[+-]' | grep -vE '^(\+\+\+|---) ' | grep -vE '^[+-]\s*"version":\s*"[^"]*",?\s*$' || true)
+          if [[ -n "$badpkg" ]]; then
+            echo "::error::A release-please PR may change only the \"version\" line of package.json:"; echo "$badpkg"; exit 1
           fi
 
       - name: N10 — LESSONS.md is append-only and well-formed

@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 
 /**
@@ -129,6 +132,143 @@ test("playbook-guard.yml: the release-please PR is not treated as agent work and
     guard,
     /name: PR description has required sections filled\n\s+if: steps\.agent\.outputs\.release != 'true'/,
   );
+});
+
+/** The `run:` script of the playbook-guard step whose name matches, as text. */
+function guardScript(name) {
+  const step = stepNamed(jobSteps(read(".github/workflows/playbook-guard.yml"), "playbook-guard"), name);
+  const body = /run: \|\n((?: {10}.*\n|\n)+)/.exec(step)?.[1];
+  assert.ok(body, `run script of ${name}`);
+  return body.replace(/^ {10}/gm, "");
+}
+
+/** Runs the real "Detect agent authorship" script against a throwaway repo and returns its step outputs. */
+function detect({
+  author = "kr-release[bot]",
+  type = "Bot",
+  slug = "kr-release",
+  labels = "",
+  ref,
+  trailer = false,
+  repo: headRepo = "o/r",
+}) {
+  const dir = mkdtempSync(join(tmpdir(), "kr-guard-"));
+  try {
+    const git = (...args) =>
+      execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], {
+        cwd: dir,
+        encoding: "utf8",
+      });
+    git("init", "-q", "-b", "main");
+    git("commit", "-q", "--allow-empty", "-m", "base");
+    const base = git("rev-parse", "HEAD").trim();
+    git("commit", "-q", "--allow-empty", "-m", `chore: change${trailer ? "\n\nAI-Agent: claude-code/test" : ""}`);
+    const head = git("rev-parse", "HEAD").trim();
+    const out = join(dir, "out");
+    writeFileSync(out, "");
+    execFileSync("bash", ["-eo", "pipefail", "-c", guardScript(/Detect agent authorship/)], {
+      cwd: dir,
+      env: {
+        PATH: process.env.PATH,
+        AUTHOR: author,
+        AUTHOR_TYPE: type,
+        LABELS: labels,
+        BASE: base,
+        HEAD: head,
+        HEAD_REF: ref ?? "release-please--branches--main",
+        HEAD_REPO: headRepo,
+        RELEASE_APP_SLUG: slug,
+        GITHUB_REPOSITORY: "o/r",
+        GITHUB_OUTPUT: out,
+      },
+    });
+    return Object.fromEntries(
+      readFileSync(out, "utf8")
+        .trim()
+        .split("\n")
+        .map((l) => l.split("=")),
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("playbook-guard.yml: only the release App's own bot gets the release-PR exemption", () => {
+  assert.deepEqual(detect({}), { release: "true", agent: "false", trailer: "false" });
+  // Another bot (for example an agent's GitHub App) borrowing the branch name stays an agent PR: kill switch, N5, template.
+  assert.equal(detect({ author: "kr-agent[bot]" }).release, "false");
+  assert.equal(detect({ author: "kr-agent[bot]" }).agent, "true");
+  assert.equal(detect({ author: "kr-release", type: "User" }).release, "false", "a human with the same name");
+  assert.equal(detect({ author: "kr-release-evil[bot]" }).release, "false", "login must match exactly");
+  assert.equal(detect({ slug: "", author: "[bot]" }).release, "false", "no slug configured, no exemption");
+  assert.equal(detect({ slug: "" }).release, "false", "no slug configured, no exemption");
+  assert.equal(detect({ ref: "feature/x" }).release, "false", "other branch");
+  assert.equal(detect({ repo: "fork/r" }).release, "false", "fork");
+  const guard = read(".github/workflows/playbook-guard.yml");
+  assert.match(
+    guard,
+    /RELEASE_APP_SLUG: \$\{\{ vars\.RELEASE_APP_SLUG \}\}/,
+    "slug comes from a repository variable via env",
+  );
+});
+
+test("playbook-guard.yml: agent=true is never turned back into false (trailer or agent-authored label)", () => {
+  const withTrailer = detect({ trailer: true });
+  assert.deepEqual(withTrailer, { release: "false", agent: "true", trailer: "true" });
+  const withLabel = detect({ labels: "agent-authored,other" });
+  assert.equal(withLabel.release, "false");
+  assert.equal(withLabel.agent, "true");
+  // An ordinary agent bot PR on a normal branch is unchanged.
+  assert.equal(detect({ author: "kr-agent[bot]", ref: "agent/x" }).agent, "true");
+});
+
+test("playbook-guard.yml: a release PR may change only the version line of package.json", () => {
+  const script = guardScript(/Release PR changes only the version files/);
+  const run = (before, after, files = {}) => {
+    const dir = mkdtempSync(join(tmpdir(), "kr-guard-"));
+    try {
+      const git = (...a) =>
+        execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...a], {
+          cwd: dir,
+          encoding: "utf8",
+        });
+      git("init", "-q", "-b", "main");
+      writeFileSync(join(dir, "package.json"), before);
+      git("add", ".");
+      git("commit", "-q", "-m", "base");
+      const base = git("rev-parse", "HEAD").trim();
+      writeFileSync(join(dir, "package.json"), after);
+      for (const [f, c] of Object.entries(files)) writeFileSync(join(dir, f), c);
+      git("add", ".");
+      git("commit", "-q", "-m", "release");
+      const head = git("rev-parse", "HEAD").trim();
+      try {
+        execFileSync("bash", ["-eo", "pipefail", "-c", script], {
+          cwd: dir,
+          env: { PATH: process.env.PATH, BASE: base, HEAD: head },
+          stdio: "pipe",
+        });
+        return 0;
+      } catch (e) {
+        return e.status;
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const pkg = (version, verify = "pnpm -r verify") =>
+    JSON.stringify({ name: "kr", version, scripts: { verify } }, null, 2) + "\n";
+  assert.equal(run(pkg("1.0.0"), pkg("1.1.0")), 0, "version bump");
+  assert.equal(run(pkg("1.0.0"), pkg("1.1.0", "true")), 1, "scripts.verify changed alongside the version");
+  assert.equal(run(pkg("1.0.0"), pkg("1.1.0"), { "other.txt": "x" }), 1, "another file");
+});
+
+test("railway.md documents RELEASE_APP_SLUG next to RELEASE_APP_CLIENT_ID", () => {
+  const guide = read("docs/deploy/railway.md");
+  const slug = guide.indexOf("`RELEASE_APP_SLUG`");
+  const clientId = guide.indexOf("`RELEASE_APP_CLIENT_ID`");
+  assert.ok(slug > 0 && clientId > 0 && Math.abs(slug - clientId) < 600, "documented beside the client id");
+  assert.match(guide, /repository variable(\*\*)? `RELEASE_APP_SLUG`/i);
 });
 
 test("railway.md documents the release App, its secrets, the release environment and the repository setting", () => {
