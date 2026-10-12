@@ -93,7 +93,7 @@ export function DashboardContent() {
             </Suspense>
           )}
         </DashboardHeader>
-        {facets.data && <SummaryChips facets={facets.data} />}
+        {facets.data ? <SummaryChips facets={facets.data} /> : <div className={styles.skSum} aria-hidden="true" />}
         <JobGrid params={params} visibleJobs={facets.data?.statusCounts.all} />
       </div>
       {capabilities.includes("access.manage") && (

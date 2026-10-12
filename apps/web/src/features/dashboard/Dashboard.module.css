@@ -10,3 +10,55 @@
 .live:empty {
   position: absolute;
 }
+
+/*
+ * What holds the dashboard's place until it has loaded (PRODUCT_SPEC 14, CLS <= 0.1; it was 0.474 while the lazy content mounted
+ * under a null fallback, then the counts and the cards arrived). The same blocks in the same order as DashboardContent: the
+ * header box, the summary chips, the cards. Heights are the header's and the chips' measured with the counts loaded, at the
+ * widths where they wrap; the card grid reserves a screen, so the footer stays below the fold when the cards arrive.
+ * Static and CSS-only on purpose: it is in the first load (FE-9), and there is no animation to cost frames.
+ */
+.skLive {
+  position: absolute;
+}
+.skHead,
+.skSum,
+.skCard {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  opacity: 0.6;
+}
+.skHead {
+  min-height: 146px;
+  border-top: 3px solid var(--accent);
+}
+.skSum {
+  min-height: 32px;
+  border: 0;
+}
+@media (max-width: 760px) {
+  .skHead {
+    min-height: 301px;
+  }
+  .skSum {
+    min-height: 70px;
+  }
+}
+@media (max-width: 360px) {
+  .skHead {
+    min-height: 354px;
+  }
+}
+/* the same columns as the real grid (JobGrid.module.css), the same card height */
+.skGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  align-content: start;
+  gap: 10px;
+  min-height: 100vh;
+}
+.skCard {
+  min-height: 230px;
+  border-left: 4px solid var(--line);
+}

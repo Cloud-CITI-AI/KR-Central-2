@@ -59,7 +59,11 @@ describe("JobGrid", () => {
   it("shows placeholders while the cards load", () => {
     server.use(handlerFor("listJobs", () => new Promise<never>(() => undefined)));
     renderWithProviders(<JobGrid params={params()} visibleJobs={undefined} />);
-    expect(screen.getByRole("status")).toHaveTextContent("Loading jobs…");
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Loading jobs…");
+    // Decoration only, enough of them to fill a screen of cards so the footer is not pushed when the real ones arrive.
+    const boxes = [...status.querySelectorAll('[aria-hidden="true"]')];
+    expect(boxes.length).toBeGreaterThanOrEqual(6);
   });
 
   it("says No jobs match. when the filters find nothing", async () => {

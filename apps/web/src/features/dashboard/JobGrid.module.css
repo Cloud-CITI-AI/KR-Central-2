@@ -12,13 +12,18 @@
   display: grid;
 }
 .skeleton {
-  min-height: 200px;
+  min-height: 230px;
   border: 1px solid var(--line);
   border-left: 4px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
   opacity: 0.6;
   animation: pulse 1.2s ease-in-out infinite alternate;
+}
+/* until the cards arrive the grid holds a screen, so the footer is not in view to be pushed down (CLS) */
+.pending {
+  align-content: start;
+  min-height: 100vh;
 }
 @keyframes pulse {
   to {

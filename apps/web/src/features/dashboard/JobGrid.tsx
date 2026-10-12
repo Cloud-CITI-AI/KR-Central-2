@@ -39,9 +39,9 @@ export function JobGrid({ params, visibleJobs }: JobGridProps) {
   if (jobs.isError && !jobs.data) return null;
   if (jobs.isPending) {
     return (
-      <div role="status" className={styles.grid}>
+      <div role="status" className={`${styles.grid} ${styles.pending}`}>
         <VisuallyHidden>{GRID_MESSAGES.loading}</VisuallyHidden>
-        {[0, 1, 2].map((n) => (
+        {[0, 1, 2, 3, 4, 5].map((n) => (
           <div key={n} className={styles.skeleton} aria-hidden="true" />
         ))}
       </div>
