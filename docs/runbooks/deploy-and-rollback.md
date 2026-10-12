@@ -55,10 +55,12 @@ Use when a release is bad but the run passed (a problem found after the 10-minut
 1. Find the last good tag on the GitHub Releases page. Check `docs/observability` dashboards for when errors began.
 2. **Unfreeze first if frozen:** both jobs stop at their first step while `DEPLOYS_FROZEN` is `true`, rollbacks
    included. So roll back first, freeze afterwards.
-3. Actions, workflow `deploy`, "Run workflow", enter the tag. It deploys staging, then production waits for approval.
+3. Actions, workflow `deploy`, "Run workflow", enter the tag and keep **Use workflow from: `main`**: the `staging` and
+   `production` environments accept deployments from `main` only (their Deployment branches and tags rule), so a run started from
+   another branch or a tag is refused at the environment. It deploys staging, then production waits for approval.
    There is no shortcut around staging; it normally takes 10 to 20 minutes, so tell KR and mitigate meanwhile
    (a flag off, [api-availability](api-availability.md)). The run checks out **the tag itself** (`refs/tags/<tag>`, whatever
-   branch "Use workflow from" names), so it applies that tag's `infra/railway/services/*.json`, `deploy-images.mjs`,
+   `main` commit "Use workflow from" runs), so it applies that tag's `infra/railway/services/*.json`, `deploy-images.mjs`,
    `smoke.mjs` and ZAP rules together with that tag's image digests: a rollback deploys exactly what the old release shipped,
    not today's settings. Only `vX.Y.Z` tags are accepted; anything else stops at the first step.
 4. Migrations are expand-only, so the old images run on the new schema; there are no down-migrations. Never try to

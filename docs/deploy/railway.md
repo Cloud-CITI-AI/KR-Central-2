@@ -40,6 +40,24 @@ the settings files record both so a dashboard edit shows up as drift on the next
 
 ## One-time setup (a human operator, per environment)
 
+**Prerequisite: GitHub Code Security must be enabled for the repository.** The required `security / scan` check runs CodeQL
+(`github/codeql-action/init` and `analyze`, which upload their results as code scanning alerts) and
+`actions/dependency-review-action` (`reusable-security.yml`). On a **private or internal repository** both need **GitHub Code
+Security** (formerly part of GitHub Advanced Security, a paid per-committer licence on Team and Enterprise plans; for a
+public repository they are free). Without it code scanning rejects the upload and dependency review stops on "Dependency
+review is not supported on this repository", so `security / scan` fails on every pull request and, because the org ruleset
+requires it, no pull request (the release pull request included) can merge. Before the first pull request: in the
+organisation's Settings, Code security, enable **GitHub Code Security** for the repository, and in the repository's Settings,
+Advanced Security, turn on the dependency graph and code scanning. If the licence is not available, decide before the first
+release between:
+
+- **License GitHub Code Security** for this repository. Nothing else changes.
+- **Replace the two checks** (a workflow change that needs an ADR-0008 amendment and a reviewed pull request; do not edit the
+  workflows ad hoc, and do not drop `security / scan` from the ruleset): run a CodeQL-free static analysis such as Semgrep OSS
+  with the SARIF kept as a build artifact, and a dependency check that needs no GitHub licence (`pnpm audit --prod` for
+  advisories and a licence allow-list check in place of `allow-licenses`). The coverage is narrower than `security-extended`,
+  so the amendment records what is given up. No fallback is enabled in the workflows.
+
 **Prerequisite: the GitHub plan must support artifact attestations.** `release.yml` attests every image
 (`actions/attest-build-provenance` and `actions/attest-sbom`) and `deploy.yml` refuses to deploy unless
 `gh attestation verify` passes (N8, ADR-0008). GitHub offers artifact attestations for **private and internal repositories
@@ -192,6 +210,15 @@ Configure these in GitHub (Settings, Environments), once per environment:
 | Environment variable     | `STAGING_URL` / `PRODUCTION_URL` | the public https origin the smoke tests and ZAP use                                     |
 | `production` environment | required reviewers               | KR staff who are not the person who launched the release; agents are never reviewers    |
 | Repository variable      | `DEPLOYS_FROZEN`                 | `true` stops every deploy at its first step; unset or `false` allows deploys            |
+
+**Deployment branches and tags for `staging` and `production`:** in each environment's settings choose **Selected branches
+and tags** and add exactly one rule, the branch `main` (the same as for `release`). Without it any branch pushed to the
+repository can run a workflow with `environment: staging` and read that environment's `RAILWAY_TOKEN`, which breaks the rule
+that nobody runs the `railway` CLI against staging or production (SE-2, ADR-0008). `main` alone is enough and **no `v*` tag
+pattern** is added: `deploy.yml` has only two triggers. `release.yml` calls it with `workflow_call` after a push to `main`, so
+the run's ref is `refs/heads/main` (the tag is only the `tag` input; the job checks the tag out itself). A manual redeploy or
+rollback is "Run workflow" on the `deploy` workflow with **Use workflow from: `main`** and the tag as input; choosing a tag
+or another branch there is refused by the environment rule, by design.
 
 ### The `release` environment and the release GitHub App
 

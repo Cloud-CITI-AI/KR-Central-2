@@ -52,7 +52,9 @@ Railway reports different values. There are no `railway.json` files in the repo.
 
 1. _SE-2 / SC-D1 (no long-lived CI credentials)_: Railway has no OIDC federation. Use a **project token per environment**
    stored as a GitHub **Environment** secret (`RAILWAY_TOKEN`) with required reviewers on `production`, rotated every 90 days
-   (SE-4), scoped to one environment.
+   (SE-4), scoped to one environment. The `staging` and `production` environments also allow deployments from `main` only
+   (deployment branches: selected, `main`; no tag pattern, since deploy.yml runs only via `workflow_call` from release.yml on
+   `main` or by hand from `main`), so a pushed feature branch cannot read the token.
 2. _N9 / §8.4 canary 5→25→50→100 %_: Railway cannot split traffic. Progressive delivery uses **OpenFeature flags** for
    user-visible changes, Railway's health-checked zero-downtime deploys (old deployment serves until the new one is
    healthy), a 10-minute post-deploy **smoke watch** (health, readiness, headers and a latency probe against the SLO
@@ -87,6 +89,13 @@ every plan). On any other plan with a private repository `build-and-attest` fail
 intended fail-closed behaviour but a blocker for the first release. Before the first release KR either puts the
 organisation on Enterprise Cloud or amends this ADR to replace GitHub attestations with cosign signing and `cosign verify`
 (keyless, which records the repository name and workflow identity in Sigstore's public log, or key-based with a KMS key).
+The steps are in docs/deploy/railway.md, One-time setup. No fallback is enabled in the workflows.
+
+**GitHub Code Security requirement.** The required `security / scan` check runs CodeQL (code scanning upload) and
+dependency-review-action, which on a private repository need GitHub Code Security (formerly part of GitHub Advanced
+Security; free for public repositories). Without it `security / scan` fails on every pull request and nothing merges. Before
+the first pull request KR either licenses GitHub Code Security or amends this ADR to replace the two checks with ones that
+need no licence (for example Semgrep OSS and `pnpm audit` plus a licence allow-list check), recording the narrower coverage.
 The steps are in docs/deploy/railway.md, One-time setup. No fallback is enabled in the workflows.
 
 The deploy script is the single place that talks to Railway; it must be validated against Railway's API in staging first
