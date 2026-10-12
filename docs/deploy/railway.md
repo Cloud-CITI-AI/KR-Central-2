@@ -96,8 +96,8 @@ Enterprise Cloud. If neither is true, decide before the first release between:
 9. **Database roles (run once per environment, by a human).** Create the roles and schema with `bootstrap-cli`, which needs a
    Postgres superuser URL and so must never be a service variable. From a workstation with the repository checked out:
    `pnpm install --frozen-lockfile && pnpm --filter @kr/db build`, then
-   `SUPERUSER_DATABASE_URL=<railway postgres URL, public TCP proxy enabled only for this step> TRACKER_MIGRATOR_PASSWORD=<16+ chars> TRACKER_APP_PASSWORD=<16+ chars> node packages/db/dist/bootstrap-cli.js`
-   (expected output: `bootstrap complete`). Disable the public TCP proxy afterwards. Build the two role URLs from the
+   `SUPERUSER_DATABASE_URL=<railway postgres URL, public TCP proxy enabled only for this step> TRACKER_MIGRATOR_PASSWORD=<16+ chars> TRACKER_APP_PASSWORD=<16+ chars> TRACKER_BACKUP_PASSWORD=<16+ chars> node packages/db/dist/bootstrap-cli.js`
+   (expected output: `bootstrap complete`). Disable the public TCP proxy afterwards. Build the three role URLs (migrator, app, backup) from the
    private hostname and the passwords you chose. Keep the passwords in the team password manager, not in shell history.
 10. **Variables.** Set the variables of the next section on each service (secrets as **sealed** variables), then add the
     GitHub configuration under [Pipeline wiring](#pipeline-wiring).
@@ -160,7 +160,7 @@ the images except where stated.
 | `API_INTERNAL_URL` | `http://api.railway.internal:8080`                         |
 | `FEEDBACK_URL`     | optional "Send feedback" footer link; empty hides it       |
 
-**`migrate`** (the only service with `MIGRATION_DATABASE_URL` in the target design; see the known discrepancy below)
+**`migrate`** (the only service with `MIGRATION_DATABASE_URL`, ADR-0007 and ADR-0008)
 
 | Variable                                                                                                                                               | Value                                                                        |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
@@ -171,17 +171,16 @@ the images except where stated.
 
 **`backup`**
 
-| Variable                                                                                                            | Value                                                  |
-| ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `BACKUP_*` (as on `migrate`), `BACKUP_RETENTION_DAYS`, `PG_DUMP_PATH`, `LOG_LEVEL`                                  | the backups bucket and settings, as on `migrate`       |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (sealed), `S3_FORCE_PATH_STYLE` | the **files** bucket with **read-only** keys           |
-| `MIGRATION_DATABASE_URL` (sealed), `DATABASE_SSL`                                                                   | **required by today's code** (known discrepancy below) |
+| Variable                                                                                                            | Value                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `BACKUP_*` (as on `migrate`), `BACKUP_RETENTION_DAYS`, `PG_DUMP_PATH`, `LOG_LEVEL`                                  | the backups bucket and settings, as on `migrate`                                                                    |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (sealed), `S3_FORCE_PATH_STYLE` | the **files** bucket with **read-only** keys                                                                        |
+| `BACKUP_DATABASE_URL` (sealed), `DATABASE_SSL`                                                                      | `postgres://tracker_backup:<password>@postgres.railway.internal:5432/<db>`; the read-only **`tracker_backup`** role |
 
-**Known discrepancy (tracked for the platform team).** ADR-0007 and ADR-0008 say
-`MIGRATION_DATABASE_URL` exists only on `migrate`, but `services/ops/src/config.ts` requires it for every ops process and
-`backup-service.ts` passes it to `pg_dump`. Until `services/ops` accepts a read-only dump role for `backup` (a change outside
-WP-23), `backup` must hold the migrator URL or it fails at start. Never set `MIGRATION_DATABASE_URL` or `SUPERUSER_DATABASE_URL`,
-`TRACKER_MIGRATOR_PASSWORD` or `TRACKER_APP_PASSWORD` on `api`, `worker` or `web`; the last three are only for `bootstrap-cli` above.
+`backup` dumps as the read-only `tracker_backup` role through `BACKUP_DATABASE_URL`; it neither reads nor needs
+`MIGRATION_DATABASE_URL`. Never set `MIGRATION_DATABASE_URL`, `BACKUP_DATABASE_URL` or `SUPERUSER_DATABASE_URL`,
+`TRACKER_MIGRATOR_PASSWORD`, `TRACKER_APP_PASSWORD` or `TRACKER_BACKUP_PASSWORD` on `api`, `worker` or `web`; the
+`TRACKER_*_PASSWORD` variables are only for `bootstrap-cli` above.
 
 ## Pipeline wiring
 

@@ -85,4 +85,4 @@ and the second person for production. Never put a secret, a client name, an addr
   (slo.md). The alert rules are written, not yet enforced.
 - The Railway API calls used by the deploy script have not been verified on a live project (`docs/deploy/railway.md`).
 - No recovery time objective is set; the first drills measure one.
-- `backup` holds the migrator database URL because the code requires it (known discrepancy in `docs/deploy/railway.md`).
+- `backup` holds only the read-only `tracker_backup` database URL (`BACKUP_DATABASE_URL`), never the migrator URL.
