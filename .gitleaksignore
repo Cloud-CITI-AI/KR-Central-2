@@ -13,3 +13,11 @@
 18c41e23dbcaac1b09cb55884d9b4626cca0ccce:apps/web/src/lib/bff/proxy.test.ts:generic-api-key:52
 # packages/storage/src/s3.ts: a comment that names the credential option
 0329bcc8203796842ede85dbaa5c8c8bcab5a1f7:packages/storage/src/s3.ts:generic-api-key:49
+# Round 2 (config tests from commit 9a1b15b): synthetic S3 secret-key and secret-value literals in config parsing tests
+# services/api/src/config.test.ts and services/worker/src/config.test.ts: S3_SECRET_ACCESS_KEY 'sk-test-0123456789abcdef'
+9a1b15b52ee5befbc2df4cef9df33d28fc960593:services/api/src/config.test.ts:generic-api-key:16
+9a1b15b52ee5befbc2df4cef9df33d28fc960593:services/worker/src/config.test.ts:generic-api-key:11
+# services/ops/src/config.test.ts: BACKUP_S3_SECRET_ACCESS_KEY 'sk-test-0123456789abcdef'
+9a1b15b52ee5befbc2df4cef9df33d28fc960593:services/ops/src/config.test.ts:generic-api-key:11
+# packages/config/src/index.test.ts: SECRET 'a1b2c3d4e5f6' (asserts the parser returns the value unchanged)
+9a1b15b52ee5befbc2df4cef9df33d28fc960593:packages/config/src/index.test.ts:generic-api-key:165

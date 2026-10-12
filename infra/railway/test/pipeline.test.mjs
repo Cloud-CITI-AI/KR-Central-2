@@ -18,7 +18,7 @@ test("gitleaks: the reviewed false positives are ignored by exact, history-stabl
   const lines = read(".gitleaksignore")
     .split("\n")
     .filter((l) => l.trim() !== "" && !l.startsWith("#"));
-  assert.equal(lines.length, 6);
+  assert.equal(lines.length, 10);
   for (const line of lines) assert.match(line, /^[0-9a-f]{40}:[\w./-]+:[\w-]+:\d+$/, line);
   const files = lines.map((l) => l.split(":")[1]).sort();
   assert.deepEqual(files, [
@@ -26,8 +26,12 @@ test("gitleaks: the reviewed false positives are ignored by exact, history-stabl
     "apps/web/src/lib/api/upload.test.ts",
     "apps/web/src/lib/bff/proxy.test.ts",
     "apps/web/src/lib/bff/proxy.test.ts",
+    "packages/config/src/index.test.ts",
     "packages/storage/src/s3.ts",
+    "services/api/src/config.test.ts",
+    "services/ops/src/config.test.ts",
     "services/ops/test/support.ts",
+    "services/worker/src/config.test.ts",
   ]);
   assert.ok(!existsSync(new URL(".gitleaks.toml", repo)), "no path-wide allowlist next to the fingerprints");
 });
