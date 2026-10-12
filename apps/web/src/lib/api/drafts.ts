@@ -100,3 +100,45 @@ export function takeDraft(key: string, now: number = Date.now()): StoredDraft | 
     return null; // not JSON or storage refused: nothing to restore
   }
 }
+
+/** Is a draft kept for `key` (not too old)? Looks without taking it: for a parent that must open a form before it can restore. */
+export function hasDraft(key: string, now: number = Date.now()): boolean {
+  const store = storage();
+  if (!store) return false;
+  try {
+    const raw = store.getItem(key);
+    const draft: unknown = raw === null ? null : JSON.parse(raw);
+    return isStoredDraft(draft) && now - draft.savedAt <= MAX_AGE_MS;
+  } catch {
+    return false;
+  }
+}
+
+/** A form's text fields as one draft: they have no saved text to be typed over, so `base` stays empty. */
+export function encodeFields<T extends { readonly [K in keyof T]: string }>(fields: T): DraftSnapshot {
+  return { text: JSON.stringify(fields), base: "" };
+}
+
+/** The fields `names` of a form as typed (a control that is not text reads as empty). */
+export function formFields<N extends string>(form: HTMLFormElement, names: readonly N[]): Record<N, string> {
+  const data = new FormData(form);
+  return Object.fromEntries(
+    names.map((name) => {
+      const value = data.get(name);
+      return [name, typeof value === "string" ? value : ""];
+    }),
+  ) as Record<N, string>;
+}
+
+/** The fields `names` that `encodeFields` kept (missing ones empty), or null when the draft is not a record of text fields. */
+export function decodeFields<N extends string>(draft: StoredDraft, names: readonly N[]): Record<N, string> | null {
+  try {
+    const value: unknown = JSON.parse(draft.text);
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+    const kept = new Map(Object.entries(value));
+    if ([...kept.values()].some((field) => typeof field !== "string")) return null;
+    return Object.fromEntries(names.map((name) => [name, kept.get(name) ?? ""])) as Record<N, string>;
+  } catch {
+    return null;
+  }
+}

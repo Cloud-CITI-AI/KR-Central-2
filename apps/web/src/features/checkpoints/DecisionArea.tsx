@@ -4,7 +4,10 @@ import { formatInstantShort, type ApprovalPanel } from "@kr/workflow";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
-import { ApiProblem } from "@/lib/api";
+import { ApiProblem, draftKey, useDraft } from "@/lib/api";
+import { useBanners } from "@/lib/banner/BannerProvider";
+import { MESSAGES } from "@/lib/messages";
+import { useSession } from "@/lib/session";
 import { declineNeedsCommentText } from "./messages";
 import { useRecordDecision, type DecisionVars } from "./useRecordDecision";
 import decision from "./Decision.module.css";
@@ -89,6 +92,20 @@ export function DecisionArea({ jobId, checkpoint, panel, canRecord }: DecisionAr
   const record = useRecordDecision(jobId, checkpoint.key);
   const [draft, setDraft] = useState<Draft | null>(null);
   const { decision: result } = checkpoint;
+
+  // A comment being written is kept when the session ends and the form opens again with it after sign-in (§3.1, §15). The
+  // decision (accepted / declined) rides along as the draft's `base`.
+  const { user } = useSession();
+  const banners = useBanners();
+  useDraft(
+    canRecord ? draftKey(user.id, jobId, checkpoint.key, "decision") : undefined,
+    () => (draft?.comment.trim() ? { text: draft.comment, base: draft.value } : null),
+    (stored) => {
+      if (!stored.text.trim()) return;
+      setDraft({ value: stored.base === "declined" ? "declined" : "accepted", comment: stored.text, error: null });
+      banners.show("draft-restored", MESSAGES.draftRestored);
+    },
+  );
 
   async function confirm(current: Draft) {
     const comment = current.comment.trim();

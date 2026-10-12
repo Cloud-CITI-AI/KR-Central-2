@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { draftKey, persistDrafts, registerDraft, takeDraft } from "./drafts";
+import {
+  decodeFields,
+  draftKey,
+  encodeFields,
+  formFields,
+  hasDraft,
+  persistDrafts,
+  registerDraft,
+  takeDraft,
+} from "./drafts";
 
 const KEY = draftKey("user-1", "job-1", "i8_3", "krNote");
 
@@ -97,5 +106,57 @@ describe("takeDraft", () => {
       expect(takeDraft(KEY, 3 * 60 * 60 * 1000)).toBeNull();
       expect(window.sessionStorage.getItem(KEY)).toBeNull();
     }
+  });
+});
+
+describe("hasDraft", () => {
+  it("looks without taking: true while a fresh draft is kept, false once it is taken, too old or not a draft", () => {
+    expect(hasDraft(KEY)).toBe(false);
+    const stop = registerDraft(KEY, () => ({ text: "x", base: "" }));
+    persistDrafts(1_000);
+    stop();
+    expect(hasDraft(KEY, 2_000)).toBe(true);
+    expect(hasDraft(KEY, 2_000)).toBe(true);
+    expect(hasDraft(KEY, 1_000 + 2 * 60 * 60 * 1000 + 1)).toBe(false);
+    expect(takeDraft(KEY, 2_000)?.text).toBe("x");
+    expect(hasDraft(KEY, 2_000)).toBe(false);
+    window.sessionStorage.setItem(KEY, "not json");
+    expect(hasDraft(KEY)).toBe(false);
+  });
+
+  it("is false when storage cannot be read", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    expect(hasDraft(KEY)).toBe(false);
+  });
+});
+
+describe("encodeFields / decodeFields / formFields", () => {
+  const names = ["address", "clientName"] as const;
+
+  it("round-trips a form's text fields through a draft, a field that was not kept reading as empty", () => {
+    const snapshot = encodeFields({ address: "9 Example St", clientName: "" });
+    expect(snapshot.base).toBe("");
+    expect(decodeFields({ ...snapshot, savedAt: 1 }, names)).toEqual({ address: "9 Example St", clientName: "" });
+    expect(decodeFields({ ...encodeFields({ address: "9 Example St" }), savedAt: 1 }, names)).toEqual({
+      address: "9 Example St",
+      clientName: "",
+    });
+  });
+
+  it("reads back only text fields: anything else is not a form draft", () => {
+    expect(decodeFields({ text: "not json", base: "", savedAt: 1 }, names)).toBeNull();
+    expect(decodeFields({ text: "[1]", base: "", savedAt: 1 }, names)).toBeNull();
+    expect(decodeFields({ text: '{"address":1}', base: "", savedAt: 1 }, names)).toBeNull();
+    expect(decodeFields({ text: "null", base: "", savedAt: 1 }, names)).toBeNull();
+  });
+
+  it("reads the named controls of a form as typed", () => {
+    const form = document.createElement("form");
+    form.innerHTML =
+      '<input name="address" value="9 Example St"><input name="clientName" value=""><input name="other" value="x">';
+    expect(formFields(form, names)).toEqual({ address: "9 Example St", clientName: "" });
+    expect(formFields(form, ["address", "missing"] as const)).toEqual({ address: "9 Example St", missing: "" });
   });
 });

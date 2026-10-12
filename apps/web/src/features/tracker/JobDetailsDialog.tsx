@@ -7,7 +7,8 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { ApiProblem } from "@/lib/api";
+import { ApiProblem, formFields } from "@/lib/api";
+import { JOB_DETAILS_FIELDS, type JobDetailsValues } from "./jobDetailsFields";
 import { duplicateJobText, JOB_DETAILS_MESSAGES } from "./messages";
 import { useUpdateJob, type UpdateJobBody } from "./useUpdateJob";
 import styles from "./JobDetailsDialog.module.css";
@@ -16,15 +17,19 @@ export interface JobDetailsDialogProps {
   readonly job: JobDetail;
   readonly open: boolean;
   readonly onClose: () => void;
+  /** Values to open the form with instead of the job's (what was typed when the session ended, §3.1, §15). */
+  readonly initial?: JobDetailsValues | undefined;
+  /** What the form holds whenever it is changed, `null` while it matches the job: the caller keeps it for a draft. */
+  readonly onEdit?: ((values: JobDetailsValues | null) => void) | undefined;
   /** Present with `job.delete`: opens the archive confirmation from the danger link. */
   readonly onArchive?: () => void;
 }
 
 /** The "Job details" dialog (§5.1): job number, address, client and subdivision type, saved with `If-Match`. */
-export function JobDetailsDialog({ job, open, onClose, onArchive }: JobDetailsDialogProps) {
+export function JobDetailsDialog({ job, open, onClose, onArchive, initial, onEdit }: JobDetailsDialogProps) {
   return (
     <Dialog open={open} onClose={onClose} title="Job details" size="small">
-      <JobDetailsForm job={job} onClose={onClose} onArchive={onArchive} />
+      <JobDetailsForm job={job} onClose={onClose} onArchive={onArchive} initial={initial} onEdit={onEdit} />
     </Dialog>
   );
 }
@@ -34,6 +39,8 @@ function JobDetailsForm({
   job,
   onClose,
   onArchive,
+  initial,
+  onEdit,
 }: Omit<JobDetailsDialogProps, "open" | "onArchive"> & { readonly onArchive: (() => void) | undefined }) {
   const update = useUpdateJob(job.id);
   const [error, setError] = useState("");
@@ -78,14 +85,37 @@ function JobDetailsForm({
     }
   };
 
+  // What the form starts with: the job's fields, or the ones typed when the session ended.
+  const start: JobDetailsValues = initial ?? {
+    jobNumber: job.jobNumber,
+    address: job.address,
+    clientName: job.clientName ?? "",
+    subdivisionType: job.subdivisionType ?? "",
+  };
+
   return (
-    <form className={styles.form} onSubmit={(event) => void submit(event)} noValidate>
+    <form
+      className={styles.form}
+      onSubmit={(event) => void submit(event)}
+      onChange={(event) => {
+        const values = formFields(event.currentTarget, JOB_DETAILS_FIELDS);
+        onEdit?.(
+          values.jobNumber === job.jobNumber &&
+            values.address === job.address &&
+            values.clientName === (job.clientName ?? "") &&
+            values.subdivisionType === (job.subdivisionType ?? "")
+            ? null
+            : values,
+        );
+      }}
+      noValidate
+    >
       <Field label="Job number">
         {(c) => (
           <Input
             {...c}
             name="jobNumber"
-            defaultValue={job.jobNumber}
+            defaultValue={start.jobNumber}
             maxLength={32}
             autoComplete="off"
             data-autofocus
@@ -93,16 +123,14 @@ function JobDetailsForm({
         )}
       </Field>
       <Field label="Address">
-        {(c) => <Input {...c} name="address" defaultValue={job.address} maxLength={200} autoComplete="off" />}
+        {(c) => <Input {...c} name="address" defaultValue={start.address} maxLength={200} autoComplete="off" />}
       </Field>
       <Field label="Client (optional)">
-        {(c) => (
-          <Input {...c} name="clientName" defaultValue={job.clientName ?? ""} maxLength={200} autoComplete="off" />
-        )}
+        {(c) => <Input {...c} name="clientName" defaultValue={start.clientName} maxLength={200} autoComplete="off" />}
       </Field>
       <Field label="Subdivision type">
         {(c) => (
-          <Select {...c} name="subdivisionType" defaultValue={job.subdivisionType ?? ""}>
+          <Select {...c} name="subdivisionType" defaultValue={start.subdivisionType}>
             {!job.subdivisionType && <option value="">Subdivision type…</option>}
             {SUBDIVISION_TYPES.map((type) => (
               <option key={type} value={type}>
