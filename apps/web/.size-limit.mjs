@@ -10,9 +10,10 @@
 //                                           only ratchets down; there are none today and the public routes can have none)
 //   3. lazy JS: chunks no route loads first (pdf.js 135 KB, Zod with the contract schemas for the forms that validate with
 //      them, the viewer dialog, the tracker body, the dashboard content and the admin pages, Next's polyfill script;
-//      303.7 KB today. It was 235.6 KB while those pages were in the first loads: the code moved here, it did not grow, and
-//      the first-load union fell from 239.8 to 167.5 KB. 305 KB leaves room for one small lazy feature, and a second large
-//      library still trips it)
+//      305.8 KB today (it was 303.7 KB before the round-2 edit fixes: draft restore for the forms, the 503 and 429
+//      wording, and SignInLink now live in lazy chunks). It was 235.6 KB while those pages were in the first loads: the
+//      code moved here, it did not grow, and the first-load union fell from 239.8 to 167.5 KB. 307 KB leaves room for one
+//      small lazy feature, and a second large library still trips it)
 // Besides sizes, loading this file fails the check when a waiver is stale or pdf.js is in any route's first load.
 import { budgetProblems, jsOnly, limitFor, measureBuild } from "./scripts/perf/route-budgets.ts";
 
@@ -41,7 +42,7 @@ export default [
   {
     name: "lazy JS, chunks no route loads first, e.g. pdf.js (gzip)",
     path: lazy,
-    limit: "305 KB",
+    limit: "307 KB",
     gzip: true,
   },
 ];
