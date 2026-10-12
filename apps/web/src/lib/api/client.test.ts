@@ -156,6 +156,20 @@ describe("api()", () => {
     expect(assign).toHaveBeenCalledWith("/sign-in");
   });
 
+  it("comes back to the card of a deep link: the page's #fragment goes into returnTo when a 401 sends it to sign-in", async () => {
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
+    window.history.replaceState(null, "", `/jobs/${JOB_ID}?stage=wapc#checkpoint-i13_2`);
+    try {
+      server.use(mockProblem("getMe", 401, PROBLEM_TYPES.unauthenticated));
+      await expect(api("getMe")).rejects.toMatchObject({ status: 401 });
+      expect(assign).toHaveBeenCalledWith(
+        `/sign-in?returnTo=${encodeURIComponent(`/jobs/${JOB_ID}?stage=wapc#checkpoint-i13_2`)}`,
+      );
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
   it("keeps the text of a field with unsaved typing when a 401 sends the person to sign-in, before it navigates", async () => {
     window.sessionStorage.clear();
     const key = draftKey("user-1", JOB_ID, "i8_3", "krNote");
@@ -204,5 +218,19 @@ describe("signInHref", () => {
     expect(signInHref("/")).toBe("/sign-in");
     expect(signInHref("/sign-in-error", "?reason=failed")).toBe("/sign-in");
     expect(signInHref("//evil.example.com")).toBe("/sign-in");
+  });
+
+  it("keeps the #fragment of a deep link inside returnTo, so sign-in lands on the same card (§4)", () => {
+    expect(signInHref("/jobs/1", "", "#checkpoint-i13_2")).toBe("/sign-in?returnTo=%2Fjobs%2F1%23checkpoint-i13_2");
+    expect(signInHref("/jobs/1", "?stage=wapc", "#checkpoint-i13_2")).toBe(
+      "/sign-in?returnTo=%2Fjobs%2F1%3Fstage%3Dwapc%23checkpoint-i13_2",
+    );
+  });
+
+  it("drops a fragment that would make returnTo too long rather than the whole returnTo, and never loops", () => {
+    const long = `#${"a".repeat(600)}`;
+    expect(signInHref("/jobs/1", "", long)).toBe("/sign-in?returnTo=%2Fjobs%2F1");
+    expect(signInHref("/sign-in", "", "#x")).toBe("/sign-in");
+    expect(signInHref("/", "", "#x")).toBe("/sign-in");
   });
 });

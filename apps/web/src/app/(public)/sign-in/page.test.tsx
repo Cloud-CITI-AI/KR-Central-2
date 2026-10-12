@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { expectNoAxeViolations } from "@/test/axe";
 import SignInPage from "./page";
@@ -28,4 +28,28 @@ describe("sign-in page", () => {
       expect(login()).toHaveAttribute("href", "/api/v1/auth/login");
     },
   );
+
+  it("adds the #fragment the deep link arrived with (the browser keeps it across the redirect, no server sees it)", async () => {
+    window.history.replaceState(null, "", "/sign-in?returnTo=%2Fjobs%2Fabc#checkpoint-i13_2");
+    try {
+      await show("/jobs/abc");
+      expect(login()).toHaveAttribute("href", "/api/v1/auth/login?returnTo=%2Fjobs%2Fabc%23checkpoint-i13_2");
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("ignores a fragment when there is no returnTo, and one that would not be a same-origin path", async () => {
+    window.history.replaceState(null, "", "/sign-in#checkpoint-i13_2");
+    try {
+      await show();
+      expect(login()).toHaveAttribute("href", "/api/v1/auth/login");
+      cleanup();
+      window.history.replaceState(null, "", `/sign-in?returnTo=%2Fjobs%2Fabc#${"a".repeat(600)}`);
+      await show("/jobs/abc");
+      expect(login()).toHaveAttribute("href", "/api/v1/auth/login?returnTo=%2Fjobs%2Fabc");
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
 });

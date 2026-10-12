@@ -28,9 +28,13 @@ interface RuntimeOptions {
   readonly signal?: AbortSignal;
 }
 
-/** `/sign-in?returnTo=<current same-origin path>`; the sign-in pages themselves never loop. */
-export function signInHref(pathname: string, search = ""): string {
-  const returnTo = safeReturnTo(`${pathname}${search}`);
+/**
+ * `/sign-in?returnTo=<current same-origin path>`, with the `#fragment` of a deep link when it fits (§4: `#checkpoint-<key>`);
+ * the sign-in pages themselves never loop.
+ */
+export function signInHref(pathname: string, search = "", hash = ""): string {
+  const path = safeReturnTo(`${pathname}${search}`);
+  const returnTo = path && path !== "/" ? (safeReturnTo(`${path}${hash}`) ?? path) : path;
   return returnTo && returnTo !== "/" && !returnTo.startsWith("/sign-in")
     ? `/sign-in?returnTo=${encodeURIComponent(returnTo)}`
     : "/sign-in";
@@ -42,7 +46,7 @@ export function signInHref(pathname: string, search = ""): string {
  */
 export function redirectToSignIn(): void {
   persistDrafts();
-  navigation.assign(signInHref(window.location.pathname, window.location.search));
+  navigation.assign(signInHref(window.location.pathname, window.location.search, window.location.hash));
 }
 
 export function buildQuery(query: RuntimeOptions["query"]): string {

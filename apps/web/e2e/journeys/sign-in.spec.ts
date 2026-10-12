@@ -2,6 +2,7 @@ import { expect, test } from "../fixtures";
 import { createJob } from "../harness/jobs";
 import { ARCHITECT_GUEST, STAFF } from "../harness/users";
 import { signInThroughBrowser } from "../support/browser";
+import { card } from "../support/tracker";
 
 // PRODUCT_SPEC §3.1: the sign-in flow end to end against the mock Entra, through the real browser, web proxy and API.
 
@@ -18,6 +19,20 @@ test("a signed-out visitor is sent to sign-in and lands on the page they wanted 
   await expect(page).toHaveURL(`/jobs/${job.id}`);
   await expect(page.getByRole("combobox", { name: "Job" })).toContainText(job.jobNumber);
   await expect(page.getByText(STAFF.name)).toBeVisible();
+});
+
+test("a deep link to a checkpoint keeps its #fragment through sign-in and lands on that card, its stage open (§3.1, §4)", async ({
+  page,
+  apiAs,
+}) => {
+  const job = await createJob(await apiAs(STAFF));
+  await page.goto(`/jobs/${job.id}#checkpoint-i13_2`);
+  await page.waitForURL((url) => url.pathname === "/sign-in" && url.searchParams.get("returnTo") === `/jobs/${job.id}`);
+  await page.getByRole("link", { name: "Sign in with Microsoft" }).click();
+  await page.getByRole("link", { name: `(${STAFF.email})` }).click();
+  await expect(page).toHaveURL(`/jobs/${job.id}#checkpoint-i13_2`);
+  await expect(card(page, "i13_2")).toBeInViewport();
+  await expect(card(page, "i13_2").getByRole("heading").first()).toBeVisible();
 });
 
 test("signing in from the sign-in page opens the dashboard", async ({ page }) => {
