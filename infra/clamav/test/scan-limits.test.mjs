@@ -9,9 +9,8 @@
  */
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import net from "node:net";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
@@ -27,7 +26,6 @@ const docker = (...args) => execFileSync("docker", args, { encoding: "utf8" }).t
 const EICAR = ["X5O!P%@AP[4\\PZX54(P^)7CC)7}$", "EICAR-STANDARD-ANTIVIRUS-TEST-FILE!", "$H+H*"].join("");
 
 let port;
-let tempDir;
 
 /** One clamd command over TCP; resolves with the reply text (null byte stripped). `source` yields INSTREAM chunks. */
 function clamd(command, source) {
@@ -62,23 +60,10 @@ async function* syntheticFile(bytes) {
 before(async () => {
   const image = process.env.CLAMAV_IMAGE ?? "kr-clamav:test";
   if (!process.env.CLAMAV_IMAGE) docker("build", "-q", "-f", join(imageDir, "Dockerfile"), "-t", image, imageDir);
-  // clamd.conf is mounted as shipped. Only the bind address changes when the host kernel has no IPv6 (CI runners and
-  // Railway have it; some sandboxes do not, and clamd then refuses to bind `::`).
-  let conf = readFileSync(join(imageDir, "clamd.conf"), "utf8");
-  if (!existsSync("/proc/net/if_inet6")) conf = conf.replace(/^TCPAddr ::$/m, "TCPAddr 0.0.0.0");
-  tempDir = mkdtempSync(join(tmpdir(), "kr-clamav-"));
-  writeFileSync(join(tempDir, "clamd.conf"), conf);
-  docker(
-    "run",
-    "-d",
-    "--name",
-    name,
-    "-p",
-    "127.0.0.1::3310",
-    "-v",
-    `${join(tempDir, "clamd.conf")}:/etc/clamav/clamd.conf:ro`,
-    image,
-  );
+  // The image runs as shipped. Only the bind address changes when the host kernel has no IPv6 (CI runners and Railway
+  // have it; some sandboxes do not, and clamd then refuses to bind `::`): CLAMD_TCP_ADDR, read by kr-entrypoint.sh.
+  const addr = existsSync("/proc/net/if_inet6") ? [] : ["-e", "CLAMD_TCP_ADDR=0.0.0.0"];
+  docker("run", "-d", "--name", name, "-p", "127.0.0.1::3310", ...addr, image);
   port = Number(docker("port", name, "3310/tcp").split(":").pop());
   const deadline = Date.now() + 240_000;
   for (;;) {
@@ -90,11 +75,7 @@ before(async () => {
 });
 
 after(() => {
-  try {
-    docker("rm", "-f", name);
-  } finally {
-    if (tempDir) rmSync(tempDir, { recursive: true, force: true });
-  }
+  docker("rm", "-f", name);
 });
 
 describe("clamd in the kr-clamav image", () => {

@@ -18,6 +18,11 @@ LABEL org.opencontainers.image.title="kr-clamav" \
 COPY --chown=root:root --chmod=0644 clamd.conf* infr[a]/clamav/clamd.conf* /etc/clamav/
 RUN grep -q '^StreamMaxLength 60M' /etc/clamav/clamd.conf
 
+# The entrypoint wrapper sets clamd's bind address from CLAMD_TCP_ADDR (default `::` for Railway; 0.0.0.0 on a Docker
+# host without IPv6, where clamd cannot bind `::`) and then execs the upstream /init. Same two-glob copy as above.
+COPY --chown=root:root --chmod=0755 kr-entrypoint.sh* infr[a]/clamav/kr-entrypoint.sh* /usr/local/bin/
+RUN test -x /usr/local/bin/kr-entrypoint.sh
+
 # freshclam runs as a daemon next to clamd (the upstream /init starts it, and checks for new signatures on start);
 # FRESHCLAM_CHECKS is checks per day. Mount a volume at /var/lib/clamav so signatures survive restarts.
 ENV FRESHCLAM_CHECKS=12 \
@@ -26,3 +31,4 @@ ENV FRESHCLAM_CHECKS=12 \
 # The upstream entrypoint (/init, kept) starts as root only to chown the signature directory (a Railway volume is
 # mounted root-owned); clamd and freshclam then drop to the unprivileged `clamav` user (see User in clamd.conf).
 EXPOSE 3310
+ENTRYPOINT ["/usr/local/bin/kr-entrypoint.sh"]

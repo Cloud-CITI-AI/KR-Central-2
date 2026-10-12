@@ -143,3 +143,16 @@ test("railway.md documents the release App, its secrets, the release environment
   ])
     assert.ok(guide.includes(term), term);
 });
+
+// ---- docker-compose.yml, clamav (BUG 5) -----------------------------------------------------------------------------
+
+test("docker-compose.yml: clamd gets KR_STACK_HOST as its bind address and the worker waits for it to be healthy", () => {
+  const compose = read("docker-compose.yml");
+  const clamav = /^ {2}clamav:\n((?: {4}.*\n|\n)+)/m.exec(compose)?.[1] ?? "";
+  assert.match(clamav, /CLAMD_TCP_ADDR: \$\{KR_STACK_HOST:-::\}/, "same switch as api, worker and web");
+  const worker = /^ {2}worker:\n((?: {4}.*\n|\n)+)/m.exec(compose)?.[1] ?? "";
+  assert.match(worker, /clamav: \{ condition: service_healthy \}/);
+  const dockerfile = read("infra/clamav/Dockerfile");
+  assert.match(dockerfile, /ENTRYPOINT \["\/usr\/local\/bin\/kr-entrypoint\.sh"\]/);
+  assert.match(read("infra/clamav/clamd.conf"), /^TCPAddr ::$/m, "Railway default stays `::`");
+});

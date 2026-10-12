@@ -4,11 +4,13 @@ The `clamav` Railway service (ADR-0008, ADR-0011). The worker streams every new 
 and stores `clean`, `infected` or `error` (PRODUCT_SPEC section 11). This directory is the official `clamav/clamav:stable`
 image (pinned by digest) plus our `clamd.conf`.
 
-| File                        | Purpose                                                                                     |
-| --------------------------- | ------------------------------------------------------------------------------------------- |
-| `Dockerfile`                | Base image by digest, our `clamd.conf`, OCI labels, `FRESHCLAM_CHECKS`                      |
-| `clamd.conf`                | TCP 3310 on `::`, console logging, `StreamMaxLength`/`MaxFileSize`/`MaxScanSize`            |
-| `test/scan-limits.test.mjs` | Starts the image and proves a 55 MiB file scans clean, EICAR is detected, 61 MiB is refused |
+| File                        | Purpose                                                                                             |
+| --------------------------- | --------------------------------------------------------------------------------------------------- |
+| `Dockerfile`                | Base image by digest, our `clamd.conf`, the entrypoint wrapper, OCI labels, `FRESHCLAM_CHECKS`      |
+| `clamd.conf`                | TCP 3310 on `::` (see Bind address), console logging, `StreamMaxLength`/`MaxFileSize`/`MaxScanSize` |
+| `kr-entrypoint.sh`          | Sets the bind address from `CLAMD_TCP_ADDR`, then execs the upstream `/init`                        |
+| `test/entrypoint.test.mjs`  | The wrapper's address handling, without Docker                                                      |
+| `test/scan-limits.test.mjs` | Starts the image and proves a 55 MiB file scans clean, EICAR is detected, 61 MiB is refused         |
 
 ## Limits
 
@@ -19,6 +21,17 @@ image (pinned by digest) plus our `clamd.conf`.
 | `MaxScanSize`     | 240M  | Total bytes scanned including archive contents, so decompression bombs stop here.                                                                                                                                                                                                                   |
 
 If `UPLOAD_MAX_BYTES` is raised, raise all three (and `CLAMAV_STREAM_MAX_BYTES`) together and rebuild the image.
+
+## Bind address
+
+clamd binds `::` by default: Railway's private network is IPv6 and `::` also accepts IPv4 on a dual-stack host. A Docker host
+whose kernel has no IPv6 (no `/proc/net/if_inet6`) cannot bind `::`: clamd logs `TCP: getaddrinfo failed: Name has no usable
+address`, never listens on 3310, the health check stays `starting` and every upload scan stays pending. Set the environment
+variable `CLAMD_TCP_ADDR` on the container to an IP literal (`0.0.0.0` for IPv4 only); `kr-entrypoint.sh` rewrites the single
+`TCPAddr` line of `clamd.conf` from it at start, and refuses anything that is not an IP literal. Do not set it on Railway.
+`docker compose` passes `KR_STACK_HOST` to it (`KR_STACK_HOST=0.0.0.0 docker compose --profile stack up`), and the worker
+waits for the container to be healthy. The upstream `CLAMD_CONF_TCPAddr` does not work for this: it appends a second
+`TCPAddr` line and clamd binds both, so `::` still fails.
 
 ## Running
 
@@ -45,12 +58,12 @@ docker build -f infra/clamav/Dockerfile -t kr-clamav:test .   # same image from 
 node --test infra/clamav/test/scan-limits.test.mjs   # needs Docker; builds the image itself, 30-90 s for clamd to load
 ```
 
-The test mounts `clamd.conf` as shipped. Only on a host kernel without IPv6 does it change the bind address `::` to
-`0.0.0.0`, because clamd refuses to bind `::` there; Railway and CI runners have IPv6.
+The test runs the image as shipped. Only on a host kernel without IPv6 does it set `CLAMD_TCP_ADDR=0.0.0.0` (see Bind
+address); Railway and CI runners have IPv6.
 
 Manual check against a running container:
 
 ```bash
-docker run -d --name clamav -p 3310:3310 kr-clamav:test
+docker run -d --name clamav -p 3310:3310 kr-clamav:test                              # add -e CLAMD_TCP_ADDR=0.0.0.0 without host IPv6
 printf 'zPING\0' | nc localhost 3310        # PONG once the signatures are loaded
 ```

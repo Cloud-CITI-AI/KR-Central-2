@@ -10,7 +10,8 @@
 # Values come from .env.example (fake). Only the host names change (localhost becomes the service name) and NODE_ENV,
 # PORT and HOST are set per service. Sign-in needs a real Entra tenant or the workspace mock IdP running on the host
 # (no mock IdP is baked into any image); the stack proves the images start, migrate and talk to each other.
-# Docker hosts whose kernel has no IPv6 cannot bind `::`: start with KR_STACK_HOST=0.0.0.0 in that case.
+# Docker hosts whose kernel has no IPv6 cannot bind `::`: start with KR_STACK_HOST=0.0.0.0 in that case (it reaches
+# api, worker, web, migrate and clamav, which reads it as CLAMD_TCP_ADDR).
 #
 # api and worker read .env.example whole; the variables only the ops jobs may hold (DDL and superuser credentials, backup
 # bucket) and the blank ones are removed from them below (a `null` value removes a variable from the container). The
@@ -74,8 +75,13 @@ services:
     # The production ClamAV image (infra/clamav): limits above UPLOAD_MAX_BYTES. Loading signatures takes a minute or two.
     build: infra/clamav
     image: kr-clamav:local
+    environment:
+      # clamd binds this address (the image default is `::`, which an IPv4-only Docker host cannot bind): the same
+      # KR_STACK_HOST=0.0.0.0 switch as the other services.
+      CLAMD_TCP_ADDR: ${KR_STACK_HOST:-::}
     ports: ["3310:3310"]
     volumes: ["clamav-signatures:/var/lib/clamav"]
+    # The image's own HEALTHCHECK (clamdcheck.sh: PING on 3310) turns healthy once the signatures are loaded; the worker waits for it.
 
   # ---------------------------------------------------------------- profile `stack`: the application images
   bootstrap:
@@ -142,7 +148,7 @@ services:
       PORT: "8081"
     depends_on:
       migrate: { condition: service_healthy }
-      clamav: { condition: service_started }
+      clamav: { condition: service_healthy }
   web:
     profiles: [stack]
     restart: "no"
