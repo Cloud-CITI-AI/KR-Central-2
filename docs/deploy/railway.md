@@ -77,7 +77,7 @@ Enterprise Cloud. If neither is true, decide before the first release between:
    `backup` also needs **read-only** keys for `files` (Railway issues credentials per bucket: create a read-only credential for
    it if your plan allows, otherwise record the exception in ADR-0008 review). See [Bucket findings](#bucket-findings).
 4. **Services.** Add `clamav`, `migrate`, `api`, `worker`, `web` and `backup` as **Docker image** services (any placeholder
-   image such as `ghcr.io/<org>/<repo>/api:latest` is replaced by the first deploy). Names must match exactly. Do not connect a
+   image such as `ghcr.io/OWNER/REPO/api:latest` is replaced by the first deploy). Names must match exactly. Do not connect a
    GitHub repository to any of them: Railway must never build from source for staging or production.
 5. **GHCR pull credentials.** The images are private. In each service's source settings add registry credentials for
    `ghcr.io` using a GitHub personal access token (fine-grained or classic with `read:packages`) held by a KR machine

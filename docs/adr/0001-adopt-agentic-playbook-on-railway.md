@@ -10,7 +10,7 @@
 
 The customer requires the build to follow the attached agentic coding playbook (v1.0.0, status "pilot") "as closely as
 possible", except that Azure containers are replaced by Railway.app. The playbook is cloud-agnostic but assumes an
-org-level playbook repository (reusable workflows referenced as `<org>/agentic-playbook/...@<sha>`, sync bot) and a
+org-level playbook repository (reusable workflows referenced as `OWNER/agentic-playbook/...@<sha>`, sync bot) and a
 cloud with OIDC federation, a secret manager and canary deployments. None of these exist for this repository yet.
 
 ## Decision
@@ -28,7 +28,7 @@ ADR-0008 (hosting), ADR-0013 (secrets) and ADR-0009 (observability).
 | Option                                     | Pros                                        | Cons                                     |
 | ------------------------------------------ | ------------------------------------------- | ---------------------------------------- |
 | Vendor playbook workflows/scripts (chosen) | Works today; reviewable; SHA-pinned actions | Manual updates when the playbook changes |
-| Reference `<org>/agentic-playbook`         | Central updates                             | Repository does not exist; CI would fail |
+| Reference `OWNER/agentic-playbook`         | Central updates                             | Repository does not exist; CI would fail |
 | Skip the playbook gates                    | Faster                                      | Violates the customer requirement        |
 
 ## Consequences

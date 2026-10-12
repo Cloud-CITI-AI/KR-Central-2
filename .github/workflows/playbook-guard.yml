@@ -106,7 +106,7 @@ jobs:
 
       - name: No unfilled template placeholders
         run: |
-          if git grep -nE '<<FILL|<<PLAYBOOK_SHA>>|<org>' -- ':!docs/adr/0000-template.md' ':!docs/security-checklist.md'; then
+          if git grep -nE '<<FIL[L]|<<PLAYBOOK_SH[A]>>|<or[g]>' -- ':!docs/adr/0000-template.md' ':!docs/security-checklist.md'; then
             echo "::error::Unfilled playbook placeholders found"; exit 1
           fi
 
