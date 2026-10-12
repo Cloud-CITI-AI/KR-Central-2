@@ -1,7 +1,8 @@
 /**
  * Proves the ClamAV image (infra/clamav) can scan every accepted upload: a 55 MiB synthetic file scans clean, the EICAR
- * test string is detected, and a stream over StreamMaxLength (60M) is refused, so the limit in clamd.conf is the one in
- * force. Needs Docker; builds the image from this directory (or uses CLAMAV_IMAGE) and removes the container afterwards.
+ * test string is detected, a stream over StreamMaxLength (60M) is refused, so the limit in clamd.conf is the one in
+ * force, and content past a scan limit (MaxRecursion here) is reported FOUND as Heuristics.Limits.Exceeded.*, never OK
+ * (AlertExceedsMax: without it clamd skips the rest and answers "OK"). Needs Docker; builds the image from this directory (or uses CLAMAV_IMAGE) and removes the container afterwards.
  *
  *   node --test infra/clamav/test/scan-limits.test.mjs
  *
@@ -15,6 +16,7 @@ import { dirname, join } from "node:path";
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+import { deflateSync } from "node:zlib";
 
 const MIB = 1024 * 1024;
 const here = dirname(fileURLToPath(import.meta.url));
@@ -50,6 +52,20 @@ function clamd(command, source) {
       socket.end(Buffer.alloc(4)); // zero-length chunk ends the stream
     })().catch(() => socket.destroy());
   });
+}
+
+/** A PDF whose single FlateDecode stream holds `inner`: wrapping EICAR `depth` times nests it `depth` levels deep. */
+function nestedPdf(inner, depth) {
+  let data = inner;
+  for (let level = 0; level < depth; level++) {
+    const stream = deflateSync(data);
+    data = Buffer.concat([
+      Buffer.from(`%PDF-1.4\n1 0 obj\n<< /Length ${stream.length} /Filter /FlateDecode >>\nstream\n`),
+      stream,
+      Buffer.from("\nendstream\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n"),
+    ]);
+  }
+  return data;
 }
 
 async function* syntheticFile(bytes) {
@@ -92,5 +108,38 @@ describe("clamd in the kr-clamav image", () => {
     const reply = await clamd("INSTREAM", syntheticFile(61 * MIB));
     assert.match(reply, /size limit/i);
     assert.match(reply, /ERROR$/);
+  });
+
+  it("reports EICAR nested within the recursion limit as the signature", async () => {
+    assert.match(await clamd("INSTREAM", [nestedPdf(Buffer.from(EICAR), 5)]), /^stream: .*EICAR.* FOUND$/i);
+  });
+
+  it("reports content nested past MaxRecursion as Heuristics.Limits.Exceeded, never as OK", async () => {
+    // 17 is where clamd stopped looking and answered "stream: OK"; 25 is well past any default.
+    for (const depth of [17, 25]) {
+      const reply = await clamd("INSTREAM", [nestedPdf(Buffer.from(EICAR), depth)]);
+      assert.notEqual(reply, "stream: OK", `depth ${depth} was reported clean`);
+      assert.match(reply, /^stream: Heuristics\.Limits\.Exceeded\.\w+ FOUND$/, `depth ${depth}`);
+    }
+  });
+
+  it("reports a decompression bomb (250 MiB of zeros in a 250 KB PDF) as Heuristics.Limits.Exceeded, never as OK", async () => {
+    const reply = await clamd("INSTREAM", [nestedPdf(Buffer.alloc(250 * MIB), 1)]);
+    assert.match(reply, /^stream: Heuristics\.Limits\.Exceeded\.\w+ FOUND$/);
+  });
+
+  it("does not flag a large, many-page valid PDF (stream deflated, 50 MB upload class)", async () => {
+    const pages = Array.from({ length: 80 }, (_, i) => deflateSync(randomBytes(400 * 1024 + i)));
+    const body = Buffer.concat([
+      Buffer.from("%PDF-1.7\n"),
+      ...pages.flatMap((stream, i) => [
+        Buffer.from(`${i + 1} 0 obj\n<< /Length ${stream.length} /Filter /FlateDecode >>\nstream\n`),
+        stream,
+        Buffer.from("\nendstream\nendobj\n"),
+      ]),
+      Buffer.from("trailer\n<< /Root 1 0 R >>\n%%EOF\n"),
+    ]);
+    assert.ok(body.length > 30 * MIB);
+    assert.equal(await clamd("INSTREAM", [body]), "stream: OK");
   });
 });

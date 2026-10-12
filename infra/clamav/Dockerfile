@@ -18,7 +18,8 @@ LABEL org.opencontainers.image.title="kr-clamav" \
 # failing on a missing directory when the context is infra/clamav); an unmatched glob is not an error, so the RUN
 # below fails the build if our config did not arrive (the upstream image ships its own clamd.conf).
 COPY --chown=root:root --chmod=0644 clamd.conf* infr[a]/clamav/clamd.conf* /etc/clamav/
-RUN grep -q '^StreamMaxLength 60M' /etc/clamav/clamd.conf
+# AlertExceedsMax is a security setting (content past a scan limit must be reported, not skipped as clean): fail the build without it.
+RUN grep -q '^StreamMaxLength 60M' /etc/clamav/clamd.conf && grep -q '^AlertExceedsMax yes' /etc/clamav/clamd.conf
 
 # The entrypoint wrapper sets clamd's bind address from CLAMD_TCP_ADDR (default `::` for Railway; 0.0.0.0 on a Docker
 # host without IPv6, where clamd cannot bind `::`) and then execs the upstream /init. Same two-glob copy as above.

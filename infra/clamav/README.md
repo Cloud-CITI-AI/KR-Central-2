@@ -4,13 +4,13 @@ The `clamav` Railway service (ADR-0008, ADR-0011). The worker streams every new 
 and stores `clean`, `infected` or `error` (PRODUCT_SPEC section 11). This directory is the official `clamav/clamav:stable`
 image (pinned by digest) plus our `clamd.conf`.
 
-| File                        | Purpose                                                                                             |
-| --------------------------- | --------------------------------------------------------------------------------------------------- |
-| `Dockerfile`                | Base image by digest, our `clamd.conf`, the entrypoint wrapper, OCI labels, `FRESHCLAM_CHECKS`      |
-| `clamd.conf`                | TCP 3310 on `::` (see Bind address), console logging, `StreamMaxLength`/`MaxFileSize`/`MaxScanSize` |
-| `kr-entrypoint.sh`          | Sets the bind address from `CLAMD_TCP_ADDR`, then execs the upstream `/init`                        |
-| `test/entrypoint.test.mjs`  | The wrapper's address handling, without Docker                                                      |
-| `test/scan-limits.test.mjs` | Starts the image and proves a 55 MiB file scans clean, EICAR is detected, 61 MiB is refused         |
+| File                        | Purpose                                                                                                                                              |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Dockerfile`                | Base image by digest, our `clamd.conf`, the entrypoint wrapper, OCI labels, `FRESHCLAM_CHECKS`                                                       |
+| `clamd.conf`                | TCP 3310 on `::` (see Bind address), console logging, the scan limits and `AlertExceedsMax`                                                          |
+| `kr-entrypoint.sh`          | Sets the bind address from `CLAMD_TCP_ADDR`, then execs the upstream `/init`                                                                         |
+| `test/entrypoint.test.mjs`  | The wrapper's address handling, without Docker                                                                                                       |
+| `test/scan-limits.test.mjs` | Starts the image and proves a 55 MiB file scans clean, EICAR is detected, 61 MiB is refused, and content past a scan limit is reported FOUND, not OK |
 
 ## Limits
 
@@ -18,9 +18,26 @@ image (pinned by digest) plus our `clamd.conf`.
 | ----------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `StreamMaxLength` | 60M   | Largest `INSTREAM` clamd reads. Must be at least `UPLOAD_MAX_BYTES` (default 50 MB); the worker's `CLAMAV_STREAM_MAX_BYTES` (62914560) is the same number and its config refuses a smaller one. ADR-0011 records clamd's older 25M `INSTREAM` default, which would leave large uploads unscannable. |
 | `MaxFileSize`     | 60M   | One scanned file (an upload is one file).                                                                                                                                                                                                                                                           |
-| `MaxScanSize`     | 240M  | Total bytes scanned including archive contents, so decompression bombs stop here.                                                                                                                                                                                                                   |
+| `MaxScanSize`     | 240M  | Total bytes scanned including archive contents and decompressed PDF streams: four times the largest upload. A legitimate 50 MB PDF or Office file decompresses to well under this (the test scans a 30+ MB, 80-stream PDF clean); a decompression bomb does not.                                    |
+| `MaxRecursion`    | 17    | clamd's default, stated so it cannot drift: how deep archives and PDF streams may nest. Real documents, emails with attachments and zips nest 2 to 5 deep.                                                                                                                                          |
+| `MaxFiles`        | 10000 | clamd's default: files inside one archive.                                                                                                                                                                                                                                                          |
+| `AlertExceedsMax` | yes   | See below.                                                                                                                                                                                                                                                                                          |
 
-If `UPLOAD_MAX_BYTES` is raised, raise all three (and `CLAMAV_STREAM_MAX_BYTES`) together and rebuild the image.
+### Content past a scan limit is blocked, not "clean"
+
+Without `AlertExceedsMax`, clamd stops at `MaxFileSize`, `MaxScanSize`, `MaxRecursion` or `MaxFiles`, ignores the rest and
+answers `stream: OK` for what it did scan. A PDF nesting EICAR 17 or more levels deep (each level a PDF whose FlateDecode
+stream holds the next) was therefore reported `clean` and served. With `AlertExceedsMax yes` clamd answers
+`stream: Heuristics.Limits.Exceeded.<limit> FOUND` (for example `...MaxRecursion`, `...MaxScanSize`). The worker treats
+every `FOUND` the same: `scan_status` `infected`, `scan_detail` = the signature, the object deleted, the content 409, an
+audit event and a `malware_detected` log line (with `scanLimitExceeded: true`). It is a verdict, so it is not retried.
+`StreamMaxLength` is different: clamd answers `INSTREAM size limit exceeded. ERROR`, which the worker records as a scan
+`error` (never clean). The Dockerfile fails the build if `AlertExceedsMax yes` is missing from `clamd.conf`.
+
+If a legitimate upload is blocked as `Heuristics.Limits.Exceeded.*`, raise the one limit it names in `clamd.conf` (and add a
+case to `test/scan-limits.test.mjs`); never remove `AlertExceedsMax`.
+
+If `UPLOAD_MAX_BYTES` is raised, raise `StreamMaxLength`, `MaxFileSize` and `MaxScanSize` (and `CLAMAV_STREAM_MAX_BYTES`) together and rebuild the image.
 
 ## Bind address
 
