@@ -81,6 +81,14 @@ Railway reports different values. There are no `railway.json` files in the repo.
 
 ## Consequences
 
+**GitHub plan requirement.** The attestation chain (`actions/attest-build-provenance`, `actions/attest-sbom`, then
+`gh attestation verify` in deploy.yml) works for a private repository only on GitHub Enterprise Cloud (public repositories:
+every plan). On any other plan with a private repository `build-and-attest` fails and nothing deploys, which is the
+intended fail-closed behaviour but a blocker for the first release. Before the first release KR either puts the
+organisation on Enterprise Cloud or amends this ADR to replace GitHub attestations with cosign signing and `cosign verify`
+(keyless, which records the repository name and workflow identity in Sigstore's public log, or key-based with a KMS key).
+The steps are in docs/deploy/railway.md, One-time setup. No fallback is enabled in the workflows.
+
 The deploy script is the single place that talks to Railway; it must be validated against Railway's API in staging first
 (open risk). Railway region and plan (Pro for private registry & environments) are KR decisions.
 

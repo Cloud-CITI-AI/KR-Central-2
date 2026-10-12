@@ -250,3 +250,27 @@ test("worker Dockerfile does not claim that the worker has no SIGTERM handler (s
   assert.match(read("services/worker/src/main.ts"), /process\.on\("SIGTERM"/);
   assert.doesNotMatch(read("services/worker/Dockerfile"), /installs no SIGTERM handler|until WP-12 lands/);
 });
+
+// ---- docs: attestation plan requirement, front-channel logout (BUG 10, BUG 11) --------------------------------------
+
+test("railway.md and ADR-0008 state that attestations for a private repository need GitHub Enterprise Cloud, with a fallback", () => {
+  for (const file of ["docs/deploy/railway.md", "docs/adr/0008-railway-hosting-and-delivery.md"]) {
+    const text = read(file);
+    assert.match(text, /Enterprise Cloud/, file);
+    assert.match(text, /cosign/, `${file} names the fallback`);
+  }
+  assert.match(read("docs/deploy/railway.md"), /Prerequisite: the GitHub plan must support artifact attestations/);
+});
+
+test("Entra checklist E3 and ADR-0002 register no front-channel logout URL (the page is static and not frameable)", () => {
+  const guide = read("docs/deploy/railway.md");
+  const e3 = /\| E3 .*\|/.exec(guide)?.[0] ?? "";
+  assert.match(e3, /Leave the front-channel logout URL empty/);
+  assert.match(e3, /post_logout_redirect_uri/);
+  assert.doesNotMatch(e3, /front-channel logout URL\*\* `https/);
+  const adr = read("docs/adr/0002-identity-entra-oidc-server-sessions.md");
+  assert.doesNotMatch(adr, /front-channel logout `\{PUBLIC_BASE_URL\}/);
+  assert.match(adr, /post-logout redirect URI `\{PUBLIC_BASE_URL\}\/signed-out`/);
+  assert.match(adr, /No front-channel logout/);
+  assert.doesNotMatch(read("docs/runbooks/auth-failure-spike.md"), /front-channel/);
+});

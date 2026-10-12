@@ -16,7 +16,8 @@ SC-B4: no custom crypto or token parsing; ASVS L3 for authentication.
 
 - IdP: **Microsoft Entra ID**, single-tenant app registration in the KR tenant (authority
   `https://login.microsoftonline.com/{ENTRA_TENANT_ID}/v2.0`). Web platform redirect URI
-  `{PUBLIC_BASE_URL}/api/v1/auth/callback`, front-channel logout `{PUBLIC_BASE_URL}/signed-out`; optional claims
+  `{PUBLIC_BASE_URL}/api/v1/auth/callback`, post-logout redirect URI `{PUBLIC_BASE_URL}/signed-out` (no front-channel logout
+  URL: see Sessions); optional claims
   `email`, `acct`; no implicit grant; ID tokens only (no access tokens to Graph for users).
 - Flow: authorization code + **PKCE (S256)** as a **confidential client** (client secret, rotated ≤ 90 days; certificate
   credential is a later hardening). Library: `openid-client` v6 (discovery, JWKS, ID token validation); the API also
@@ -33,6 +34,11 @@ SC-B4: no custom crypto or token parsing; ASVS L3 for authentication.
 - Sessions: opaque 256-bit random id in `__Host-kr_session` (HttpOnly, Secure, SameSite=Lax, Path=/); only its SHA-256
   is stored in Postgres (`sessions`). Idle 120 min sliding, absolute 12 h. New id on every sign-in; sessions revoked on
   role change, disable, logout. No JWTs in the browser; no token storage in localStorage.
+  **No front-channel logout**: the `/signed-out` page is static and revokes nothing, and the web sends
+  `X-Frame-Options: DENY` / `frame-ancestors 'none'`, which would block Entra's iframe request anyway, so the app
+  registers no front-channel logout URL. A sign-out at Microsoft elsewhere does not end the tracker session; it ends at
+  the idle or absolute expiry, or at logout in the tracker. A frameable handler that revokes the session by `sid` would
+  be a separate decision (it needs a CSP and framing exception for that one route).
 - CSRF: per-session token (`GET /v1/me` → `X-CSRF-Token` header) + `Origin` check + SameSite=Lax.
 - The browser only talks to the web origin; the API is reached through the web app's same-origin proxy (ADR-0005), so
   the cookie is first-party and the API needs no CORS.

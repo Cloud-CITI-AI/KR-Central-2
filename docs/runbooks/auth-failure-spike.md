@@ -21,8 +21,8 @@ client IP.
    `wrong_tenant`, `disabled`, `expired`, `unverified_email` and `failed`. Subjects are pseudonyms, never emails; do not
    try to reverse them.
 2. **Everybody fails with `failed` or `authn_exchange_failed`.** The Entra app registration is the usual cause: client
-   secret expired (90-day rotation, checklist E7 and E8 in `docs/deploy/railway.md`), redirect URI or front-channel
-   logout URL changed, or Entra itself is degraded (Microsoft 365 service health). Check the date the secret was created
+   secret expired (90-day rotation, checklist E7 and E8 in `docs/deploy/railway.md`), redirect URI (callback or
+   post-logout) changed, or Entra itself is degraded (Microsoft 365 service health). Check the date the secret was created
    against the calendar, then [secrets-rotation](secrets-rotation.md).
 3. **`rate_limited` with `limit: signIn` across ordinary users.** Every user shares one bucket: the API is seeing the
    web service's address instead of the client's. `TRUST_PROXY_HOPS` was changed or the forwarding chain changed. Repeat
