@@ -18,8 +18,8 @@
 # Docker hosts whose kernel has no IPv6 cannot bind `::`: start with KR_STACK_HOST=0.0.0.0 in that case (it reaches
 # api, worker, web, migrate and clamav, which reads it as CLAMD_TCP_ADDR).
 #
-# api and worker read .env.example whole; the variables only the ops jobs may hold (DDL and superuser credentials, backup
-# bucket) and the blank ones are removed from them below (a `null` value removes a variable from the container). The
+# api and worker read .env.example whole; the variables only the ops jobs may hold (DDL, superuser and backup role
+# credentials, backup bucket) and the blank ones are removed from them below (a `null` value removes a variable from the container). The
 # ops and web services get just their own variables, with the values of .env.example.
 
 x-app-service: &app-service
@@ -32,11 +32,13 @@ x-app-environment: &app-environment
   DATABASE_URL: postgres://tracker_app:local-app-password@postgres:5432/tracker
   S3_ENDPOINT: http://s3:9090
   CLAMAV_HOST: clamav
-  # Only the migrate and backup services hold these (ADR-0007): never the api or the worker.
+  # Only the migrate and backup jobs hold these (ADR-0007, threat model M-23): never the api or the worker.
   MIGRATION_DATABASE_URL:
+  BACKUP_DATABASE_URL:
   SUPERUSER_DATABASE_URL:
   TRACKER_MIGRATOR_PASSWORD:
   TRACKER_APP_PASSWORD:
+  TRACKER_BACKUP_PASSWORD:
   BACKUP_S3_ENDPOINT:
   BACKUP_S3_REGION:
   BACKUP_S3_BUCKET:
@@ -94,12 +96,14 @@ services:
     build: { context: ., dockerfile: services/ops/Dockerfile }
     image: kr-ops:local
     restart: "no"
-    # One-off: creates the tracker_migrator and tracker_app roles and the schema (the operator step of ADR-0007).
+    # One-off: creates the tracker_migrator, tracker_app and tracker_backup roles and the schema (the operator step of ADR-0007).
     command: ["node", "node_modules/@kr/db/dist/bootstrap-cli.js"]
     environment:
       SUPERUSER_DATABASE_URL: postgres://postgres:local-superuser-password@postgres:5432/tracker
       TRACKER_MIGRATOR_PASSWORD: local-migrator-password
       TRACKER_APP_PASSWORD: local-app-password
+      # The same password as BACKUP_DATABASE_URL in .env.example (the stack has no backup service; the role must still exist).
+      TRACKER_BACKUP_PASSWORD: local-backup-password
     depends_on:
       postgres: { condition: service_healthy }
   migrate:
