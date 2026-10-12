@@ -26,12 +26,22 @@ jobs:
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
         run: |
           agent=false
           if [[ "$AUTHOR_TYPE" == "Bot" && "$AUTHOR" != "renovate[bot]" && "$AUTHOR" != "dependabot[bot]" ]]; then agent=true; fi
           if [[ ",$LABELS," == *",agent-authored,"* ]]; then agent=true; fi
           if git log --format=%B "$BASE..$HEAD" | grep -qiE '^AI-Agent:'; then trailer=true; else trailer=false; fi
           if [[ "$trailer" == "true" ]]; then agent=true; fi
+          # The release-please PR (opened with the release GitHub App's token so that checks run on it) is a bot PR of
+          # the repository itself, not agent work: no label or AI-Agent trailer, and no PR template. It may only touch
+          # the version files (checked below), so a look-alike branch name cannot carry other changes.
+          release=false
+          if [[ "$AUTHOR_TYPE" == "Bot" && "$HEAD_REF" == release-please--branches--* && "$HEAD_REPO" == "$GITHUB_REPOSITORY" ]]; then
+            release=true; agent=false
+          fi
+          echo "release=$release" >> "$GITHUB_OUTPUT"
           echo "agent=$agent" >> "$GITHUB_OUTPUT"
           echo "trailer=$trailer" >> "$GITHUB_OUTPUT"
 
@@ -64,6 +74,17 @@ jobs:
             echo "::error::Agent-authored PR modifies protected paths (N6/X1):"; echo "$bad"; exit 1
           fi
 
+      - name: Release PR changes only the version files (release-please)
+        if: steps.agent.outputs.release == 'true'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          bad=$(git diff --name-only "$BASE" "$HEAD" | grep -vE '^(CHANGELOG\.md|package\.json|\.release-please-manifest\.json)$' || true)
+          if [[ -n "$bad" ]]; then
+            echo "::error::A release-please PR may change only CHANGELOG.md, package.json and .release-please-manifest.json:"; echo "$bad"; exit 1
+          fi
+
       - name: N10 — LESSONS.md is append-only and well-formed
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -80,6 +101,7 @@ jobs:
           fi
 
       - name: PR description has required sections filled
+        if: steps.agent.outputs.release != 'true'
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: |

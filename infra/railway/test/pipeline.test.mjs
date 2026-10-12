@@ -50,7 +50,7 @@ const jobTimeout = (workflow, job) => {
   return Number(/^ {4}timeout-minutes:\s*(\d+)/m.exec(header)?.[1]);
 };
 const stepNamed = (steps, pattern) => {
-  const found = steps.filter((s) => pattern.test(s.split("\n")[0] + (/name:.*/.exec(s)?.[0] ?? "")));
+  const found = steps.filter((s) => pattern.test(s));
   assert.equal(found.length, 1, `exactly one step matching ${pattern}`);
   return found[0];
 };
@@ -78,7 +78,7 @@ for (const job of ["staging", "production"]) {
   });
 
   test(`deploy.yml ${job}: rolls back on failure and on cancellation (a timeout or a cancelled run)`, () => {
-    const rollback = stepNamed(jobSteps(deploy, job), /rollback|Roll back/i);
+    const rollback = stepNamed(jobSteps(deploy, job), /--rollback previous-/);
     assert.match(rollback, /^ {8}if:\s*failure\(\) \|\| cancelled\(\)\s*$/m);
   });
 
@@ -87,8 +87,8 @@ for (const job of ["staging", "production"]) {
     const worstMinutes = worstCaseSeconds() / 60;
     assert.ok(worstMinutes >= 60, `worst case is ${worstMinutes} min (sanity)`);
     const steps = jobSteps(deploy, job);
-    const deployStep = stepTimeout(stepNamed(steps, /Deploy by digest/));
-    const rollbackStep = stepTimeout(stepNamed(steps, /rollback|Roll back/i));
+    const deployStep = stepTimeout(stepNamed(steps, /name: Deploy by digest/));
+    const rollbackStep = stepTimeout(stepNamed(steps, /--rollback previous-/));
     assert.ok(deployStep > worstMinutes, `deploy step ${deployStep} min must exceed ${worstMinutes}`);
     assert.ok(rollbackStep > worstMinutes, `rollback step ${rollbackStep} min must exceed ${worstMinutes}`);
     // The job must outlive deploy + rollback plus the verify, smoke and ZAP steps around them.
@@ -98,3 +98,48 @@ for (const job of ["staging", "production"]) {
     );
   });
 }
+
+// ---- release.yml (BUG 1) --------------------------------------------------------------------------------------------
+
+test("release.yml: release-please runs with a GitHub App token so the release PR gets its required checks", () => {
+  const release = read(".github/workflows/release.yml");
+  const steps = jobSteps(release, "release-please");
+  const tokenStep = stepNamed(steps, /create-github-app-token/);
+  assert.match(tokenStep, /uses: actions\/create-github-app-token@[0-9a-f]{40} # v\d+\.\d+\.\d+/, "pinned by SHA");
+  assert.match(tokenStep, /id: app-token/);
+  assert.match(tokenStep, /private-key: \$\{\{ secrets\.RELEASE_APP_PRIVATE_KEY \}\}/);
+  const rp = stepNamed(steps, /release-please-action/);
+  assert.match(
+    rp,
+    /token: \$\{\{ steps\.app-token\.outputs\.token \}\}/,
+    "release-please uses the App token, not GITHUB_TOKEN",
+  );
+  assert.ok(steps.indexOf(tokenStep) < steps.indexOf(rp), "the token is minted first");
+  const header = release.slice(release.indexOf("  release-please:"), release.indexOf("    steps:"));
+  assert.match(header, /environment: release/, "App credentials live in the release environment");
+  assert.match(header, /permissions: \{\}/, "GITHUB_TOKEN is not used by this job");
+});
+
+test("playbook-guard.yml: the release-please PR is not treated as agent work and may only touch version files", () => {
+  const guard = read(".github/workflows/playbook-guard.yml");
+  assert.match(guard, /release-please--branches--\*/);
+  assert.match(guard, /Release PR changes only the version files/);
+  assert.match(guard, /CHANGELOG\\\.md\|package\\\.json\|\\\.release-please-manifest\\\.json/);
+  assert.match(
+    guard,
+    /name: PR description has required sections filled\n\s+if: steps\.agent\.outputs\.release != 'true'/,
+  );
+});
+
+test("railway.md documents the release App, its secrets, the release environment and the repository setting", () => {
+  const guide = read("docs/deploy/railway.md");
+  for (const term of [
+    "RELEASE_APP_CLIENT_ID",
+    "RELEASE_APP_PRIVATE_KEY",
+    "`release` environment",
+    "Allow GitHub Actions to create and approve pull requests",
+    "Contents",
+    "Pull requests",
+  ])
+    assert.ok(guide.includes(term), term);
+});

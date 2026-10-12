@@ -167,6 +167,49 @@ Configure these in GitHub (Settings, Environments), once per environment:
 | `production` environment | required reviewers               | KR staff who are not the person who launched the release; agents are never reviewers    |
 | Repository variable      | `DEPLOYS_FROZEN`                 | `true` stops every deploy at its first step; unset or `false` allows deploys            |
 
+### The `release` environment and the release GitHub App
+
+`release.yml` needs a `release` GitHub Environment (Settings, Environments, New environment). Its two jobs use it:
+`release-please` (opens and updates the release pull request, tags and creates the release) and `build-and-attest` (pushes
+the images to GHCR, attests them and uploads the digests). Settings of the `release` environment:
+
+- **Deployment branches and tags:** selected branches, `main` only. The App key below then exists only for runs on `main`; a
+  pull request or a feature branch cannot read it.
+- **Required reviewers: none.** The human gate is merging the release pull request (and `production` approval later). A
+  reviewer here would block `release-please` on every push to `main`.
+- **Variable** `RELEASE_APP_CLIENT_ID` and **secret** `RELEASE_APP_PRIVATE_KEY`, from the App below.
+
+**Why an App.** GitHub starts no `pull_request` workflows for pushes and pull requests made with `GITHUB_TOKEN`. A release
+pull request opened with it never receives `ci / verify`, `security / scan` and `playbook-guard`, which the org ruleset
+requires, so it can never merge, no tag is created and `build-and-attest` and `deploy` never run. `release-please` therefore
+runs with an installation token of a GitHub App (`actions/create-github-app-token`, pinned by SHA in `release.yml`), and the
+pull request it opens is a normal pull request whose checks start.
+
+Create the App once (an organisation owner, GitHub, Settings, Developer settings, GitHub Apps, New GitHub App):
+
+1. Name it for the repository (for example `kr-central-2-release`), homepage URL the repository, **Webhook: inactive**,
+   installable by **this organisation only**.
+2. Repository permissions: **Contents** read and write, **Pull requests** read and write, **Issues** read and write
+   (release-please labels its pull requests), Metadata read. Nothing else; no account or organisation permissions.
+3. Create the App, note its **Client ID** (starts with `Iv`), generate a **private key** (a `.pem` file) and install the App
+   on **this repository only**.
+4. Save the Client ID as the `release` environment **variable** `RELEASE_APP_CLIENT_ID` and the whole `.pem` text as the
+   `release` environment **secret** `RELEASE_APP_PRIVATE_KEY`. Delete the `.pem` from the workstation afterwards (X2:
+   it is never committed, pasted or logged).
+5. If the org ruleset restricts who may push or open pull requests, add the App to the bypass list **only** for what
+   release-please needs (create and update `release-please--branches--*`, create tags); it needs no bypass of the required
+   checks, which now run on its pull request. `playbook-guard` treats a `release-please--branches--*` pull request opened by a
+   bot of this repository as a release pull request (no agent label or template; it may change only `CHANGELOG.md`,
+   `package.json` and `.release-please-manifest.json`).
+
+Settings, Actions, General, Workflow permissions: with the App token the box
+**Allow GitHub Actions to create and approve pull requests** is **not needed** and should stay off (least privilege). It
+matters only if someone switches `release-please` back to `GITHUB_TOKEN`, which brings back the problem above even with the
+box ticked: the checks would still not run.
+
+Rotate `RELEASE_APP_PRIVATE_KEY` every 90 days like the other long-lived credentials (generate a new key, update the
+secret, delete the old key) and when anyone who saw it leaves. Deleting the App's installation stops releases at once.
+
 Rotate `RAILWAY_TOKEN` every 90 days (create the new token, update the secret, delete the old one) and when anyone with
 access leaves. The token only reaches the deploy steps.
 
@@ -315,6 +358,6 @@ lifecycle rules exist, retention pruning is done by the `backup` job itself, nev
 - **A failed deploy** has already rolled back automatically; read the failing step (`[service] ...` names the service and why:
   drift, status, timeout), fix forward in a new release, and do not edit Railway settings by hand (the next deploy reports it as drift).
 - **Settings changes** go through a pull request to `infra/railway/services/*.json` (CODEOWNERS review) and apply on the next deploy.
-- **Rotations (every 90 days):** `RAILWAY_TOKEN`, the GHCR token held by Railway, the Entra client secret, and the database
+- **Rotations (every 90 days):** `RAILWAY_TOKEN`, the release App's private key, the GHCR token held by Railway, the Entra client secret, and the database
   role passwords; each also on staff departure or suspicion. Record dates in the operations log; the token age alert is in ADR-0008.
 - **Quarterly:** review the accepted risks in ADR-0008, run a restore drill, and re-check Buckets versioning.
