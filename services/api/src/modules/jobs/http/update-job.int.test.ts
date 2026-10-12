@@ -106,6 +106,20 @@ describe("updateJob (real Postgres)", () => {
     expect(await row(job.id)).toMatchObject({ approval_expiry: null, conformed_date: null, version: 1 });
   });
 
+  it("answers 400 (not a committed row that 500s forever) when conformed + 90 days passes 2199-12-31", async () => {
+    const job = await fresh();
+    const res = await patch(staff, job, { conformedDate: "2199-12-31" });
+    expect(res.statusCode).toBe(400);
+    expect(res.headers["content-type"]).toContain("application/problem+json");
+    expect(res.json()).toMatchObject({
+      type: "urn:kr:problem:validation",
+      errors: [{ path: "conformedDate" }],
+    });
+    expect(await row(job.id)).toMatchObject({ conformed_date: null, outcome_date: null, version: 1 });
+    const read = await apiRequest(t, { method: "GET", url: `/v1/jobs/${job.id}`, as: staff });
+    expect(read.statusCode).toBe(200);
+  });
+
   it("refuses a client, an architect and callers who cannot see the job, and changes nothing", async () => {
     const job = await fresh();
     expect((await patch(client, job, { address: "x" })).statusCode).toBe(403);

@@ -2,7 +2,7 @@
 import { diffChanges, recordAudit, type Database } from "@kr/db";
 import { outcomeDateFor } from "@kr/workflow";
 import { sql, type Transaction } from "kysely";
-import type { Found } from "../domain/conformance.js";
+import { isUsableReading, type Found } from "../domain/conformance.js";
 import { TaskError } from "../errors.js";
 
 /** conformed_stamp_text allows 200 characters. */
@@ -31,6 +31,8 @@ export async function applyConformedDate(
     .forUpdate()
     .executeTakeFirst();
   if (!job || job.deleted_at) throw new TaskError("job_unavailable", "The job is no longer available.");
+  // Never commit a date (or an outcome date derived from it) that the job page cannot show; the handler skips such readings first.
+  if (!isUsableReading(x.found)) throw new TaskError("invalid_date", "The date that was read is not a usable date.");
   const after = {
     conformedDate: x.found.date,
     conformedMethod: x.found.method,

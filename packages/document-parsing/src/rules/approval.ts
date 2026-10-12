@@ -4,7 +4,7 @@
  */
 import { addYears } from "@kr/workflow";
 import type { ApprovalDates } from "../types.js";
-import { datesIn } from "./dates.js";
+import { datesIn, isReadableDate } from "./dates.js";
 
 /** The letter date is the first date in this many lines. */
 const HEAD_LINES = 40;
@@ -39,7 +39,8 @@ export function findApprovalDates(lines: readonly string[]): ApprovalDates {
   let approvalExpiry = expiryFromSentence(text);
   if (!approvalExpiry && approvalDate) {
     const years = validForYears(text);
-    if (years > 0) approvalExpiry = addYears(approvalDate, years);
+    const computed = years > 0 ? addYears(approvalDate, years) : null;
+    if (computed && isReadableDate(computed)) approvalExpiry = computed;
   }
   return { approvalDate, approvalExpiry };
 }

@@ -67,6 +67,27 @@ describe("findApprovalDates (PRODUCT_SPEC §10.2)", () => {
     expect(result.approvalExpiry).toBeNull();
   });
 
+  it("ignores an expiry written with a year outside 1900-2199 (a 2999 sentence does not store 2999-03-03)", () => {
+    const lines = [...head, "Date: 3 March 2026", "This approval will no longer be valid after 3 March 2999"];
+    expect(findApprovalDates(lines)).toEqual({ approvalDate: "2026-03-03", approvalExpiry: null });
+  });
+
+  it("falls back to 'valid for' when the written expiry is out of range", () => {
+    const lines = ["14 March 2026", "expires 1 January 2999", "valid for two years"];
+    expect(findApprovalDates(lines)).toEqual({ approvalDate: "2026-03-14", approvalExpiry: "2028-03-14" });
+  });
+
+  it("does not take an approval date outside 1900-2199 from a reference number", () => {
+    expect(findApprovalDates(["Ref 12/05/1066"])).toEqual({ approvalDate: null, approvalExpiry: null });
+  });
+
+  it("drops an expiry computed from 'valid for N years' that lands after 2199", () => {
+    expect(findApprovalDates(["1 June 2190", "valid for 20 years"])).toEqual({
+      approvalDate: "2190-06-01",
+      approvalExpiry: null,
+    });
+  });
+
   it("returns nulls for an empty document", () => {
     expect(findApprovalDates([])).toEqual({ approvalDate: null, approvalExpiry: null });
   });

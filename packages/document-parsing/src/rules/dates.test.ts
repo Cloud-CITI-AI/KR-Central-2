@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dateFromFileName, datesIn } from "./dates.js";
+import { dateFromFileName, datesIn, isReadableDate, READABLE_DATE_MAX, READABLE_DATE_MIN } from "./dates.js";
 
 describe("datesIn (PRODUCT_SPEC §10.1)", () => {
   it.each([
@@ -33,6 +33,22 @@ describe("datesIn (PRODUCT_SPEC §10.1)", () => {
     ["01/01/0050", "year 50"],
   ])("ignores %j (%s)", (text) => {
     expect(datesIn(text)).toEqual([]);
+  });
+
+  it.each([
+    ["Ref 12/05/1066", "year 1066 is before 1900"],
+    ["3 March 2999", "year 2999 is after 2199"],
+    ["March 3, 2200", "2200 is just past the range"],
+    ["16/03/2200", "2200 numeric"],
+    ["01/01/1899", "1899 is just before the range"],
+    ["16-Mar-9999", "stamp style, year 9999"],
+  ])("ignores %j (%s): outside 1900-2199", (text) => {
+    expect(datesIn(text)).toEqual([]);
+  });
+
+  it("keeps the range ends and skips an out-of-range date without hiding a later in-range one", () => {
+    expect(datesIn("1/1/1900 and 31/12/2199")).toEqual(["1900-01-01", "2199-12-31"]);
+    expect(datesIn("Ref 12/05/1066 dated 3 March 2026")).toEqual(["2026-03-03"]);
   });
 
   it("accepts 29 February in a leap year", () => {
@@ -80,5 +96,16 @@ describe("dateFromFileName (PRODUCT_SPEC §10.1 step 1)", () => {
     "Lot 123 plan 4567.pdf",
   ])("finds nothing in %j", (name) => {
     expect(dateFromFileName(name)).toBeNull();
+  });
+});
+
+describe("isReadableDate", () => {
+  it("is the 1900-01-01..2199-12-31 range the API accepts", () => {
+    expect([READABLE_DATE_MIN, READABLE_DATE_MAX]).toEqual(["1900-01-01", "2199-12-31"]);
+    expect(isReadableDate("1900-01-01")).toBe(true);
+    expect(isReadableDate("2199-12-31")).toBe(true);
+    expect(isReadableDate("1899-12-31")).toBe(false);
+    expect(isReadableDate("2200-01-01")).toBe(false);
+    expect(isReadableDate("2026-02-30")).toBe(false);
   });
 });

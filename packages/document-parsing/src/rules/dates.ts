@@ -1,6 +1,6 @@
 /**
  * Date readers (PRODUCT_SPEC §10.1, last paragraph). Pure: text in, ISO dates (yyyy-mm-dd) out.
- * Port of the prototype's datesIn / dateFromName. Invalid calendar dates are ignored.
+ * Port of the prototype's datesIn / dateFromName. Invalid calendar dates and years outside 1900-2199 are ignored.
  */
 import { isIsoDate } from "@kr/workflow";
 
@@ -32,15 +32,28 @@ const MONTHS: Readonly<Record<string, number>> = {
   december: 12,
 };
 
+/**
+ * The business-date range: parsed text never yields a date outside it, so a reference number such as "12/05/1066" or a
+ * sentence about 2999 cannot become a stored date. MUST equal @kr/contracts ISO_DATE_MIN/ISO_DATE_MAX (the range the API
+ * accepts; services/worker asserts they match) — contracts and document-parsing are siblings, so neither can import the other.
+ */
+export const READABLE_DATE_MIN = "1900-01-01";
+export const READABLE_DATE_MAX = "2199-12-31";
+
+/** True for a real calendar date (yyyy-mm-dd) within 1900-01-01..2199-12-31. */
+export function isReadableDate(value: string): boolean {
+  return isIsoDate(value) && value >= READABLE_DATE_MIN && value <= READABLE_DATE_MAX;
+}
+
 /** The year as written: two digits mean 20yy, four digits are taken as they are. */
 function fullYear(text: string): number {
   return text.length === 2 ? 2000 + Number(text) : Number(text);
 }
 
-/** yyyy-mm-dd for a real calendar date, else null. */
+/** yyyy-mm-dd for a real calendar date within the readable range, else null. */
 function toIso(y: number, month: number, day: number): string | null {
   const value = `${String(y).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  return isIsoDate(value) ? value : null;
+  return isReadableDate(value) ? value : null;
 }
 
 function monthNumber(word: string): number | undefined {

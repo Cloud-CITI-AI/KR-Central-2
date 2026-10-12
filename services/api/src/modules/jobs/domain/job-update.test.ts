@@ -1,3 +1,4 @@
+import { BadRequestError } from "../../../platform/errors.js";
 import { describe, expect, it } from "vitest";
 import { planJobUpdate, type CurrentJob } from "./job-update.js";
 
@@ -131,5 +132,31 @@ describe("planJobUpdate", () => {
   it("changes the outcome date on its own (a deferral) and resets it with the +90 value", () => {
     expect(planJobUpdate(read, { outcomeDate: "2026-07-01" }).set).toEqual({ outcome_date: "2026-07-01" });
     expect(planJobUpdate(read, { outcomeDate: "2026-05-11" }).isNoOp).toBe(true);
+  });
+
+  it("is a 400 on conformedDate when the derived outcome date (+90 days) would pass 2199-12-31, and plans nothing", () => {
+    expect(() => planJobUpdate(current, { conformedDate: "2199-12-31" })).toThrow(BadRequestError);
+    try {
+      planJobUpdate(current, { conformedDate: "2199-12-31" });
+    } catch (error) {
+      expect((error as BadRequestError).errors).toEqual([
+        {
+          path: "conformedDate",
+          message: "The outcome date (conformed date + 90 days) must be on or before 2199-12-31",
+        },
+      ]);
+    }
+  });
+
+  it("accepts the last conformed date whose outcome date is still 2199-12-31 or earlier", () => {
+    expect(planJobUpdate(current, { conformedDate: "2199-10-02" }).set).toMatchObject({ outcome_date: "2199-12-31" });
+    expect(() => planJobUpdate(current, { conformedDate: "2199-10-03" })).toThrow(BadRequestError);
+  });
+
+  it("lets an explicit outcomeDate stand in for the derived one", () => {
+    expect(planJobUpdate(current, { conformedDate: "2199-12-31", outcomeDate: "2199-12-31" }).set).toMatchObject({
+      conformed_date: "2199-12-31",
+      outcome_date: "2199-12-31",
+    });
   });
 });

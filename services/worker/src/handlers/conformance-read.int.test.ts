@@ -276,6 +276,26 @@ describe("conformance.read: nothing found, and files that cannot be read", () =>
     expect(await job()).toEqual(before);
   });
 
+  it("treats a conformed date whose +90 days passes 2199 as not found and writes nothing (QA r2)", async () => {
+    const before = await job();
+    const { result } = await read({
+      pages: [["The plan was conformed on 31 December 2199."]],
+      allowAi: false,
+    });
+    expect(result).toMatchObject({ found: false, date: null, method: null });
+    expect(await job()).toEqual(before);
+  });
+
+  it("ignores a conformed date outside 1900-2199 in the notice and goes on to the text rule", async () => {
+    const { result } = await read({
+      pages: [["Conformance Notification", "Ref 12/05/1066 ", "The plan was conformed on 16 March 2026."]],
+      annotation: "16/03/2999",
+      allowAi: false,
+    });
+    expect(result).toMatchObject({ found: true, date: "2026-03-16", method: "text" });
+    expect(await job()).toMatchObject({ conformed_date: "2026-03-16", outcome_date: "2026-06-14" });
+  });
+
   it("answers 'couldn't be read' for a PDF that cannot be read, as a result and not a failure", async () => {
     const file = await insertFile(db, storage, jobId, {
       bytes: "not a pdf",

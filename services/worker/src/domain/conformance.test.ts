@@ -1,3 +1,5 @@
+import { ISO_DATE_MAX, ISO_DATE_MIN } from "@kr/contracts";
+import { READABLE_DATE_MAX, READABLE_DATE_MIN } from "@kr/document-parsing";
 import { describe, expect, it } from "vitest";
 import {
   findConformedDate,
@@ -60,6 +62,35 @@ describe("findConformedDate (the §10.1 order)", () => {
       expect(asked.at(-1)).toBe(name);
     },
   );
+});
+
+describe("findConformedDate keeps dates in range (QA r2: an out-of-range date is treated as not found)", () => {
+  it("shares the API's 1900-2199 range with the document readers (contracts and document-parsing cannot import each other)", () => {
+    expect([READABLE_DATE_MIN, READABLE_DATE_MAX]).toEqual([ISO_DATE_MIN, ISO_DATE_MAX]);
+  });
+
+  it.each(["1899-12-31", "2200-01-01", "2999-03-03"])(
+    "skips a conformed date of %s and tries the next step",
+    async (date) => {
+      const { reading, asked } = steps({ stampAnnotation: found("stamp_annotation", date), text: found("text") });
+      expect((await findConformedDate(reading))?.method).toBe("text");
+      expect(asked).toEqual(["fileName", "stampAnnotation", "stampImage", "text"]);
+    },
+  );
+
+  it("skips a conformed date whose +90 day outcome date would pass 2199-12-31", async () => {
+    const { reading } = steps({ stampImage: found("stamp_image", "2199-12-31") });
+    expect(await findConformedDate(reading)).toBeNull();
+    const edge = steps({ stampImage: found("stamp_image", "2199-10-02") });
+    expect((await findConformedDate(edge.reading))?.date).toBe("2199-10-02");
+    const over = steps({ stampImage: found("stamp_image", "2199-10-03") });
+    expect(await findConformedDate(over.reading)).toBeNull();
+  });
+
+  it("skips a date that is not a real calendar date", async () => {
+    const { reading } = steps({ fileName: found("file_name", "2026-02-30") });
+    expect(await findConformedDate(reading)).toBeNull();
+  });
 });
 
 describe("the messages (PRODUCT_SPEC §10.1)", () => {

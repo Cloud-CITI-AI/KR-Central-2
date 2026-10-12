@@ -180,6 +180,31 @@ describe("conditions.extract", () => {
     expect(await job()).toEqual(before);
   });
 
+  it("ignores an expiry sentence about 2999 and a reference number read as year 1066 (QA r2: never store a date the job page cannot show)", async () => {
+    const pages = [
+      ["Western Australian Planning Commission", "Ref 12/05/1066", "Date: 3 March 2026"],
+      ["This approval will no longer be valid after 3 March 2999", "1. Power supply to each lot. (Western Power)"],
+    ];
+    const { result, error } = await extract((await letter(pages)).id);
+    expect(error).toBeUndefined();
+    expect(result).toMatchObject({ conditionsCount: 1, approvalDate: "2026-03-03", approvalExpiry: null });
+    expect(await job()).toMatchObject({ approval_date: "2026-03-03", approval_expiry: null });
+  });
+
+  it("never writes a date outside 1900-2199 even when the parser hands one over", async () => {
+    const bad: Parser = {
+      run: () =>
+        Promise.resolve({
+          conditions: [{ number: 1, text: "Power", agency: "WAPC" as const, agencyGuessed: false }],
+          dates: { approvalDate: "1066-05-12", approvalExpiry: "2999-03-03" },
+        } as never),
+    };
+    const { error } = await extract((await letter()).id, { parser: bad });
+    expect(error).toBeUndefined();
+    expect(await job()).toMatchObject({ approval_date: null, approval_expiry: null });
+    expect(await current()).toHaveLength(1);
+  });
+
   it("applies a re-run of the same operation only once", async () => {
     const { result } = await extract((await letter()).id, { again: true });
     expect((result as { conditionsCount: number }).conditionsCount).toBe(3);

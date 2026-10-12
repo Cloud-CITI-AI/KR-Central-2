@@ -2,7 +2,7 @@
  * What a Decision Letter extraction stores and tells the user (PRODUCT_SPEC §10.2). Pure.
  */
 import type { ConditionsExtractResult } from "@kr/contracts";
-import type { ApprovalDates, ParsedCondition } from "@kr/document-parsing";
+import { isReadableDate, type ApprovalDates, type ParsedCondition } from "@kr/document-parsing";
 import type { z } from "zod";
 
 /** conditions.text allows 1 to 10000 characters. */
@@ -29,6 +29,15 @@ export function summarise(conditions: readonly ParsedCondition[], dates: Approva
     approvalExpiry: dates.approvalExpiry,
     message,
   };
+}
+
+/**
+ * The dates that may be stored: a date that is not a real date within 1900-2199 is treated as not found, so a stored job
+ * can always be served (the document readers already skip such dates; this is the last line before the UPDATE).
+ */
+export function storableDates(dates: ApprovalDates): ApprovalDates {
+  const readable = (date: string | null): string | null => (date !== null && isReadableDate(date) ? date : null);
+  return { approvalDate: readable(dates.approvalDate), approvalExpiry: readable(dates.approvalExpiry) };
 }
 
 /** The text as stored: never empty, never over the column limit. Conditions without text are dropped before this. */

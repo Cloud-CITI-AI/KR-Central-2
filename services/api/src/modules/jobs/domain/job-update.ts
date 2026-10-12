@@ -6,10 +6,11 @@
  * reading, and sets the outcome date to conformed + 90 days (R10) unless the request also sends `outcomeDate`. Clearing
  * `conformedDate` clears the outcome date the same way (a deferral typed meanwhile goes with it; send `outcomeDate` to keep one).
  */
-import type { UpdateJobRequest } from "@kr/contracts";
+import { ISO_DATE_MAX, type UpdateJobRequest } from "@kr/contracts";
 import type { AuditChanges, JobRow } from "@kr/db";
 import { outcomeDateFor } from "@kr/workflow";
 import type { z } from "zod";
+import { BadRequestError } from "../../../platform/errors.js";
 
 type UpdateBody = z.output<typeof UpdateJobRequest>;
 
@@ -39,6 +40,25 @@ export interface JobUpdatePlan {
   readonly isNoOp: boolean;
 }
 
+/**
+ * Conformed + 90 days (R10). The request's dates are range-checked by the contract, but the derived one is not: a conformed
+ * date near 2199 would store an outcome date the job detail cannot serialise (a permanent 500), so it is a 400 here, before any write.
+ */
+function derivedOutcomeDate(conformedDate: string): string {
+  const outcome = outcomeDateFor(conformedDate);
+  if (outcome > ISO_DATE_MAX) {
+    throw new BadRequestError({
+      errors: [
+        {
+          path: "conformedDate",
+          message: `The outcome date (conformed date + 90 days) must be on or before ${ISO_DATE_MAX}`,
+        },
+      ],
+    });
+  }
+  return outcome;
+}
+
 export function planJobUpdate(current: CurrentJob, body: UpdateBody): JobUpdatePlan {
   const set: Record<string, unknown> = {};
   const changes: Record<string, { from: unknown; to: unknown }> = {};
@@ -62,7 +82,7 @@ export function planJobUpdate(current: CurrentJob, body: UpdateBody): JobUpdateP
     apply("conformedStampText", "conformed_stamp_text", null);
     // R10 ties the outcome date to the conformed date: set it to +90 days, and clear it with the conformed date.
     if (body.outcomeDate === undefined) {
-      apply("outcomeDate", "outcome_date", body.conformedDate === null ? null : outcomeDateFor(body.conformedDate));
+      apply("outcomeDate", "outcome_date", body.conformedDate === null ? null : derivedOutcomeDate(body.conformedDate));
     }
   }
   apply("outcomeDate", "outcome_date", body.outcomeDate);

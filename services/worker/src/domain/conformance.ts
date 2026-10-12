@@ -3,8 +3,8 @@
  * user-facing messages and the result shape live here; the steps themselves (file name, PDF, AI) are handed in.
  */
 import type { ConformanceReadResult } from "@kr/contracts";
-import type { ConformedMethod } from "@kr/document-parsing";
-import { formatDateWithWeekday } from "@kr/workflow";
+import { isReadableDate, type ConformedMethod } from "@kr/document-parsing";
+import { formatDateWithWeekday, outcomeDateFor } from "@kr/workflow";
 import type { z } from "zod";
 
 export interface Found {
@@ -23,9 +23,23 @@ export interface ReadingSteps {
   text(): Promise<Found | null>;
 }
 
+/**
+ * A reading is only usable when the date AND the outcome date derived from it (conformed + 90 days, R10) are real dates in
+ * the 1900-2199 range the API accepts; anything else is treated as not found, so a stored job can always be served.
+ */
+export function isUsableReading(found: Found | null): found is Found {
+  return found !== null && isReadableDate(found.date) && isReadableDate(outcomeDateFor(found.date));
+}
+
 /** The §10.1 order: file name, stamp annotation, AI stamp reading (only when allowed), then the text rule. */
 export async function findConformedDate(steps: ReadingSteps): Promise<Found | null> {
-  return steps.fileName() ?? (await steps.stampAnnotation()) ?? (await steps.stampImage()) ?? (await steps.text());
+  const usable = (found: Found | null): Found | null => (isUsableReading(found) ? found : null);
+  return (
+    usable(steps.fileName()) ??
+    usable(await steps.stampAnnotation()) ??
+    usable(await steps.stampImage()) ??
+    usable(await steps.text())
+  );
 }
 
 /** The stored operation result: the contract's ConformanceReadResult, never a local copy of it. */
