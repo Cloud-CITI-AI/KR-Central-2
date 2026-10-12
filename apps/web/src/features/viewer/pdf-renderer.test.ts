@@ -75,7 +75,7 @@ describe("pdfjsRenderer", () => {
     expect(document.pageCount).toBe(3);
   });
 
-  it("installs the Map upsert polyfill on the page before it loads pdf.js", async () => {
+  it("installs the ES2026 polyfills on the page before it loads pdf.js", async () => {
     const proto = Map.prototype as unknown as Record<string, unknown>;
     const saved = { getOrInsert: proto.getOrInsert, getOrInsertComputed: proto.getOrInsertComputed };
     delete proto.getOrInsert;

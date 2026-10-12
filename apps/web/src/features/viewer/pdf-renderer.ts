@@ -1,5 +1,5 @@
 import type { DocumentInitParameters } from "pdfjs-dist/types/src/display/api";
-import { installMapUpsert } from "./map-upsert";
+import { installEs2026Polyfills } from "./es2026-polyfills";
 
 /**
  * The viewer's view of a PDF engine. The components only know this adapter, so unit tests replace it with a fake and
@@ -33,8 +33,9 @@ export interface PdfRenderer {
 /** Where `public/pdfjs` is served: same origin, so CSP `worker-src 'self' blob:` and `connect-src 'self'` suffice. */
 export const PDFJS_BASE = "/pdfjs/";
 /**
- * Not the shipped `pdf.worker.min.mjs` itself: a two-line module that installs the Map upsert polyfill in the worker and then imports it
- * (public/pdfjs/pdf.worker.polyfilled.mjs), so browsers without `Map.prototype.getOrInsertComputed` can draw pages.
+ * Not the shipped `pdf.worker.min.mjs` itself: a small module that installs the ES2026 polyfills in the worker and then imports it
+ * (public/pdfjs/pdf.worker.polyfilled.mjs), so browsers without `Map.prototype.getOrInsertComputed`, `Math.sumPrecise` and the like can
+ * open and draw PDFs.
  */
 export const PDFJS_WORKER_SRC = `${PDFJS_BASE}pdf.worker.polyfilled.mjs`;
 
@@ -79,7 +80,7 @@ function isCancellation(error: unknown): boolean {
 /** The pdf.js implementation: the library is imported on first use, so it stays out of every other page's bundle. */
 export const pdfjsRenderer: PdfRenderer = {
   async open(url) {
-    installMapUpsert();
+    installEs2026Polyfills();
     const pdfjs = await import("pdfjs-dist");
     pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_SRC;
     const loading = pdfjs.getDocument(pdfjsDocumentOptions(url));
