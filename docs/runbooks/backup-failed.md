@@ -21,8 +21,10 @@ daily at 18:15 UTC (02:15 Perth): a database dump to `db/nightly/`, an increment
    skipped when the dump failed. `ops_backup_dump_stored` and `ops_backup_objects_copied` show what did work.
 2. **Did it start.** No log at all: the cron did not run (Railway cron status, a deployment stuck, a bad schedule in
    the settings drift report of the last deploy). A healthy cron deployment shows `SUCCESS` or `SLEEPING` between runs.
-3. **Dump failures.** `PgDumpError` text: connection refused or password failed (the migrator password was rotated
-   and `MIGRATION_DATABASE_URL` on `backup` still has the old one: today's code makes `backup` hold it), or a server
+3. **Dump failures.** `PgDumpError` text: connection refused or password failed (the `tracker_backup` password was
+   rotated, or the database restored onto a new host, and `BACKUP_DATABASE_URL` on `backup` still has the old value:
+   `backup` reads only that variable, never `MIGRATION_DATABASE_URL`; or the role does not exist because `bootstrap-cli`
+   was not re-run with `TRACKER_BACKUP_PASSWORD`), or a server
    newer than pg_dump 17. "stored dump is N bytes, expected M" or an upload error: the `backups` bucket.
 4. **Copy failures.** `ops_backup_object_failed` or `ops_backup_purge_failed` with an object key; `config_invalid`
    naming `S3_*` variables means the read-only `files` keys are missing. `ManifestError` ("manifest.json ... is

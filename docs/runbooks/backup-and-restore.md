@@ -46,7 +46,8 @@ service), not a name ending `.railway.internal` for a live service.
 createdb -h localhost -p 55432 -U postgres restore
 SUPERUSER_DATABASE_URL=postgres://postgres:<throwaway>@localhost:55432/restore \
 TRACKER_MIGRATOR_PASSWORD=<16+ throwaway> TRACKER_APP_PASSWORD=<16+ throwaway> \
-  node packages/db/dist/bootstrap-cli.js                    # roles, citext, schema, default privileges
+TRACKER_BACKUP_PASSWORD=<16+ throwaway> \
+  node packages/db/dist/bootstrap-cli.js                    # three roles, citext, schema, default privileges
 pg_restore --clean --if-exists --exit-on-error --no-password \
   -d postgres://postgres:<throwaway>@localhost:55432/restore <stamp>.dump
 ```
@@ -127,7 +128,8 @@ Severity 1 or 2 ([incident-response](incident-response.md)); KR agrees the recov
    role passwords, then `pg_restore` as above, using the dump KR chose. Verify with the checks above.
 3. Quiesce: stop the active deployments of `web`, `api`, `worker` and `backup` in the dashboard.
 4. Set the sealed variables to the new host and passwords: `DATABASE_URL` on `api` and `worker`,
-   `MIGRATION_DATABASE_URL` on `migrate` and `backup`. Then bring the services back in the order `deploy.yml` uses:
+   `MIGRATION_DATABASE_URL` on `migrate`, and `BACKUP_DATABASE_URL` (`tracker_backup`) on `backup`, which reads no other
+   database URL: left on the old one it keeps dumping the old database. Then bring the services back in the order `deploy.yml` uses:
    `clamav`, **`migrate`**, `api`, `worker`, `web`, `backup`. `migrate` always comes first and must answer `/healthz`
    with 200 before `api` or `worker` starts, so the application never runs on a schema older than its images expect.
    Compare `max(version)` from step 2 with the newest file in `packages/db/migrations/` of the release you will run.
@@ -149,12 +151,13 @@ Severity 1 or 2 ([incident-response](incident-response.md)); KR agrees the recov
 ## Emergency manual dump
 
 When `backup` is failing and a recovery point is needed now ([backup-failed](backup-failed.md)). From a workstation with
-PostgreSQL 17 tools and the TCP proxy on, as `tracker_migrator`:
+PostgreSQL 17 tools and the TCP proxy on, as the read-only `tracker_backup` role (the one `backup` uses; `pg_dump` needs
+only SELECT):
 
 ```sh
 read -rs PGPASSWORD; export PGPASSWORD
 pg_dump --format=custom --no-password --lock-wait-timeout=30s --file=kr-<env>-<UTC stamp>.dump \
-  "postgres://tracker_migrator@<proxy host>:<port>/<db>?sslmode=require"
+  "postgres://tracker_backup@<proxy host>:<port>/<db>?sslmode=require"
 sha256sum kr-<env>-<UTC stamp>.dump
 aws s3 cp --profile kr-backups --endpoint-url <backups endpoint> kr-<env>-<UTC stamp>.dump s3://<backups bucket>/db/manual/<UTC stamp>.dump
 ```

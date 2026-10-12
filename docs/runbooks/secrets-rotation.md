@@ -8,17 +8,17 @@ history; use a prompt (`read -rs`) or an environment file outside the repository
 
 ## Inventory
 
-| Secret                                         | Held by                                                                          | Cadence        | Section                                          |
-| ---------------------------------------------- | -------------------------------------------------------------------------------- | -------------- | ------------------------------------------------ |
-| `ENTRA_CLIENT_SECRET`                          | `api` only                                                                       | 90 days        | [Entra](#entra-client-secret)                    |
-| `tracker_app` and `tracker_migrator` passwords | `DATABASE_URL` (`api`, `worker`); `MIGRATION_DATABASE_URL` (`migrate`, `backup`) | 90 days        | [Database](#database-role-passwords)             |
-| `files` bucket keys                            | `api`, `worker` (read/write); `backup` (read-only)                               | 90 days        | [Bucket keys](#bucket-keys)                      |
-| `backups` bucket keys (`BACKUP_S3_*`)          | `migrate`, `backup`                                                              | 90 days        | [Bucket keys](#bucket-keys)                      |
-| `ANTHROPIC_API_KEY`                            | `worker` only, and only while the flag is on                                     | 90 days        | [Anthropic](#anthropic-key)                      |
-| `RAILWAY_TOKEN`                                | GitHub Environment secret, `staging` and `production`                            | 90 days        | [Railway token](#railway-token)                  |
-| GHCR credentials                               | Railway, source settings of every image service                                  | With the token | [GHCR](#ghcr-credentials)                        |
-| `LOG_PSEUDONYM_SALT`                           | `api`                                                                            | On suspicion   | Changes every log pseudonym; no routine rotation |
-| `OTEL_EXPORTER_OTLP_HEADERS`                   | `api`, `worker`, once a backend exists                                           | Per vendor     | Create, replace, revoke                          |
+| Secret                                                           | Held by                                                                                                  | Cadence        | Section                                          |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------ |
+| `ENTRA_CLIENT_SECRET`                                            | `api` only                                                                                               | 90 days        | [Entra](#entra-client-secret)                    |
+| `tracker_app`, `tracker_migrator` and `tracker_backup` passwords | `DATABASE_URL` (`api`, `worker`); `MIGRATION_DATABASE_URL` (`migrate`); `BACKUP_DATABASE_URL` (`backup`) | 90 days        | [Database](#database-role-passwords)             |
+| `files` bucket keys                                              | `api`, `worker` (read/write); `backup` (read-only)                                                       | 90 days        | [Bucket keys](#bucket-keys)                      |
+| `backups` bucket keys (`BACKUP_S3_*`)                            | `migrate`, `backup`                                                                                      | 90 days        | [Bucket keys](#bucket-keys)                      |
+| `ANTHROPIC_API_KEY`                                              | `worker` only, and only while the flag is on                                                             | 90 days        | [Anthropic](#anthropic-key)                      |
+| `RAILWAY_TOKEN`                                                  | GitHub Environment secret, `staging` and `production`                                                    | 90 days        | [Railway token](#railway-token)                  |
+| GHCR credentials                                                 | Railway, source settings of every image service                                                          | With the token | [GHCR](#ghcr-credentials)                        |
+| `LOG_PSEUDONYM_SALT`                                             | `api`                                                                                                    | On suspicion   | Changes every log pseudonym; no routine rotation |
+| `OTEL_EXPORTER_OTLP_HEADERS`                                     | `api`, `worker`, once a backend exists                                                                   | Per vendor     | Create, replace, revoke                          |
 
 Also rotate any secret on: a person with access leaving, a suspected leak (a log, a screenshot, a chat), or a
 vendor notice. Put each expiry in the shared calendar 14 days ahead, and write every rotation in the operations log
@@ -37,13 +37,15 @@ Entra allows two secrets at once, so this has no downtime.
 
 ## Database role passwords
 
-Re-running `bootstrap-cli` resets **both** passwords at once ([database](database.md)), so connections made with the
+Re-running `bootstrap-cli` resets **all three** passwords at once ([database](database.md)), so connections made with the
 old ones fail from that moment until each service has the new URLs. Do it in a quiet window (Perth evening).
 
-1. Generate two new 16+ character passwords into the password manager. Stage the new sealed URLs: `DATABASE_URL` on `api`
-   and `worker` (`tracker_app`), `MIGRATION_DATABASE_URL` on `migrate` and `backup` (`tracker_migrator`), without deploying.
+1. Generate three new 16+ character passwords into the password manager. Stage the new sealed URLs: `DATABASE_URL` on
+   `api` and `worker` (`tracker_app`), `MIGRATION_DATABASE_URL` on `migrate` (`tracker_migrator`) and
+   `BACKUP_DATABASE_URL` on `backup` (`tracker_backup`), without deploying.
 2. Confirm before running: the environment, and that the staged values are in all four services. Enable the Postgres TCP
-   proxy and run `bootstrap-cli` with the new passwords (`bootstrap complete`); disable the proxy.
+   proxy and run `bootstrap-cli` with the three new passwords (`TRACKER_APP_PASSWORD`, `TRACKER_MIGRATOR_PASSWORD`,
+   `TRACKER_BACKUP_PASSWORD`; `bootstrap complete`); disable the proxy.
 3. Redeploy `api`, `worker`, `backup` and `migrate` from the dashboard right away (`migrate` runs, finds nothing pending).
 4. Verify: `/api/readyz`, a sign-in, an upload, and that the next `backup` run succeeds
    ([backup-failed](backup-failed.md) shows how to read it). Expect a few minutes of errors in between.

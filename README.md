@@ -39,7 +39,7 @@ pnpm install --frozen-lockfile
 grep -vE '^[A-Z0-9_]+=[[:space:]]*(#.*)?$' .env.example > .env   # local values; never commit .env
 pnpm db:up                      # Postgres 17, S3 mock, ClamAV
 pnpm build                      # workspace packages run from dist/ at runtime
-pnpm --filter @kr/db db:bootstrap   # creates the tracker_migrator and tracker_app roles; safe to repeat
+pnpm --filter @kr/db db:bootstrap   # creates the tracker_migrator, tracker_app and tracker_backup roles (reads the three *_PASSWORD values from .env); safe to repeat
 pnpm --filter @kr/db db:migrate
 pnpm dev                        # web :3000, api :8080, worker health :8081
 ```
