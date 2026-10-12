@@ -2,10 +2,11 @@ import { execFileSync, spawn } from "node:child_process";
 import { REPO_ROOT } from "../e2e/harness/constants";
 import { expect, test } from "../e2e/fixtures";
 import { STAFF } from "../e2e/harness/users";
-import { seedDashboard } from "./data";
+import { DESIGNED_SCALE_JOBS, seedDesignedScale } from "./data";
 
 // PRODUCT_SPEC section 14: API reads p95 < 300 ms, p99 < 800 ms. The thresholds live in services/api/load/smoke.js; this
-// driver gives it a stack, a staff session created by the harness (the real OIDC flow) and 24 synthetic jobs.
+// driver gives it a stack, a staff session created by the harness (the real OIDC flow) and the designed scale of
+// section 14 (2,000 active jobs with realistic checkpoint states and conditions): 24 jobs hid a 2.4 s p95 from CI.
 
 const LOAD_DIR = `${REPO_ROOT}services/api/load`;
 const K6_IMAGE =
@@ -47,7 +48,7 @@ test("the API reads stay within p95 < 300 ms and p99 < 800 ms under the k6 smoke
   stack,
 }, testInfo) => {
   const staff = await apiAs(STAFF);
-  await seedDashboard(staff, 24);
+  await seedDesignedScale(stack.databaseUrl, DESIGNED_SCALE_JOBS);
   const container = `kr-wp22-k6-${process.pid.toString()}`;
   const { command, args } = k6Command(container);
   const env = { ...process.env, BASE_URL: stack.apiUrl, SESSION_COOKIE: staff.sessionId };

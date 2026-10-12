@@ -17,7 +17,7 @@ const VUS = Number(ENV.VUS ?? 10);
 const DURATION = ENV.DURATION ?? "30s";
 
 // Every endpoint is a named request so its own p95 and p99 are checked, and so a name that never ran fails the thresholds.
-const ENDPOINTS = ["list_jobs", "get_job", "job_facets"];
+const ENDPOINTS = ["list_jobs", "list_picker", "get_job", "job_facets"];
 /** @type {Record<string, string[]>} */
 const thresholds = {
   http_req_failed: ["rate<0.01"],
@@ -52,7 +52,7 @@ export function setup() {
   /** @type {{ id: string }[]} */
   const jobs = /** @type {{ id: string }[]} */ (response.json("items"));
   const jobIds = jobs.map((job) => job.id);
-  if (jobIds.length === 0) fail("The stack has no jobs: seed some before the smoke (the driver seeds 24).");
+  if (jobIds.length === 0) fail("The stack has no jobs: seed some before the smoke (the driver seeds 2,000).");
   return { jobIds };
 }
 
@@ -61,6 +61,9 @@ export default function (data) {
   const jobId = data.jobIds[Math.floor(Math.random() * data.jobIds.length)];
   const list = http.get(`${BASE_URL}/v1/jobs?status=in_progress&limit=50`, params("list_jobs"));
   check(list, { "list jobs is 200": (r) => r.status === 200 });
+  // The tracker's job picker: natural job-number order, the largest page, every job.
+  const picker = http.get(`${BASE_URL}/v1/jobs?status=all&sort=job_number&limit=100`, params("list_picker"));
+  check(picker, { "picker list is 200": (r) => r.status === 200 });
   const job = http.get(`${BASE_URL}/v1/jobs/${jobId}`, params("get_job"));
   check(job, {
     "get job is 200": (r) => r.status === 200,

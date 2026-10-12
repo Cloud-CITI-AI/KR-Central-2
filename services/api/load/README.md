@@ -13,7 +13,7 @@ pnpm --filter @kr/web exec playwright test -c perf/k6.config.ts
 ```
 
 The driver `apps/web/perf/k6-smoke.spec.ts` starts the WP-19 stack (Postgres, S3 mock, mock Entra, API, worker, web), signs in
-as staff through the real OIDC flow, seeds 24 synthetic jobs and runs `smoke.js` against the API with the session cookie.
+as staff through the real OIDC flow, seeds the designed scale (2,000 synthetic jobs, section 14) and runs `smoke.js` against the API with the session cookie.
 It uses `k6` when installed, else `docker run --network host mirror.gcr.io/grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34` (pinned by digest; override with `K6_IMAGE`).
 
 ## Run it against any stack
