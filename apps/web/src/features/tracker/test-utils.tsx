@@ -22,6 +22,9 @@ export const navigationMock = {
  */
 export const WHOLE_TRACKER_TIMEOUT_MS = 20_000;
 
+/** TrackerPage loads TrackerBody on demand; importing it once up front keeps a cold transform out of `findBy`'s 1 s wait. */
+export const preloadTrackerBody = () => import("./TrackerBody");
+
 /** Render a tracker piece in the app providers with the banner region beside it; the session refresh gets its answer. */
 export function renderTracker(ui: ReactElement, { me = syntheticMe(), ...options }: RenderWithProvidersOptions = {}) {
   server.use(mockApi("getMe", me));

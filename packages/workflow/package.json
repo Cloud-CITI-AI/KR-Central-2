@@ -5,6 +5,7 @@
   "description": "Workflow definition (stages, checkpoints, panels) and pure progress/next-action/alert rules \u2014 single source of truth for API and web.",
   "license": "UNLICENSED",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
       "@kr/source": "./src/index.ts",

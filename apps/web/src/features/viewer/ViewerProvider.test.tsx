@@ -32,11 +32,17 @@ function setup(files: readonly FileMeta[]) {
   );
 }
 
+/** The dialog is its own chunk, loaded at the first open: click, then wait for it to appear. */
+async function openViewer(name: "Open first" | "Open last" | "Open past the end") {
+  await userEvent.click(screen.getByRole("button", { name }));
+  await screen.findByRole("dialog");
+}
+
 describe("ViewerProvider and the viewer dialog", () => {
   it("renders nothing until opened, then a dialog named for the file, with Close focused", async () => {
     const { container } = setup([png("site.png")]);
     expect(screen.queryByRole("dialog")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    await openViewer("Open first");
     const dialog = screen.getByRole("dialog", { name: "site.png" });
     expect(within(dialog).getByRole("button", { name: "Close" })).toHaveFocus();
     expect(within(dialog).getByRole("img", { name: "site.png" })).toBeInTheDocument();
@@ -51,13 +57,13 @@ describe("ViewerProvider and the viewer dialog", () => {
 
   it("clamps an index past the end to the last file", async () => {
     setup([png("a.png"), png("b.png")]);
-    await userEvent.click(screen.getByRole("button", { name: "Open past the end" }));
+    await openViewer("Open past the end");
     expect(screen.getByRole("dialog", { name: "b.png" })).toBeInTheDocument();
   });
 
   it("moves focus to the other arrow when stepping disables the one that was used", async () => {
     setup([png("a.png"), png("b.png")]);
-    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    await openViewer("Open first");
     await userEvent.click(screen.getByRole("button", { name: "Next file" }));
     expect(screen.getByRole("button", { name: "Previous file" })).toHaveFocus();
     await userEvent.click(screen.getByRole("button", { name: "Previous file" }));
@@ -66,7 +72,7 @@ describe("ViewerProvider and the viewer dialog", () => {
 
   it("with one file shows no ‹ ›, no position and no extra controls", async () => {
     setup([png("only.png")]);
-    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    await openViewer("Open first");
     expect(screen.queryByRole("button", { name: "Previous file" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Next file" })).toBeNull();
     expect(screen.queryByText(/ of /)).toBeNull();
@@ -74,7 +80,7 @@ describe("ViewerProvider and the viewer dialog", () => {
 
   it("opens at the given index, shows 'n of m' and steps with ‹ and ›, disabling them at the ends", async () => {
     setup([png("a.png"), png("b.png"), png("c.png")]);
-    await userEvent.click(screen.getByRole("button", { name: "Open last" }));
+    await openViewer("Open last");
     expect(screen.getByRole("dialog", { name: "c.png" })).toBeInTheDocument();
     expect(screen.getByText("3 of 3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next file" })).toBeDisabled();
@@ -88,7 +94,7 @@ describe("ViewerProvider and the viewer dialog", () => {
 
   it("closes with Close and returns focus to the control that opened it", async () => {
     setup([png("a.png")]);
-    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    await openViewer("Open first");
     await userEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole("button", { name: "Open first" })).toHaveFocus();
@@ -96,7 +102,7 @@ describe("ViewerProvider and the viewer dialog", () => {
 
   it("closes on Esc (the native close path) and returns focus", async () => {
     setup([png("a.png")]);
-    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    await openViewer("Open first");
     const dialog = screen.getByRole("dialog");
     // jsdom does not turn Esc into a close, so do what the browser does: close the dialog and fire `close`.
     act(() => {
@@ -109,7 +115,7 @@ describe("ViewerProvider and the viewer dialog", () => {
 
   it("traps Tab and Shift+Tab inside the dialog", async () => {
     setup([png("a.png"), png("b.png")]);
-    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    await openViewer("Open first");
     const dialog = screen.getByRole("dialog");
     const close = within(dialog).getByRole("button", { name: "Close" });
     const next = within(dialog).getByRole("button", { name: "Next file" });
@@ -123,7 +129,7 @@ describe("ViewerProvider and the viewer dialog", () => {
   it("offers 'Open in new tab' to the inline content for an image and not for a DWG", async () => {
     const image = png("site.png");
     setup([image, syntheticFile({ name: "plan.dwg", kind: "dwg", contentType: "image/vnd.dwg" })]);
-    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    await openViewer("Open first");
     const link = screen.getByRole("link", { name: "Open in new tab" });
     expect(link).toHaveAttribute("href", `/api/v1/files/${image.id}/content`);
     expect(link).toHaveAttribute("target", "_blank");
@@ -134,7 +140,7 @@ describe("ViewerProvider and the viewer dialog", () => {
 
   it("styles 'Open in new tab' as the small button Close and the arrows use, not a browser-default link", async () => {
     setup([png("site.png")]);
-    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    await openViewer("Open first");
     const link = screen.getByRole("link", { name: "Open in new tab" });
     const close = screen.getByRole("button", { name: "Close" });
     for (const name of ["btn", "small"]) {
@@ -158,7 +164,7 @@ describe("ViewerProvider and the viewer dialog", () => {
     const eml = syntheticFile({ name: "q.eml", kind: "email", contentType: "message/rfc822", email });
     const msg = syntheticFile({ name: "q.msg", kind: "email", contentType: "application/vnd.ms-outlook", email });
     setup([eml, msg]);
-    await userEvent.click(screen.getByRole("button", { name: "Open first" }));
+    await openViewer("Open first");
     expect(screen.getByRole("link", { name: "Download original" })).toHaveAttribute(
       "href",
       `/api/v1/files/${eml.id}/content?disposition=attachment`,

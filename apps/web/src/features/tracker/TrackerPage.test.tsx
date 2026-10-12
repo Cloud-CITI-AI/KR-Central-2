@@ -1,7 +1,7 @@
 import { PROBLEM_TYPES } from "@kr/contracts";
-import { screen, waitFor } from "@testing-library/react";
+import { configure, screen, waitFor } from "@testing-library/react";
 import { Component, type ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoAxeViolations } from "@/test/axe";
 import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
@@ -9,7 +9,7 @@ import { HttpResponse } from "msw";
 import { TrackerPage } from "./TrackerPage";
 import { LAST_JOB_KEY } from "./lastJob";
 import { jobPage, syntheticJob } from "./test-fixtures";
-import { NOT_FOUND, renderTracker, WHOLE_TRACKER_TIMEOUT_MS } from "./test-utils";
+import { NOT_FOUND, preloadTrackerBody, renderTracker, WHOLE_TRACKER_TIMEOUT_MS } from "./test-utils";
 
 vi.mock("next/navigation", async () => (await import("./test-utils")).navigationMock);
 
@@ -22,6 +22,10 @@ class Boundary extends Component<{ readonly children: ReactNode }, { readonly er
     return this.state.error ? <p>caught {this.state.error}</p> : this.props.children;
   }
 }
+
+beforeAll(preloadTrackerBody, WHOLE_TRACKER_TIMEOUT_MS);
+// The whole tracker renders once its chunk and the job have arrived, which under a loaded CI runner can pass the default 1 s.
+configure({ asyncUtilTimeout: 5000 });
 
 afterEach(() => {
   vi.unstubAllGlobals();

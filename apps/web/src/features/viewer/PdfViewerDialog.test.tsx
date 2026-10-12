@@ -34,7 +34,7 @@ describe("a PDF in the viewer dialog", () => {
       </ViewerProvider>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Open plan" }));
-    expect(screen.getByRole("dialog", { name: "plan.pdf" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "plan.pdf" })).toBeInTheDocument();
     expect(await screen.findByText("Page 2 of 2")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open in new tab" })).toHaveAttribute(
       "href",

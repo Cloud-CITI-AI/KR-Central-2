@@ -2,15 +2,23 @@
 import type { JobCapability, JobDetail } from "@kr/contracts";
 import type { StageKey } from "@kr/workflow";
 import { notFound } from "next/navigation";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { ApiProblem } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
 import { MESSAGES } from "@/lib/messages";
 import { rememberLastJob } from "./lastJob";
 import { loadFailedText, TRACKER_MESSAGES } from "./messages";
-import { TrackerBody } from "./TrackerBody";
 import { TrackerSkeleton } from "./TrackerSkeleton";
 import { useJob } from "./useJob";
+
+/**
+ * The body (jobbar, summary panels, every stage's panels, notes and files) is only needed once the job has loaded, so it is a
+ * lazy chunk instead of part of the route's first load (FE-9). The skeleton stands in while it arrives, and the chunk is
+ * requested on mount, in parallel with the job request, so there is no second round trip after the data. React.lazy, not
+ * next/dynamic: its runtime would cost more first-load bytes than it saves here.
+ */
+const loadTrackerBody = () => import("./TrackerBody").then((module) => ({ default: module.TrackerBody }));
+const TrackerBody = lazy(loadTrackerBody);
 
 export interface TrackerPageProps {
   readonly jobId: string;
@@ -36,6 +44,9 @@ export const isViewOnly = (job: JobDetail): boolean => !WRITE_CAPABILITIES.some(
  */
 export function TrackerPage({ jobId, initialStage }: TrackerPageProps) {
   const query = useJob(jobId);
+  useEffect(() => {
+    void loadTrackerBody();
+  }, []);
   const { show, dismiss } = useBanners();
   const job = query.data;
   const error = query.error;
@@ -66,5 +77,9 @@ export function TrackerPage({ jobId, initialStage }: TrackerPageProps) {
   }, [openedId]);
 
   if (!job) return error ? null : <TrackerSkeleton />;
-  return <TrackerBody job={job} initialStage={initialStage} />;
+  return (
+    <Suspense fallback={<TrackerSkeleton />}>
+      <TrackerBody job={job} initialStage={initialStage} />
+    </Suspense>
+  );
 }

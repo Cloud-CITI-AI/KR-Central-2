@@ -1,10 +1,10 @@
 import { PROBLEM_TYPES } from "@kr/contracts";
-import { screen, waitFor } from "@testing-library/react";
+import { configure, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { getTestUrl, setTestUrl } from "@/features/dashboard/test-router";
-import { syntheticFacets } from "@/features/dashboard/test-fixtures";
+import { preloadDashboard, syntheticFacets } from "@/features/dashboard/test-fixtures";
 import { syntheticMe } from "@/test/fixtures";
 import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
@@ -18,6 +18,9 @@ const emptyLists = () => [
   mockApi("listJobs", { items: [], nextCursor: null }),
   mockApi("listAccessGrants", { items: [], nextCursor: null }),
 ];
+
+beforeAll(preloadDashboard, 20_000);
+configure({ asyncUtilTimeout: 5000 });
 
 describe("DashboardPage", () => {
   it("is titled Dashboard", () => {

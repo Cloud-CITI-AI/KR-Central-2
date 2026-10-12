@@ -1,7 +1,7 @@
 import { PROBLEM_TYPES } from "@kr/contracts";
-import { screen, waitFor, within } from "@testing-library/react";
+import { configure, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse } from "msw";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { BannerRegion } from "@/components/ui/BannerRegion";
 import { expectNoAxeViolations } from "@/test/axe";
 import { syntheticMe } from "@/test/fixtures";
@@ -10,7 +10,7 @@ import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
 import { Dashboard } from "./Dashboard";
 import { setTestUrl } from "./test-router";
-import { syntheticFacets, syntheticJobCard } from "./test-fixtures";
+import { preloadDashboard, syntheticFacets, syntheticJobCard } from "./test-fixtures";
 
 vi.mock("next/navigation", async () => (await import("./test-router")).navigationMock);
 
@@ -24,6 +24,9 @@ const renderDashboard = () =>
   );
 /** The banners about the dashboard failing: every element that says so. */
 const failureNotices = () => screen.queryAllByText(/couldn't be (loaded|refreshed)|Can't reach the server/);
+
+beforeAll(preloadDashboard, 20_000);
+configure({ asyncUtilTimeout: 5000 });
 
 beforeEach(() => {
   setTestUrl("/");

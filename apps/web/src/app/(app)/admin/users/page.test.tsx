@@ -13,7 +13,7 @@ describe("/admin/users", () => {
   it("renders for an admin", async () => {
     session.getMe.mockResolvedValue(syntheticMe("admin"));
     render(await AdminUsersPage());
-    expect(screen.getByText("users page")).toBeInTheDocument();
+    expect(await screen.findByText("users page")).toBeInTheDocument();
   });
 
   it.each(["kr_admin", "staff", "external"] as const)("is the not-found page for %s", async (role) => {

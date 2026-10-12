@@ -1,10 +1,10 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { configure, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { TrackerPage } from "@/features/tracker";
 import { jobPage } from "@/features/tracker/test-fixtures";
-import { renderTracker, WHOLE_TRACKER_TIMEOUT_MS } from "@/features/tracker/test-utils";
+import { preloadTrackerBody, renderTracker, WHOLE_TRACKER_TIMEOUT_MS } from "@/features/tracker/test-utils";
 import { expectNoAxeViolations } from "@/test/axe";
 import { handlerFor, mockApi } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
@@ -13,6 +13,10 @@ import { syntheticConditionJob } from "./test-fixtures";
 
 vi.mock("next/navigation", async () => (await import("@/features/tracker/test-utils")).navigationMock);
 vi.mock("@/features/viewer", () => ({ useViewer: () => ({ open: vi.fn() }) }));
+
+beforeAll(preloadTrackerBody, WHOLE_TRACKER_TIMEOUT_MS);
+// The whole tracker renders once its chunk and the job have arrived, which under a loaded CI runner can pass the default 1 s.
+configure({ asyncUtilTimeout: 5000 });
 
 const scrollIntoView = vi.fn();
 beforeEach(() => {

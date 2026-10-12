@@ -70,3 +70,6 @@ export function syntheticFacets(overrides: Partial<Facets> = {}): Facets {
     ...overrides,
   });
 }
+
+/** `Dashboard` loads its content on demand; importing it once up front keeps a cold transform out of `findBy`'s wait. */
+export const preloadDashboard = () => import("./DashboardContent");

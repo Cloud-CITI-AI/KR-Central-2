@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { AdminHeader, AuditPage, requireCapability } from "@/features/admin";
+import { AdminHeader } from "@/features/admin/AdminHeader";
+import { requireCapability } from "@/features/admin/require-capability";
+import { LazyAuditPage } from "../LazyAdminPages";
 
 export const metadata: Metadata = { title: "Audit trail" };
 
@@ -9,7 +11,7 @@ export default async function AdminAuditPage() {
   return (
     <>
       <AdminHeader current="audit" />
-      <AuditPage />
+      <LazyAuditPage />
     </>
   );
 }

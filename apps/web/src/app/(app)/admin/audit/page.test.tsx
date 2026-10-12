@@ -13,7 +13,7 @@ describe("/admin/audit", () => {
   it.each(["admin", "kr_admin"] as const)("renders for %s", async (role) => {
     session.getMe.mockResolvedValue(syntheticMe(role));
     render(await AdminAuditPage());
-    expect(screen.getByText("audit page")).toBeInTheDocument();
+    expect(await screen.findByText("audit page")).toBeInTheDocument();
   });
 
   it.each(["staff", "external"] as const)("is the not-found page for %s", async (role) => {

@@ -1,9 +1,12 @@
 "use client";
 import type { FileMeta } from "@kr/contracts";
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { PdfRendererContext } from "./pdf-context";
 import { pdfjsRenderer, type PdfRenderer } from "./pdf-renderer";
-import { ViewerDialog } from "./ViewerDialog";
+
+// The dialog and its viewers are only needed at the first document open, so they stay out of every signed-in route's first load
+// (FE-9). React.lazy rather than next/dynamic: this provider is in every route's first load, and next/dynamic's runtime would be too.
+const ViewerDialog = lazy(() => import("./ViewerDialog").then((module) => ({ default: module.ViewerDialog })));
 
 export interface ViewerApi {
   /** Open the document viewer on `files[index]` with ‹ › navigation across `files`. */
@@ -40,17 +43,19 @@ export function ViewerProvider({ children, pdfRenderer = pdfjsRenderer }: Viewer
       <PdfRendererContext.Provider value={pdfRenderer}>
         {children}
         {opened && (
-          <ViewerDialog
-            open={isOpen}
-            files={opened.files}
-            index={opened.index}
-            onIndexChange={(index) => {
-              setOpened({ files: opened.files, index });
-            }}
-            onClose={() => {
-              setIsOpen(false);
-            }}
-          />
+          <Suspense fallback={null}>
+            <ViewerDialog
+              open={isOpen}
+              files={opened.files}
+              index={opened.index}
+              onIndexChange={(index) => {
+                setOpened({ files: opened.files, index });
+              }}
+              onClose={() => {
+                setIsOpen(false);
+              }}
+            />
+          </Suspense>
         )}
       </PdfRendererContext.Provider>
     </ViewerContext.Provider>

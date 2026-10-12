@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { AdminHeader, requireCapability, UsersPage } from "@/features/admin";
+import { AdminHeader } from "@/features/admin/AdminHeader";
+import { requireCapability } from "@/features/admin/require-capability";
+import { LazyUsersPage } from "../LazyAdminPages";
 
 export const metadata: Metadata = { title: "Users" };
 
@@ -9,7 +11,7 @@ export default async function AdminUsersPage() {
   return (
     <>
       <AdminHeader current="users" />
-      <UsersPage />
+      <LazyUsersPage />
     </>
   );
 }
