@@ -10,7 +10,7 @@ const pdfjsDir = join(dirname(fileURLToPath(import.meta.url)), "../../../public/
 
 const REMOVE = `for (const C of [Map, WeakMap]) { delete C.prototype.getOrInsert; delete C.prototype.getOrInsertComputed; }`;
 
-/** The Map and WeakMap of a fresh global that lacks the ES2026 upsert methods (Chrome before 145, Safari before 26.2, Firefox before 144), after running `script` in it. */
+/** The Map and WeakMap of a fresh global that lacks the ES2026 upsert methods (browsers from before about early 2026, iOS Safari included), after running `script` in it. */
 function oldGlobals(script = ""): { Map: MapConstructor; WeakMap: WeakMapConstructor } {
   return runInNewContext(`${REMOVE}\n${script}\n({ Map, WeakMap })`) as {
     Map: MapConstructor;

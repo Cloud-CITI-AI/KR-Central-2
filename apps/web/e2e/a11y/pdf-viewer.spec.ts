@@ -63,8 +63,8 @@ test("D4: the PDF viewer's pages can be scrolled with the keyboard", async ({ pa
   expect(await violationsOn(page, { only: ["scrollable-region-focusable"] })).toEqual([]);
 });
 
-// Formerly known defect D5: pdf.js 6 needs `Map.prototype.getOrInsertComputed` (ES2026), which Chrome before 145, Firefox before 144
-// and Safari before 26.2 (iOS included) lack. The product installs the methods itself, on the page and in the pdf.js worker.
+// Formerly known defect D5: pdf.js 6 needs `Map.prototype.getOrInsertComputed` (ES2026), which browsers from before about early 2026
+// (iOS Safari included) lack. The product installs the methods itself, on the page and in the pdf.js worker.
 test("D5: the PDF viewer draws pages in a browser without Map.getOrInsertComputed", async ({
   page,
   signInAs,

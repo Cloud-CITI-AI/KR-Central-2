@@ -24,7 +24,7 @@ function getOrInsertComputed(this: Upsertable, key: unknown, callback: unknown):
 }
 
 /**
- * `Map.prototype.getOrInsert` and `getOrInsertComputed` (ES2026, in Chrome 145+, Firefox 144+ and Safari 26.2+) are what pdf.js 6 needs to draw a
+ * `Map.prototype.getOrInsert` and `getOrInsertComputed` (ES2026, in browsers from about early 2026) are what pdf.js 6 needs to draw a
  * page, on the page and in its worker. Older browsers, iOS Safari included (PRODUCT_SPEC §11.1, §14), would show "couldn't be drawn" for every
  * PDF, so the viewer installs them before it loads pdf.js (the worker does the same: public/pdfjs/map-upsert-polyfill.mjs). Idempotent, and
  * a browser's own methods are never replaced.

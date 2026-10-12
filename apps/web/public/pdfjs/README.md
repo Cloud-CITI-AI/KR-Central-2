@@ -19,6 +19,6 @@ them: from `apps/web`, `cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs publ
 
 The viewer starts `pdf.worker.polyfilled.mjs`, not `pdf.worker.min.mjs` directly. It is two `import` lines: first
 `map-upsert-polyfill.mjs` (`Map`/`WeakMap` `getOrInsert` and `getOrInsertComputed`, ES2026, which pdf.js 6 needs and browsers
-before Chrome 145, Firefox 144 and Safari 26.2 lack), then the unchanged worker. The page installs the same methods
+from before about early 2026 lack), then the unchanged worker. The page installs the same methods
 (`src/features/viewer/map-upsert.ts`) before it loads pdf.js; `map-upsert.test.ts` keeps the two copies in step. Both files are served
 from `/pdfjs/` (same origin), so CSP `worker-src 'self' blob:` still holds. Drop all three when the supported browsers have the methods.
