@@ -111,3 +111,39 @@ One line per orchestrator answer to a coding agent, newest last.
 - WP-22: CI wiring is on main in `reusable-ci-node.yml` as `--if-present` steps, so main stays green until WP-22 merges: `perf:unit` after `perf:check`, then `perf:vitals` and `perf:k6` as two steps after the functional e2e step. Perf output dirs are added to the failure artifact and the e2e timeout goes from 30 to 35 min. Both perf configs stay separate and sequential, so k6 load never overlaps the vitals measurement. `K6_IMAGE` is pinned by digest per 8c (`mirror.gcr.io/grafana/k6:2.3.0@sha256:9c2dee7f…`), not the Docker Hub tag that was proposed. WP-22 adds the package.json scripts and typecheck changes itself (permission granted in its brief).
 - FIX-R1-CONFORM: contract change approved and made on main. New `FileScanResult` `{scanStatus: clean|skipped|infected|gone, followUpOperationId: Uuid | null}` joins `Operation.result`; the API's `resultOf` returns it for `file.scan` and reads an older stored row without `followUpOperationId` as `null`. The change is additive: a new member of a response union, no new input. The coder (not the WEBCLIENT batch) finishes it on the fix branch: the worker's `queueConformanceRead`/`queueEmailParse` return the new or existing operation id, `file.scan` stores `{scanStatus, followUpOperationId}`, the web follows that id from ConformancePanel and EmailZone, `useAwaitedConformanceRead` is deleted and D1 drops `test.fail`. Reason: PRODUCT_SPEC §5 (4.2 conformance zone) requires the result message under the zone in every mode, and ADR-0006 says the UI follows operations by id, not by guessing from the job version.
 - FIX-R1-CONFORM: the automatic conformance read queued by `file.scan` (and by `recordUpload` when scanning is off) sets `allowAi` from the `ai-stamp-reading` flag when it is queued, the same as the manual start route. The conformance handler still checks the flag and `ANTHROPIC_API_KEY` when it runs, so the AI read needs all three. Turning the flag off stops queued reads from calling the API, and turning it on never upgrades reads queued while it was off (ADR-0010 consent).
+
+## QA and release decisions (2026-10-12)
+
+Three QA rounds of independent tester agents followed the coding waves; each reported finding was triaged by the
+orchestrator into a fix batch (`FIX-R<round>-<area>`, branch `agent/fix-r<round>-<slug>`) or rejected or deferred with a
+reason. Evidence and numbers are in `docs/release/GO_LIVE_REPORT.md`.
+
+- Round 1: about 70 findings (10 high) became 8 fix batches (FIX-R1-API-INPUT, -AUTH-CONFIG, -CONFORM, -DEPLOY,
+  -EDITS, -VIEWER-SHELL, -WEBCLIENT and -A11Y-PERF), all merged.
+- Round 2: 38 findings (1 critical, 6 high, 15 medium, 16 low) became 8 batches (FIX-R2-API, -CI, -EDITS, -NAV, -OPS,
+  -PERF-API, -PERF-WEB, -VISUAL), all merged.
+- Round 3: 9 findings (0 critical, 1 high, 3 medium, 5 low). The high and the three mediums became 4 batches
+  (FIX-R3-CLAMAV, -COMPOSE, -DASHBOARD-CLS, -VIEWER), all merged. The 5 lows are **deferred to 1.0.x** (listed under
+  Known issues in CHANGELOG 1.0.0): each is cosmetic or a wording/logging issue with no data, security or workflow effect,
+  and fixing them after the release candidate was cut would have reopened the gate for no user-visible risk reduction.
+- Delivery deviation, accepted: the repository had no GitHub remote during the build (see P0 1b), so agent work landed as
+  linear, trailer-carrying commits on `main` (`AI-Agent:`, `Refs: WP-NN|FIX-...|release`), each batch reviewed by the
+  orchestrator and gated locally, instead of squash-merged GitHub pull requests. Consequences: no `playbook-guard` or
+  GitHub-side CI run exists for those commits, and the High-tier work packages (WP-01, 03, 04, 06, 07, 08, 09, 10, 11, 12,
+  20, 23) have not had the two human approvals the playbook requires. Both are go-live preconditions in the report.
+- Known-defect tests: no `test.fail` entry remains. D1 to D7 from WP-19 are fixed; D3, D6 and D7 (colour contrast) keep
+  their regression tests in `e2e/a11y/known-defects.spec.ts` and `states.spec.ts`. The one performance ceiling left is the
+  tracker's INP (`KNOWN_BREACHES.tracker.inpMs = 300`, p75 0.18 to 0.24 s against the 0.2 s budget, measured on the
+  deliberately slow reference profile); `BUDGET_WAIVERS` is empty.
+- Safety review of FIX-R2-PERF-API (release gate step 0, after a safety monitor flagged the coder's session): the six merged
+  commits (`457868e`..`12f50b1`) were reviewed in full. They touch only the job list/facets summary cache, the lazy job
+  picker, the k6 seed and its driver, tests and the CHANGELOG; no script kills processes or prunes Docker, no check is
+  disabled or loosened (the k6 thresholds are unchanged and one endpoint was added), no CI file or secret is touched, and
+  the only new network target is the existing local test Postgres. Nothing was reverted. Whatever the monitor saw happened at
+  run time in the coder's session, not in the merged code.
+- Release gate fixes: `pnpm verify` now builds before it tests (Vitest global setups load `@kr/*` from `dist/`, so a stale
+  build failed 6 ops integration tests locally), the web's node-environment unit tests resolve workspace packages from
+  source (`ssr: ssrDefaults`), and the worker's end-to-end pipeline test waits up to 60 s per stage (it timed out at 10 s
+  when the api, ops and worker integration suites shared four cores).
+- Versioning: the hand-written CHANGELOG moves under `## [1.0.0]` and the release commit carries `Release-As: 1.0.0`, so the
+  release-please pull request proposes 1.0.0 rather than 0.1.0; `package.json` stays `0.0.0` until that pull request.
