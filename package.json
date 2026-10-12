@@ -1,7 +1,8 @@
 {
   "name": "kr-subdivision-tracker",
   "private": true,
-  "description": "KR Surveys Subdivision Tracker \u2014 monorepo (web, api, worker, shared packages).",
+  "version": "0.0.0",
+  "description": "KR Surveys Subdivision Tracker — monorepo (web, api, worker, shared packages).",
   "license": "UNLICENSED",
   "type": "module",
   "packageManager": "pnpm@11.28.2",
