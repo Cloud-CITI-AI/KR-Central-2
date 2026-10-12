@@ -232,3 +232,21 @@ for (const file of [
     assert.doesNotMatch(dockerfile, /github\.com\/cloudcitiwa\/kr-central-2/);
   });
 }
+
+// ---- web start script and worker Dockerfile comment (BUG 9) ---------------------------------------------------------
+
+test("@kr/web start runs the standalone server (as the image and web.json do), not `next start`", () => {
+  const start = JSON.parse(read("apps/web/package.json")).scripts.start;
+  assert.doesNotMatch(start, /next start/);
+  assert.equal(start, "node ../../scripts/dev/web-start.mjs");
+  const script = read("scripts/dev/web-start.mjs");
+  assert.match(script, /\.next\/standalone\/apps\/web\//);
+  assert.match(script, /\.next\/static\//);
+  assert.match(script, /"public\/"/);
+  assert.match(read("infra/railway/services/web.json"), /"startCommand": "node apps\/web\/server\.js"/);
+});
+
+test("worker Dockerfile does not claim that the worker has no SIGTERM handler (src/main.ts installs one)", () => {
+  assert.match(read("services/worker/src/main.ts"), /process\.on\("SIGTERM"/);
+  assert.doesNotMatch(read("services/worker/Dockerfile"), /installs no SIGTERM handler|until WP-12 lands/);
+});

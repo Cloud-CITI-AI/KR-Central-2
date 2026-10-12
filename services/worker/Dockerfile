@@ -39,9 +39,9 @@ COPY --from=build /out/package.json ./package.json
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
 # Non-root. PID 1 is node itself and the worker spawns no long-lived children, so no init reaper (tini) is needed; the
-# image needs no package repository at build time. Signal handling arrives with WP-12 (SIGTERM: stop claiming, finish
-# in-flight work within 25 s): the current WP-12 skeleton installs no SIGTERM handler, and node as PID 1 ignores SIGTERM
-# without one, so until WP-12 lands Railway stops this container with SIGKILL after its grace period.
+# image needs no package repository at build time. Node as PID 1 ignores SIGTERM without a handler, and src/main.ts
+# installs one (SIGTERM and SIGINT: stop claiming, finish in-flight work within 25 s, then exit), so Railway's stop
+# ends the container cleanly inside its grace period.
 USER node
 EXPOSE 8081
 CMD ["node", "dist/main.js"]
