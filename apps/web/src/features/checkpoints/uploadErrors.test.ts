@@ -24,6 +24,12 @@ describe("uploadErrorText", () => {
     );
   });
 
+  it("says file storage is temporarily unavailable on a 503 (S3 down), not a bare failure", () => {
+    expect(uploadErrorText("a.pdf", problem(503), context)).toBe(
+      "a.pdf wasn't uploaded – file storage is temporarily unavailable, try again shortly",
+    );
+  });
+
   it("names the request id for any other refusal and says nothing more for an unknown error", () => {
     expect(uploadErrorText("a.pdf", problem(500, "req-9"), context)).toBe(
       "a.pdf couldn't be uploaded (Request ID: req-9)",

@@ -45,6 +45,25 @@ describe("ViewerBody", () => {
     expect(await screen.findByText("Couldn’t load this file. Use “Open in new tab”.")).toBeInTheDocument();
   });
 
+  it("says the file can't be loaded right now when storage answers 503 for the text", async () => {
+    server.use(
+      handlerFor("getFileContent", () =>
+        HttpResponse.json(
+          {
+            type: "urn:kr:problem:storage-unavailable",
+            title: "Storage unavailable",
+            status: 503,
+            requestId: "req-s3",
+          },
+          { status: 503, headers: { "content-type": "application/problem+json", "retry-after": "5" } },
+        ),
+      ),
+    );
+    renderViewer(<ViewerBody file={syntheticFile({ kind: "text", contentType: "text/plain" })} />);
+    expect(await screen.findByText("This file can't be loaded right now – try again shortly")).toBeInTheDocument();
+    expect(screen.queryByText(/Open in new tab/)).toBeNull();
+  });
+
   it("sends a signed-out viewer to sign-in when the text answers 401, and says it could not load", async () => {
     const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
     server.use(handlerFor("getFileContent", () => new HttpResponse(null, { status: 401 })));

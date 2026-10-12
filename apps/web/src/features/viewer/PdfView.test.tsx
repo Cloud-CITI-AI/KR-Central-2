@@ -184,6 +184,22 @@ describe("PdfView", () => {
     expect(screen.queryByText(/Page 1/)).toBeNull();
   });
 
+  it("says the file can't be loaded right now, without advice to open it in a new tab, when storage answers 503", async () => {
+    // pdf.js rejects a failed download with a ResponseException carrying the HTTP status.
+    const unavailable = Object.assign(new Error("Unexpected server response (503) while retrieving PDF"), {
+      name: "ResponseException",
+      status: 503,
+    });
+    renderWith({ open: () => Promise.reject(unavailable) });
+    expect(await screen.findByText("This file can't be loaded right now – try again shortly")).toBeInTheDocument();
+    expect(screen.queryByText(/Open in new tab/)).toBeNull();
+  });
+
+  it("keeps the open-in-a-new-tab advice for a PDF that fails for another reason (404, corrupt)", async () => {
+    renderWith({ open: () => Promise.reject(Object.assign(new Error("Missing PDF"), { status: 404 })) });
+    expect(await screen.findByText("Couldn’t load this PDF. Use “Open in new tab”.")).toBeInTheDocument();
+  });
+
   it("flags a page that cannot be drawn without losing the others", async () => {
     const { container } = renderWith({ open: () => Promise.resolve(fakeDocument(2, 2)) });
     await screen.findByText("Page 2 of 2");

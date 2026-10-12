@@ -3,7 +3,7 @@ import type { FileMeta } from "@kr/contracts";
 import { useEffect, useRef, useState } from "react";
 import { Spinner } from "@/components/ui/Spinner";
 import { contentUrl } from "./content";
-import { VIEWER_MESSAGES } from "./messages";
+import { VIEWER_MESSAGES, loadFailedText } from "./messages";
 import { usePdfRenderer } from "./pdf-context";
 import type { PdfDocumentHandle } from "./pdf-renderer";
 import { PdfPage } from "./PdfPage";
@@ -16,7 +16,9 @@ export interface PdfViewProps {
 /** `tabindex="0"`: the scrolling column joins the tab order, which is how a keyboard user reaches it (WCAG 2.1.1). */
 const IN_TAB_ORDER = 0;
 
-type Loaded = { readonly status: "ready"; readonly document: PdfDocumentHandle } | { readonly status: "error" };
+type Loaded =
+  | { readonly status: "ready"; readonly document: PdfDocumentHandle }
+  | { readonly status: "error"; readonly message: string };
 
 /**
  * The in-app PDF reader (§11.1, replaces the prototype's `<iframe>`): every page in a scrollable column, drawn as it nears view.
@@ -40,8 +42,8 @@ export function PdfView({ file }: PdfViewProps) {
         opened = document;
         setLoaded({ status: "ready", document });
       },
-      () => {
-        if (!cancelled) setLoaded({ status: "error" });
+      (error: unknown) => {
+        if (!cancelled) setLoaded({ status: "error", message: loadFailedText(error, VIEWER_MESSAGES.pdfFailed) });
       },
     );
     return () => {
@@ -59,7 +61,7 @@ export function PdfView({ file }: PdfViewProps) {
       tabIndex={IN_TAB_ORDER}
     >
       {loaded === null && <Spinner label={VIEWER_MESSAGES.loading} />}
-      {loaded?.status === "error" && <p className={styles.failed}>{VIEWER_MESSAGES.pdfFailed}</p>}
+      {loaded?.status === "error" && <p className={styles.failed}>{loaded.message}</p>}
       {loaded?.status === "ready" &&
         Array.from({ length: loaded.document.pageCount }, (_, index) => (
           <PdfPage key={index} document={loaded.document} pageNumber={index + 1} scroller={scroller} />

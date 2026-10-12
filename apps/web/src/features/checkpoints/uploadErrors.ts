@@ -24,6 +24,8 @@ export function uploadErrorText(
       return `${name} isn't a supported type for this box (use ${acceptDescription})`;
     case 429:
       return `${name} wasn't uploaded – too many uploads at once, try again shortly`;
+    case 503:
+      return `${name} wasn't uploaded – file storage is temporarily unavailable, try again shortly`;
     case 0:
       return `${name} couldn't be uploaded – check your connection and try again`;
     default:

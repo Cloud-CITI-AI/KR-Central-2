@@ -3,7 +3,7 @@ import type { FileMeta } from "@kr/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/Spinner";
 import { fetchFileText, queryKeys } from "@/lib/api";
-import { VIEWER_MESSAGES } from "./messages";
+import { VIEWER_MESSAGES, loadFailedText } from "./messages";
 import styles from "./ViewerBody.module.css";
 
 export interface TextViewProps {
@@ -21,7 +21,10 @@ export function RawText({ file }: TextViewProps) {
     retry: false,
   });
 
-  if (text.isError) return <p className={`${styles.notice} ${styles.error}`}>{VIEWER_MESSAGES.loadFailed}</p>;
+  if (text.isError)
+    return (
+      <p className={`${styles.notice} ${styles.error}`}>{loadFailedText(text.error, VIEWER_MESSAGES.loadFailed)}</p>
+    );
   if (text.data === undefined) return <Spinner label={VIEWER_MESSAGES.loading} />;
   return <pre className={styles.text}>{text.data}</pre>;
 }
