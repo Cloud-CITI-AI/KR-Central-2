@@ -1,0 +1,58 @@
+/*
+ * The tracker's shape while the job loads (PRODUCT_SPEC §14, CLS <= 0.1): the same blocks in the same places as TrackerBody, with the
+ * heights measured on a collapsed tracker at 1280 px, so the footer does not jump when the job arrives (it was 0.654). A job with
+ * open stages, many files or notes is taller, never shorter than a screen, so whatever moves lies below the fold.
+ * Static on purpose: no animation to cost frames, none to switch off for reduced motion.
+ */
+.skeleton {
+  display: block;
+}
+/* the same top margin as .jobbar, so <main> does not move when the real jobbar replaces this one */
+.jobbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 39px;
+  margin-top: 18px;
+}
+.summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-block: 16px;
+}
+.panel,
+.bar,
+.after > div {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  opacity: 0.55;
+}
+.panel {
+  min-height: 260px;
+}
+.tools {
+  min-height: 29px;
+  margin-bottom: 8px;
+}
+.stages {
+  display: grid;
+  gap: 8px;
+}
+.bar {
+  min-height: 55px;
+}
+.after {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+.after > div {
+  min-height: 162px;
+}
+@media (max-width: 760px) {
+  .summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -3,13 +3,13 @@ import type { JobCapability, JobDetail } from "@kr/contracts";
 import type { StageKey } from "@kr/workflow";
 import { notFound } from "next/navigation";
 import { useEffect } from "react";
-import { Spinner } from "@/components/ui/Spinner";
 import { ApiProblem } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
 import { MESSAGES } from "@/lib/messages";
 import { rememberLastJob } from "./lastJob";
 import { loadFailedText, TRACKER_MESSAGES } from "./messages";
 import { TrackerBody } from "./TrackerBody";
+import { TrackerSkeleton } from "./TrackerSkeleton";
 import { useJob } from "./useJob";
 
 export interface TrackerPageProps {
@@ -65,6 +65,6 @@ export function TrackerPage({ jobId, initialStage }: TrackerPageProps) {
     if (openedId) rememberLastJob(openedId);
   }, [openedId]);
 
-  if (!job) return error ? null : <Spinner label="Loading job…" />;
+  if (!job) return error ? null : <TrackerSkeleton />;
   return <TrackerBody job={job} initialStage={initialStage} />;
 }

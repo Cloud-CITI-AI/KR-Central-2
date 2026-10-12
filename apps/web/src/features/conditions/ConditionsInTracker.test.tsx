@@ -90,7 +90,10 @@ describe("the conditions inside the tracker", { timeout: WHOLE_TRACKER_TIMEOUT_M
     renderTracker(<TrackerPage jobId={job.id} />);
     await screen.findByRole("combobox", { name: "Job" });
     await userEvent.click(screen.getByRole("button", { name: "Expand all" }));
-    const box = within(screen.getByRole("group", { name: "WAPC conditions – Western Power" }));
+    // Expand all shows the stage bodies one frame at a time, so the box is reachable once its stage's turn has come.
+    const box = within(
+      await screen.findByRole("group", { name: "WAPC conditions – Western Power" }, { timeout: 10_000 }),
+    );
     await userEvent.click(box.getByRole("checkbox", { name: "Condition 1: Open" }));
     await waitFor(() => {
       expect(within(screen.getByRole("group", { name: "Condition 1" })).getByRole("checkbox")).toBeChecked();

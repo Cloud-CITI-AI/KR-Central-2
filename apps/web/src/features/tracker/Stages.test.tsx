@@ -1,5 +1,5 @@
 import { STAGES } from "@kr/workflow";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoAxeViolations } from "@/test/axe";
@@ -46,6 +46,13 @@ describe("Stages", { timeout: WHOLE_TRACKER_TIMEOUT_MS }, () => {
   it("makes every stage bar a level-2 heading wrapping its button, so the outline is stages then checkpoints", async () => {
     show(syntheticJob({ conditionAgencies: ["Western Power", "WAPC"] }));
     await userEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    // Expand all shows the stage bodies one frame at a time
+    await waitFor(
+      () => {
+        expect(document.querySelectorAll("[id^='body-'][hidden]")).toHaveLength(0);
+      },
+      { timeout: 15_000 },
+    );
     const headings = screen.getAllByRole("heading", { level: 2 });
     for (const stage of STAGES) {
       const section = document.getElementById(stage.key);

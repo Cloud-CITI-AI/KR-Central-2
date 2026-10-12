@@ -32,6 +32,7 @@ const expanded = async (page: Page, jobId: string): Promise<void> => {
   await openJob(page, jobId);
   await page.getByRole("button", { name: "Expand all" }).click();
   await page.locator('section button[aria-expanded="false"]').first().waitFor({ state: "detached" });
+  await page.locator("[id^='body-'][hidden]").first().waitFor({ state: "detached" }); // the bodies appear a stage per frame
 };
 const stage = (page: Page, index: number): Locator =>
   page.locator("section:has(> h2 > button[aria-expanded])").nth(index);

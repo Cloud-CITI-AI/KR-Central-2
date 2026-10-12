@@ -30,6 +30,7 @@ export function Stages({ job, stages }: StagesProps) {
           const summary = job.summary.stages.find((s) => s.stage === stage.key);
           if (!summary) return null;
           const open = !summary.excluded && stages.isOpen(stage.key);
+          const shown = !summary.excluded && stages.isShown(stage.key);
           return (
             <section key={stage.key} id={stage.key} className={styles.stage}>
               <StageBar
@@ -42,7 +43,7 @@ export function Stages({ job, stages }: StagesProps) {
                 }}
               />
               {!summary.excluded && (
-                <div id={`body-${stage.key}`} className={styles.body} hidden={!open}>
+                <div id={`body-${stage.key}`} className={styles.body} hidden={!shown}>
                   <StageBody job={job} stage={stage} />
                 </div>
               )}

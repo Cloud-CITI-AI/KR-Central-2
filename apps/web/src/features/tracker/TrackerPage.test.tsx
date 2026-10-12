@@ -41,7 +41,10 @@ describe("TrackerPage", { timeout: WHOLE_TRACKER_TIMEOUT_MS }, () => {
     server.use(mockApi("getJob", job), mockApi("listJobs", jobPage([])));
     const { container } = renderTracker(<TrackerPage jobId={job.id} />);
     expect(screen.getByRole("status")).toHaveTextContent("Loading job…");
+    // the skeleton holds the tracker's place (ten bars) until the job arrives
+    expect(document.querySelector("[aria-busy='true']")?.children).toHaveLength(5);
     expect(await screen.findByRole("combobox", { name: "Job" })).toBeInTheDocument();
+    expect(document.querySelector("[aria-busy='true']")).toBeNull();
     expect(localStorage.getItem(LAST_JOB_KEY)).toBe(job.id);
     await expectNoAxeViolations(container);
   });

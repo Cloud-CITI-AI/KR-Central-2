@@ -7,6 +7,12 @@ export const card = (page: Page, key: string): Locator => page.locator(`[data-ch
 export async function openTracker(page: Page, jobId: string): Promise<void> {
   await page.goto(`/jobs/${jobId}`);
   await page.getByRole("button", { name: "Expand all" }).click();
+  await allBodiesShown(page);
+}
+
+/** Expand all flips the bars at once and then shows the stage bodies one frame at a time: wait until the last one is there. */
+export async function allBodiesShown(page: Page): Promise<void> {
+  await expect(page.locator("[id^='body-'][hidden]")).toHaveCount(0);
 }
 
 /** The file input of a drop zone inside `scope` (the zone's `<input type=file>` is visually hidden but present). */

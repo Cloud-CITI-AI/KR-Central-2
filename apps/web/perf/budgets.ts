@@ -14,12 +14,18 @@ export type Scenario = "dashboard" | "tracker";
  * the page is within budget (the run prints a note when a waived metric already fits). `PERF_STRICT=1` ignores them.
  * Measured on the reference profile, 5 samples (2026-10-10), ceilings are the worst p75 seen plus about 20 %:
  *  - dashboard: LCP 3.7 to 3.8 s; CLS 0.09 to 0.17 (grid, chips and summary box move as the job cards arrive, whatever the profile).
- *  - tracker: LCP 3.7 to 4.1 s; CLS 0.654 (main wrap and footer shift at first render, whatever the profile);
- *    INP proxy 0.35 to 0.51 s (the "Expand all" click renders every stage at once).
+ *  - tracker: LCP 3.4 to 4.1 s over the runs below (before and after the tracker fixes alike). The LCP element is the header's hero
+ *    photo (hero-header-bg.jpg, 1800 x 1200, 276 KB over a 1.6 Mbit/s line), not anything the tracker
+ *    renders: it can only come within 2.5 s through the bundle (FIX-R1-WEBCLIENT) and the header image (resize to the 1280 px
+ *    it is shown at, or preload it), both outside the tracker. CLS is within budget since the skeleton that holds the
+ *    tracker's place (was 0.654: one shift of main and footer when "Loading job" was replaced), so it has no waiver. Expand all
+ *    itself is now 80 to 110 ms (was 0.54 to 0.76 s: the stage bodies are memoised and shown a stage per frame); the INP proxy
+ *    (the worst of Expand all, ticking a checkpoint and Collapse all) is 0.15 to 0.25 s (p75 0.18 to 0.24 s over two runs) because
+ *    the next click can land while the 46 cards re-render for the saved status (the cards take the whole job as a prop).
  */
 export const KNOWN_BREACHES: Readonly<Record<Scenario, Partial<Budgets>>> = {
   dashboard: { lcpMs: 4600, cls: 0.22 }, // LCP 3.7 to 3.9 s, CLS 0.09 to 0.17 measured, owner: WP-24
-  tracker: { lcpMs: 5000, cls: 0.7, inpMs: 650 }, // LCP 3.7 to 4.1 s, CLS 0.654, INP 0.35 to 0.52 s measured, owner: WP-24
+  tracker: { lcpMs: 4900, inpMs: 300 }, // LCP p75 3.7 to 4.1 s (the hero photo; worst 4044 ms plus 20 %), INP p75 0.18 to 0.24 s (ceiling 0.30 s); owner: FIX-R1-WEBCLIENT and the header
 };
 
 /**

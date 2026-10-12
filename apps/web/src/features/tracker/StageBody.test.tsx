@@ -1,5 +1,6 @@
 import { CHECKPOINTS, STAGES } from "@kr/workflow";
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { syntheticJob } from "./test-fixtures";
 import { StageBody } from "./StageBody";
@@ -109,5 +110,23 @@ describe("TrackerBody", () => {
     expect(features.JobFiles.mock.calls[0]?.[0]).toEqual({ job });
     const stages = screen.getByText("Stages");
     expect(stages.compareDocumentPosition(screen.getByText("notes")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("opening and closing stages", () => {
+  it("does not render the checkpoint cards again: Expand all and Collapse all only change the bars and the hidden bodies", async () => {
+    const job = syntheticJob();
+    server.use(mockApi("listJobs", jobPage([])));
+    renderTracker(<TrackerBody job={job} />);
+    const cards = features.CheckpointCard.mock.calls.length;
+    expect(cards).toBeGreaterThanOrEqual(CHECKPOINTS.length);
+    features.CheckpointCard.mockClear();
+    features.AgencyConditions.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    expect(screen.getAllByRole("button", { expanded: true })).toHaveLength(STAGES.length);
+    await userEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
+    expect(features.CheckpointCard).not.toHaveBeenCalled();
+    expect(features.AgencyConditions).not.toHaveBeenCalled();
   });
 });
