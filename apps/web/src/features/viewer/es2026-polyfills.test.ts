@@ -1,7 +1,13 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createContext, runInContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { installEs2026Polyfills } from "./es2026-polyfills";
+
+const pdfjsDir = join(dirname(fileURLToPath(import.meta.url)), "../../../public/pdfjs");
+const workerPolyfills = readFileSync(join(pdfjsDir, "es2026-polyfills.mjs"), "utf8");
 
 /** What a browser from before about early 2026 (iOS Safari included) is missing. */
 const REMOVE = `
@@ -43,12 +49,18 @@ interface Upsert {
   getOrInsertComputed: (key: unknown, callback: (key: unknown) => unknown) => unknown;
 }
 
-/** Each way the polyfills ship: installed on the page by the viewer (the worker's copy follows). */
+/** Each way the polyfills ship: installed on the page by the viewer, or run by the pdf.js worker's first import. */
 const installers: readonly (readonly [string, (scope: typeof globalThis, context: object) => void])[] = [
   [
     "page",
     (scope) => {
       installEs2026Polyfills(scope);
+    },
+  ],
+  [
+    "worker",
+    (_scope, context) => {
+      runInContext(workerPolyfills, context);
     },
   ],
 ];
@@ -141,5 +153,17 @@ describe("installEs2026Polyfills", () => {
     expect((scope.Map.prototype as unknown as Upsert).getOrInsert).toBe(own);
     expect("getOrInsertComputed" in scope.Map.prototype).toBe(true);
     expect(scope.Promise.try).toBe(afterFirst);
+  });
+});
+
+describe("public/pdfjs polyfills for the pdf.js worker", () => {
+  it("is a plain script, so the worker can import it before pdf.js", () => {
+    expect(workerPolyfills).not.toMatch(/^\s*(import|export)\b/m);
+  });
+
+  it("loads the polyfills before the shipped pdf.js worker, in that order", () => {
+    const wrapper = readFileSync(join(pdfjsDir, "pdf.worker.polyfilled.mjs"), "utf8");
+    const imports = [...wrapper.matchAll(/^import\s+"([^"]+)";$/gm)].map((match) => match[1]);
+    expect(imports).toEqual(["./es2026-polyfills.mjs", "./pdf.worker.min.mjs"]);
   });
 });
