@@ -22,7 +22,7 @@
     "test:infra": "node --test infra/railway/ infra/clamav/test/*.mjs infra/test/*.mjs",
     "test:e2e": "pnpm --filter @kr/web test:e2e",
     "test:mutation": "pnpm -r test:mutation",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build",
+    "verify": "pnpm lint && pnpm typecheck && pnpm build && pnpm test:unit && pnpm test:integration && pnpm test:contract",
     "dev": "pnpm -r --parallel --if-present dev",
     "db:up": "docker compose up -d postgres s3 clamav",
     "db:down": "docker compose down",

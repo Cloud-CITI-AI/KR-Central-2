@@ -69,7 +69,7 @@ without a password and is never deployed.
   `http://mock-idp.localhost:4010`: the service carries that name as a network alias and browsers resolve `*.localhost` to
   your machine. If yours does not, add `127.0.0.1 mock-idp.localhost` to your hosts file.
 
-Quality gate before every push: `pnpm verify` (lint, typecheck, unit, integration, contract, build).
+Quality gate before every push: `pnpm verify` (lint, typecheck, build, unit, integration, contract).
 End-to-end tests: `pnpm test:e2e` (Playwright; set `E2E_CHROMIUM_PATH` if browsers cannot be downloaded).
 
 ## Hosting
