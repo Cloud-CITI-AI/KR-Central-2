@@ -26,11 +26,16 @@ test("staff grant a client access; it is pending until the guest signs in, then 
   await signInAs(STAFF);
   await page.goto("/");
   const manager = page.getByRole("region", { name: "Access manager" });
+  // The access list and its text are rendered before the page hydrates, so a click can land before React handles it (the
+  // form then does nothing, or submits natively). The job menu is filled from the API after hydration, so wait for it.
+  const hydrated = () =>
+    expect(manager.getByRole("combobox", { name: "Job" }).locator("option", { hasText: job.jobNumber })).toHaveCount(1);
   await expect(manager.getByText("KR Surveys staff see all jobs automatically.", { exact: false })).toBeVisible();
   await expect(
     manager.getByText("KR Surveys IT must also invite them as a guest in Microsoft Entra before they can sign in."),
   ).toBeVisible();
 
+  await hydrated();
   await manager.getByRole("button", { name: "Grant access" }).click();
   await expect(manager.getByText("Enter a valid email address, e.g. name@example.com.")).toBeVisible();
   await manager.getByRole("textbox", { name: "Email address" }).fill(email);
@@ -64,6 +69,7 @@ test("staff grant a client access; it is pending until the guest signs in, then 
 
   await page.reload();
   await expect(row).toContainText("Active");
+  await hydrated();
 
   // Remove: the guest's next request no longer sees the job.
   await row.getByRole("button", { name: "Remove" }).click();
