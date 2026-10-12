@@ -29,9 +29,16 @@ export function ViewerBody({ file }: ViewerBodyProps) {
       );
     case "image":
       return (
-        <div className={styles.picture}>
-          <Image className={styles.image} src={contentUrl(file.id)} alt={file.name} fill unoptimized />
-        </div>
+        // Its own size, only scaled down to the dialog (the prototype's `.dlg-b img`): `fill` stretched a small image to the whole box.
+        <Image
+          className={styles.image}
+          src={contentUrl(file.id)}
+          alt={file.name}
+          width={0}
+          height={0}
+          sizes="100vw"
+          unoptimized
+        />
       );
     case "video":
       return (

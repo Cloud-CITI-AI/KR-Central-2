@@ -1,12 +1,12 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { createJob } from "./harness/jobs";
-import { STAFF } from "./harness/users";
-import { decisionLetter, pdfFile } from "./support/documents";
+import { FIRST_MEMBER, STAFF } from "./harness/users";
+import { decisionLetter, pdfFile, pngFile } from "./support/documents";
 import { card, openTracker } from "./support/tracker";
 
-// PRODUCT_SPEC §12 (responsive: no horizontal scroll, labels visible and not overlapping at 520 px and below). Each test measures
-// what the browser laid out.
+// PRODUCT_SPEC §12 (responsive: no horizontal scroll, labels visible and not overlapping at 520 px and below) and the prototype's
+// document viewer (an image is shown at its own size and only scaled down). Each test measures what the browser laid out.
 
 /** The page scrolls sideways when the document is wider than the window. */
 async function expectNoHorizontalScroll(page: Page, what: string): Promise<void> {
@@ -86,6 +86,75 @@ test.describe("at 390 px", () => {
       await openTracker(page, job.id);
       await expect(card(page, "i2_0").getByRole("button", { name: file.name, exact: true })).toBeVisible();
       await expectNoHorizontalScroll(page, "tracker with a 98-character file name");
+    });
+  }
+});
+
+test("the audit trail's filters line up: every field's label and input start at the same height", async ({
+  page,
+  signInAs,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signInAs(FIRST_MEMBER);
+  await page.goto("/admin/audit");
+  const labels = ["Job", "User", "Action", "From (Perth date)", "To (Perth date)"];
+  const tops = [];
+  for (const label of labels) {
+    const input = page.getByLabel(label, { exact: true });
+    await expect(input).toBeVisible();
+    tops.push((await input.boundingBox())?.y ?? Number.NaN);
+  }
+  const [first = Number.NaN] = tops;
+  tops.forEach((top, i) => {
+    expect(Math.abs(top - first), `${labels[i] ?? ""} is ${(top - first).toString()} px from Job`).toBeLessThanOrEqual(
+      1,
+    );
+  });
+});
+
+test.describe("the document viewer's image, at 1280 x 800", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  /** How big the picture is drawn compared with its own pixels (object-fit: contain inside the element's box). */
+  async function drawnScale(image: Locator): Promise<{ scale: number; fitsDialog: boolean }> {
+    return image.evaluate((element) => {
+      const img = element as HTMLImageElement;
+      const box = img.getBoundingClientRect();
+      const body = img.closest("dialog, [role=dialog]")!.getBoundingClientRect();
+      return {
+        scale: Math.min(box.width / img.naturalWidth, box.height / img.naturalHeight),
+        fitsDialog: box.width <= body.width && box.height <= body.height,
+      };
+    });
+  }
+
+  for (const [width, height] of [
+    [320, 240],
+    [1600, 1200],
+  ] as const) {
+    test(`a ${width.toString()} x ${height.toString()} image is never drawn larger than its own size`, async ({
+      page,
+      signInAs,
+      apiAs,
+    }) => {
+      const staff = await apiAs(STAFF);
+      const job = await createJob(staff);
+      const file = pngFile("site-photo.png", width, height);
+      await staff.upload(
+        job.id,
+        { checkpointKey: "i11_0", slot: "photos" },
+        { name: file.name, bytes: file.buffer, type: file.mimeType },
+      );
+      await signInAs(STAFF);
+      await openTracker(page, job.id);
+      await card(page, "i11_0").getByRole("button", { name: "site-photo.png" }).first().click();
+      const image = page.getByRole("dialog", { name: "site-photo.png" }).getByRole("img", { name: "site-photo.png" });
+      await expect(image).toBeVisible();
+      await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(width);
+      const { scale, fitsDialog } = await drawnScale(image);
+      expect(scale, "drawn at most at its natural size").toBeLessThanOrEqual(1.001);
+      expect(fitsDialog, "inside the dialog").toBe(true);
+      if (width < 600) expect(scale, "a small image is shown at its own size").toBeGreaterThan(0.99);
     });
   }
 });

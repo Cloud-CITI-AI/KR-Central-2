@@ -53,7 +53,8 @@
 .filters {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  /* start, not end: a field with a hint is taller, and aligning to the bottom lifted the others' labels and inputs off its own */
+  align-items: start;
   gap: 8px 10px;
 }
 .filters > * {
