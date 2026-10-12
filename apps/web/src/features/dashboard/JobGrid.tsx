@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { VisuallyHidden } from "@/components/ui/VisuallyHidden";
 import { useSession } from "@/lib/session";
@@ -19,6 +20,20 @@ export function JobGrid({ params, visibleJobs }: JobGridProps) {
   const { user } = useSession();
   const jobs = useJobList(params);
   const cards = jobs.data?.pages.flatMap((page) => page.items) ?? [];
+  const grid = useRef<HTMLUListElement>(null);
+  const more = useRef<HTMLDivElement>(null);
+  /** How many cards there were when "Load more" was pressed, until that load ends (WCAG 2.4.3: the pressed button is disabled meanwhile). */
+  const askedAt = useRef<number | null>(null);
+  const loaded = cards.length;
+  const loading = jobs.isFetchingNextPage;
+  useEffect(() => {
+    if (askedAt.current === null || loading) return;
+    // The load ended: focus goes to the first new card (its link), or back to the button if nothing came.
+    const first = loaded > askedAt.current ? grid.current?.children[askedAt.current] : undefined;
+    const target = first?.querySelector<HTMLElement>("a[href], button") ?? more.current?.querySelector("button");
+    askedAt.current = null;
+    target?.focus();
+  }, [loaded, loading]);
 
   // A failed load has nothing to show here: the dashboard's one banner (a live region) reports it.
   if (jobs.isError && !jobs.data) return null;
@@ -41,7 +56,7 @@ export function JobGrid({ params, visibleJobs }: JobGridProps) {
   }
   return (
     <>
-      <ul className={styles.grid} aria-busy={jobs.isPlaceholderData}>
+      <ul ref={grid} className={styles.grid} aria-busy={jobs.isPlaceholderData}>
         {cards.map((job) => (
           <li key={job.id}>
             <DashboardCard job={job} />
@@ -49,10 +64,11 @@ export function JobGrid({ params, visibleJobs }: JobGridProps) {
         ))}
       </ul>
       {jobs.hasNextPage && (
-        <div className={styles.more}>
+        <div ref={more} className={styles.more}>
           <Button
             disabled={jobs.isFetchingNextPage}
             onClick={() => {
+              askedAt.current = cards.length;
               void jobs.fetchNextPage();
             }}
           >

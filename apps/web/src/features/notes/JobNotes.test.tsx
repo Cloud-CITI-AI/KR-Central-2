@@ -214,6 +214,44 @@ describe("JobNotes", () => {
       expect(screen.getByText("Other")).toBeInTheDocument();
     });
 
+    // WCAG 2.4.3: the note that had the focus is gone after "Delete? Yes".
+    describe("focus after Yes", () => {
+      const first = syntheticNote({ body: "First", isOwn: true, canDelete: true });
+      const second = syntheticNote({ body: "Second", isOwn: true, canDelete: true });
+      function serve(initial: ReturnType<typeof syntheticNote>[]) {
+        let notes = initial;
+        server.use(
+          handlerFor("listNotes", () => HttpResponse.json({ items: notes, nextCursor: null })),
+          handlerFor("deleteNote", ({ params }) => {
+            notes = notes.filter((note) => note.id !== String(params.noteId));
+            return new HttpResponse(null, { status: 204 });
+          }),
+        );
+      }
+
+      it("moves to the next note's ×", async () => {
+        serve([first, second]);
+        renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
+        const [firstDelete] = await screen.findAllByRole("button", { name: "Delete note" });
+        await userEvent.click(firstDelete!);
+        await userEvent.click(screen.getByRole("button", { name: "Yes" }));
+        await waitFor(() => {
+          expect(screen.queryByText("First")).not.toBeInTheDocument();
+        });
+        expect(screen.getByRole("button", { name: "Delete note" })).toHaveFocus();
+        expect(screen.getByText("Second").closest("li")).toContainElement(document.activeElement as HTMLElement);
+      });
+
+      it("moves to the note box when the last note was deleted", async () => {
+        serve([first]);
+        renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);
+        await userEvent.click(await screen.findByRole("button", { name: "Delete note" }));
+        await userEvent.click(screen.getByRole("button", { name: "Yes" }));
+        expect(await screen.findByText("No notes on this job yet.")).toBeInTheDocument();
+        expect(textbox()).toHaveFocus();
+      });
+    });
+
     it("puts the note back and says so when the API refuses", async () => {
       server.use(list(mine), mockProblem("deleteNote", 403, PROBLEM_TYPES.forbidden));
       renderWithProviders(<JobNotes jobId={JOB} capabilities={STAFF} />);

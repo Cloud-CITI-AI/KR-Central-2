@@ -3,6 +3,7 @@ import type { FileMeta } from "@kr/contracts";
 import { useEffect, useRef, useState } from "react";
 import { fileExtension, scanStateText } from "@/lib/files";
 import { Button } from "./Button";
+import { focusAfterRemoval } from "./focusAfterRemoval";
 import { VisuallyHidden } from "./VisuallyHidden";
 import styles from "./DocRow.module.css";
 
@@ -19,21 +20,26 @@ export interface DocRowProps {
 /** One uploaded file: extension badge, name (opens the viewer), scan state, and × with inline confirmation. */
 export function DocRow({ file, onOpen, onRemove, removing = false }: DocRowProps) {
   const [confirming, setConfirming] = useState(false);
+  const row = useRef<HTMLLIElement>(null);
   const removeButton = useRef<HTMLButtonElement>(null);
   const question = useRef<HTMLSpanElement>(null);
   const wasConfirming = useRef(false);
+  /** Yes was pressed: focus went to a neighbouring row (the row is about to go), so it must not return to ×. */
+  const removed = useRef(false);
   const blocked = file.scanStatus === "infected" || file.scanStatus === "error";
   const stateText = scanStateText(file);
 
   useEffect(() => {
-    // Asking moves focus to the safe answer (No); answering puts it back on the × that asked.
-    if (confirming) question.current?.querySelector<HTMLElement>("[data-no]")?.focus();
-    else if (wasConfirming.current) removeButton.current?.focus();
+    // Asking moves focus to the safe answer (No); answering No puts it back on the × that asked, answering Yes moves it to the next row.
+    if (confirming) {
+      removed.current = false;
+      question.current?.querySelector<HTMLElement>("[data-no]")?.focus();
+    } else if (wasConfirming.current && !removed.current) removeButton.current?.focus();
     wasConfirming.current = confirming;
   }, [confirming]);
 
   return (
-    <li className={styles.doc}>
+    <li ref={row} className={styles.doc}>
       <span className={styles.ext} aria-hidden="true">
         {fileExtension(file.name)}
       </span>
@@ -65,6 +71,8 @@ export function DocRow({ file, onOpen, onRemove, removing = false }: DocRowProps
               small
               disabled={removing}
               onClick={() => {
+                removed.current = true;
+                if (row.current) focusAfterRemoval(row.current);
                 setConfirming(false);
                 onRemove(file);
               }}

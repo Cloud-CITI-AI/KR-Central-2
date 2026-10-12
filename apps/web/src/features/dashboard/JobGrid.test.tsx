@@ -101,6 +101,35 @@ describe("JobGrid", () => {
     });
   });
 
+  it("moves focus to the first new card when 'Load more' has loaded it, instead of dropping it with the disabled button", async () => {
+    server.use(
+      handlerFor("listJobs", ({ request }) => {
+        const cursor = new URL(request.url).searchParams.get("cursor");
+        return HttpResponse.json(cursor ? page(["S-0002", "S-0003"]) : page(["S-0001"], "next-1"));
+      }),
+    );
+    renderWithProviders(<JobGrid params={params()} visibleJobs={3} />);
+    const more = await screen.findByRole("button", { name: "Load more" });
+    more.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(await screen.findByRole("link", { name: "Open job S-0002" })).toHaveFocus();
+  });
+
+  it("puts focus back on 'Load more' when the next page cannot be loaded", async () => {
+    server.use(
+      handlerFor("listJobs", ({ request }) =>
+        new URL(request.url).searchParams.get("cursor")
+          ? HttpResponse.json({ title: "no" }, { status: 500 })
+          : HttpResponse.json(page(["S-0001"], "next-1")),
+      ),
+    );
+    renderWithProviders(<JobGrid params={params()} visibleJobs={3} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Load more" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Load more" })).toHaveFocus();
+    });
+  });
+
   it("shows nothing but leaves the failure to the dashboard's banner when the cards cannot be loaded", async () => {
     server.use(mockProblem("listJobs", 500, PROBLEM_TYPES.internal, { requestId: "req-grid-1" }));
     const { container } = renderWithProviders(<JobGrid params={params()} visibleJobs={1} />);
