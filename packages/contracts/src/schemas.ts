@@ -13,7 +13,18 @@ import {
   STAGE_KEYS,
   SUBDIVISION_TYPES,
 } from "@kr/workflow";
-import { IsoDate, IsoDateTime, LongText, PaginationQuery, ShortText, UserRef, Uuid, Version, page } from "./common.js";
+import {
+  IsoDate,
+  IsoDateTime,
+  LongText,
+  PaginationQuery,
+  ShortText,
+  UserRef,
+  Uuid,
+  Version,
+  isBlank,
+  page,
+} from "./common.js";
 import { GlobalCapability, GlobalRole, GrantRole, JobCapability } from "./permissions.js";
 
 // ---------------------------------------------------------------- enums from the workflow package
@@ -262,7 +273,7 @@ export const RecordDecisionRequest = z
     value: z.enum(["accepted", "declined"]),
     comment: LongText(2000).default(""),
   })
-  .refine((v) => v.value !== "declined" || v.comment.trim().length > 0, {
+  .refine((v) => v.value !== "declined" || !isBlank(v.comment), {
     message: "Add a comment explaining why it is declined.",
     path: ["comment"],
   })

@@ -14,6 +14,29 @@ describe("request schemas", () => {
     expect(RecordDecisionRequest.parse({ value: "accepted" }).comment).toBe("");
   });
 
+  it.each([
+    ["zero-width space", "\u200b"],
+    ["zero-width non-joiner and joiner", "\u200c\u200d"],
+    ["word joiner", "\u2060"],
+    ["byte order mark", "\ufeff"],
+    ["soft hyphen", "\u00ad"],
+    ["no-break space and ideographic space", "\u00a0\u3000"],
+    ["mixed spaces and invisibles", " \t\n\u200b \u2060\ufeff"],
+  ])("refuses a decline whose comment is only %s (R14: non-blank in the API too)", (_name, comment) => {
+    const result = RecordDecisionRequest.safeParse({ value: "declined", comment });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]).toMatchObject({
+      path: ["comment"],
+      message: "Add a comment explaining why it is declined.",
+    });
+  });
+
+  it("accepts a visible comment even with invisible characters around it, and an accept without a comment", () => {
+    expect(RecordDecisionRequest.safeParse({ value: "declined", comment: "\u200bToo dear\u200b" }).success).toBe(true);
+    expect(RecordDecisionRequest.safeParse({ value: "declined", comment: "\u00e9" }).success).toBe(true);
+    expect(RecordDecisionRequest.safeParse({ value: "accepted", comment: "\u200b" }).success).toBe(true);
+  });
+
   it("rejects unknown fields (strict objects)", () => {
     expect(UpdateCheckpointRequest.safeParse({ status: "completed", extra: 1 }).success).toBe(false);
     expect(UpdateCheckpointRequest.safeParse({}).success).toBe(false);

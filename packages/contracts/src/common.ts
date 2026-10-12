@@ -24,6 +24,15 @@ export const IsoDateTime = z.iso
 const noNul = (value: string) => !value.includes("\0");
 const NO_NUL = { message: "Must not contain NUL (U+0000) characters" } as const;
 
+/**
+ * True when `value` is empty or only white space and invisible format characters (Unicode Cf: zero-width space, joiners,
+ * word joiner, BOM, soft hyphen, bidi marks ...). `trim()` alone leaves U+200B-U+200D, U+2060 and others, so a comment made
+ * of them would look empty to a reader. The database twin is is_blank_text() (migration 0003, same character set).
+ */
+export function isBlank(value: string): boolean {
+  return /^[\s\u0085\p{Cf}]*$/u.test(value);
+}
+
 /** Trimmed single-line text. */
 export const ShortText = (max: number) => z.string().trim().min(1).max(max).refine(noNul, NO_NUL);
 /** Trimmed multi-line text that may be empty. */

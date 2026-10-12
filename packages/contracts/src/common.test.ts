@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { IsoDate, LongText, ShortText } from "./common.js";
+import { IsoDate, LongText, ShortText, isBlank } from "./common.js";
 
 describe("IsoDate", () => {
   it("accepts plausible business dates", () => {
@@ -32,5 +32,27 @@ describe("ShortText and LongText", () => {
       expect(r.success).toBe(false);
       expect(r.error?.issues[0]?.message).toBe("Must not contain NUL (U+0000) characters");
     }
+  });
+});
+
+describe("isBlank", () => {
+  it.each([
+    "",
+    " ",
+    "\t\r\n",
+    "\u00a0",
+    "\u200b",
+    "\u200c\u200d",
+    "\u2060",
+    "\ufeff",
+    "\u00ad",
+    "\u3000",
+    " \u200b \u2060 ",
+  ])("is true for %j", (value) => {
+    expect(isBlank(value)).toBe(true);
+  });
+
+  it.each(["a", "0", "\u200ba", ".", "\u{1F600}", "\u00e9", "\u0301"])("is false for %j", (value) => {
+    expect(isBlank(value)).toBe(false);
   });
 });

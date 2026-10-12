@@ -1,5 +1,6 @@
-import type { CheckpointState, JobDetail } from "@kr/contracts";
+import { isBlank, type CheckpointState, type JobDetail } from "@kr/contracts";
 import type { JobRow } from "@kr/db";
+import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { z } from "zod";
 import { createFactories, type Factories } from "../../../../test/factories.js";
@@ -139,6 +140,36 @@ describe("recordDecision (real Postgres)", () => {
         .where("checkpoint_key", "=", "i3_0p")
         .execute(),
     ).rejects.toMatchObject({ constraint: "checkpoint_states_decline_needs_comment" });
+  });
+
+  it("refuses a decline whose comment is only invisible characters (U+200B ...): 400, nothing stored, no alert", async () => {
+    const job = await fresh();
+    for (const comment of ["\u200b", "\u200c\u200d", "\u2060", "\ufeff", " \u200b\n"]) {
+      const res = await decide(client, job, "i3_0p", { value: "declined", comment });
+      expect(res.statusCode, JSON.stringify(comment)).toBe(400);
+      expect(res.json()).toMatchObject({ errors: [{ path: "comment" }] });
+    }
+    expect((await state(job.id, "i3_0p")).decision).toBeNull();
+    await expect(
+      t.db
+        .updateTable("checkpoint_states")
+        .set({ decision: "declined", decision_comment: "\u200b", decided_at: new Date() })
+        .where("job_id", "=", job.id)
+        .where("checkpoint_key", "=", "i3_0p")
+        .execute(),
+    ).rejects.toMatchObject({ constraint: "checkpoint_states_decline_needs_comment" });
+    expect(await audits(job.id)).toEqual([]);
+  });
+
+  it("keeps the database's is_blank_text() inside the API's isBlank() for every BMP character (the API answers 400 first)", async () => {
+    const rows = await sql<{ cp: number }>`
+      SELECT cp FROM generate_series(1, 65535) AS cp
+      WHERE (cp NOT BETWEEN 55296 AND 57343) AND is_blank_text(chr(cp))`.execute(t.db);
+    const dbBlank = rows.rows.map((r) => r.cp);
+    expect(dbBlank.length).toBeGreaterThan(40);
+    expect(dbBlank.filter((cp) => !isBlank(String.fromCodePoint(cp))).map((cp) => cp.toString(16))).toEqual([]);
+    // and the other way for the characters people actually paste: zero-width and spacing characters
+    for (const cp of [0x20, 0x09, 0xa0, 0x200b, 0x200c, 0x200d, 0x2060, 0xfeff, 0x3000]) expect(dbBlank).toContain(cp);
   });
 
   it("rejects unknown values, unknown fields and an over-long comment with 400", async () => {
