@@ -141,4 +141,10 @@
   .head {
     break-inside: avoid;
   }
+  /* the filters and search are controls, not information: a pressed filter was white on white, and a printed list needs none */
+  .filter,
+  .search,
+  .types {
+    display: none;
+  }
 }
