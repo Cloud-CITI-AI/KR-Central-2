@@ -30,6 +30,19 @@ system that signs users in with Microsoft Entra ID (KR tenant; the first eligibl
 - Users: the [user guide](docs/user-guide/README.md), with a [staff guide](docs/user-guide/staff-guide.md) and a
   [client and architect guide](docs/user-guide/client-and-architect-guide.md).
 
+## Release, security and project records
+
+- Go-live: [`docs/release/GO_LIVE_REPORT.md`](docs/release/GO_LIVE_REPORT.md) (features, architecture, test evidence, QA
+  history, known limitations, open issues, exact deploy steps) · [`CHANGELOG.md`](CHANGELOG.md) (1.0.0 and known issues)
+- Deploying: [Railway deployment guide](docs/deploy/railway.md) (empty project and Entra app registration to first sign-in,
+  every variable, go-live checks) · [deploy and rollback runbook](docs/runbooks/deploy-and-rollback.md) ·
+  [feature flags](docs/flags.md)
+- Security: [threat model](docs/security/threat-model.md) · [findings](docs/security/findings.md) ·
+  [security checklist](docs/security-checklist.md) · [ZAP rules](docs/security/zap.md)
+- How it was built: [decisions log](docs/plan/DECISIONS_LOG.md) · [definition of done](docs/definition-of-done.md) ·
+  [lessons](LESSONS.md) · [prototype reference](docs/reference/prototype/README.md) and the
+  [prototype parity checklist](apps/web/e2e/parity/CHECKLIST.md)
+
 ## Local development
 
 Requirements: Node 24 (`.nvmrc`), pnpm 11 (`corepack enable`), Docker.

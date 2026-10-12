@@ -8,6 +8,30 @@ This guide has two halves. This half is one-time setup, per-service variables an
 second half (verifying proxy hops, the Entra app registration, go-live checks, bucket findings, routine operations) starts at
 [Verifying X-Forwarded-For handling](#verifying-x-forwarded-for-handling-in-staging).
 
+## Quick path: empty Railway project to first sign-in
+
+Do these in order, staging first, then repeat for production. Each step links to the detail below.
+
+1. Check the two GitHub prerequisites (Code Security, artifact attestations) under
+   [One-time setup](#one-time-setup-a-human-operator-per-environment).
+2. Railway: project, `staging` and `production` environments, Postgres 17 with backups on, the `files` and `backups`
+   Buckets, the six image services with GHCR pull credentials, a public domain on `web` only, the `clamav` volume
+   ([One-time setup](#one-time-setup-a-human-operator-per-environment) steps 1 to 8).
+3. Database roles with `bootstrap-cli` from a workstation (step 9), then build the migrator, app and backup URLs.
+4. Entra ID: one app registration per environment, items E1 to E10 of the
+   [Entra app registration checklist](#entra-app-registration-checklist) (redirect URIs, `openid profile email`, one 90-day
+   secret, optional claims, the MFA Conditional Access policy).
+5. Every variable of [Variables per service](#variables-per-service) on each service (secrets sealed); `MALWARE_SCAN_MODE`
+   `required` and `REQUIRE_MFA_FOR_ADMIN` `true`.
+6. GitHub: the `release` environment and release App, `RAILWAY_TOKEN`, `STAGING_URL` / `PRODUCTION_URL`, required reviewers
+   on `production`, the `main`-only deployment rule ([Pipeline wiring](#pipeline-wiring)).
+7. Merge the release-please pull request: `release.yml` builds, attests and records the images, and `deploy.yml` deploys
+   `clamav`, `migrate`, `api`, `worker`, `web`, `backup` in that order, health-gated, then runs the smoke tests and ZAP.
+8. First sign-in: open the `web` domain and sign in as the KR staff member who should be the first admin; the first eligible
+   staff sign-in becomes `admin` (go-live check G6). Then work through [Go-live checks](#go-live-checks) G1 to G12.
+9. Production: approve the `production` job of the same run. Rollback at any time: run `deploy.yml` with the last good tag
+   ([Routine operations](#routine-operations) and `docs/runbooks/deploy-and-rollback.md`); a failed deploy rolls back by itself.
+
 ## What is in the repository
 
 | Path                                          | Purpose                                                                              |
