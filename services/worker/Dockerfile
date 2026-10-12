@@ -21,10 +21,12 @@ RUN pnpm install --frozen-lockfile --offline \
 # @napi-rs/canvas (pdf page rendering for stamp reading) resolves its prebuilt linux-musl binary at install time.
 FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS runtime
 ARG RELEASE_VERSION=dev
+# The release workflow passes the repository URL (github.server_url/github.repository), so forks and renames label correctly.
+ARG IMAGE_SOURCE=
 LABEL org.opencontainers.image.title="kr-worker" \
       org.opencontainers.image.description="KR Subdivision Tracker background worker (malware scanning, document parsing, housekeeping)" \
       org.opencontainers.image.vendor="KR Surveys" \
-      org.opencontainers.image.source="https://github.com/cloudcitiwa/kr-central-2" \
+      org.opencontainers.image.source="${IMAGE_SOURCE}" \
       org.opencontainers.image.version="${RELEASE_VERSION}"
 RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
       /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*

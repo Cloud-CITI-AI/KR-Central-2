@@ -197,3 +197,38 @@ test("the local stack can sign in: the mock IdP has a launcher and a compose ser
   assert.match(api, /mock-idp: \{ condition: service_healthy \}/);
   assert.ok(existsSync(new URL("packages/mock-idp/Dockerfile", repo)));
 });
+
+// ---- image names and OCI labels (BUG 8) -----------------------------------------------------------------------------
+
+test("release.yml: the image name is lower-cased in a step (registries refuse upper case) and the source label is a build arg", () => {
+  const release = read(".github/workflows/release.yml");
+  const header = release.slice(
+    release.indexOf("  build-and-attest:"),
+    release.indexOf("    steps:", release.indexOf("  build-and-attest:")),
+  );
+  assert.doesNotMatch(header, /^\s+IMAGE:/m, "IMAGE is not a static job env (it would keep the repository's case)");
+  const steps = jobSteps(release, "build-and-attest");
+  const name = stepNamed(steps, /name: Image name/);
+  assert.match(name, /\$\{GITHUB_REPOSITORY,,\}/);
+  assert.match(name, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}\/\$\{SERVICE\}/);
+  assert.match(name, /"\$GITHUB_ENV"/);
+  const build = stepNamed(steps, /docker\/build-push-action/);
+  assert.ok(steps.indexOf(name) < steps.indexOf(build), "the name is resolved before the build uses it");
+  assert.match(build, /IMAGE_SOURCE=\$\{\{ github\.server_url \}\}\/\$\{\{ github\.repository \}\}/);
+  assert.match(build, /RELEASE_VERSION=\$\{\{ env\.TAG \}\}/);
+});
+
+for (const file of [
+  "services/api/Dockerfile",
+  "services/worker/Dockerfile",
+  "services/ops/Dockerfile",
+  "apps/web/Dockerfile",
+  "infra/clamav/Dockerfile",
+]) {
+  test(`${file}: org.opencontainers.image.source comes from the IMAGE_SOURCE build arg, not a hard-coded repository`, () => {
+    const dockerfile = read(file);
+    assert.match(dockerfile, /^ARG IMAGE_SOURCE=?$/m);
+    assert.match(dockerfile, /org\.opencontainers\.image\.source="\$\{IMAGE_SOURCE\}"/);
+    assert.doesNotMatch(dockerfile, /github\.com\/cloudcitiwa\/kr-central-2/);
+  });
+}

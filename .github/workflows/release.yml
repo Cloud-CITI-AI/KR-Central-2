@@ -61,9 +61,12 @@ jobs:
       id-token: write
       attestations: write
     env:
-      IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.service }}
       TAG: ${{ needs.release-please.outputs.tag }}
     steps:
+      - name: Image name (lower case, which the registry requires; the owner may have capitals)
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}/${SERVICE}" >> "$GITHUB_ENV"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with: { persist-credentials: false }
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -79,7 +82,9 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           provenance: false # GitHub attestation below is the provenance of record
-          build-args: RELEASE_VERSION=${{ env.TAG }}
+          build-args: |
+            RELEASE_VERSION=${{ env.TAG }}
+            IMAGE_SOURCE=${{ github.server_url }}/${{ github.repository }}
           tags: ${{ env.IMAGE }}:${{ env.TAG }}
       - name: Generate SBOM (SPDX)
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3

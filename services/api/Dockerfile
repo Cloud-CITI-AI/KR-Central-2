@@ -20,10 +20,12 @@ RUN pnpm install --frozen-lockfile --offline \
 # --- runtime: production dependencies and compiled code only; no pnpm/npm/yarn/corepack, no dev tools ---------------
 FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS runtime
 ARG RELEASE_VERSION=dev
+# The release workflow passes the repository URL (github.server_url/github.repository), so forks and renames label correctly.
+ARG IMAGE_SOURCE=
 LABEL org.opencontainers.image.title="kr-api" \
       org.opencontainers.image.description="KR Subdivision Tracker API (Fastify)" \
       org.opencontainers.image.vendor="KR Surveys" \
-      org.opencontainers.image.source="https://github.com/cloudcitiwa/kr-central-2" \
+      org.opencontainers.image.source="${IMAGE_SOURCE}" \
       org.opencontainers.image.version="${RELEASE_VERSION}"
 RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
       /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*

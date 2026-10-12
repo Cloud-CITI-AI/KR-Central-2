@@ -5,10 +5,12 @@
 FROM clamav/clamav:stable@sha256:ebec5bc138401b36ae987caa1a3fa3c3b2a21ed3d51f0bfa5852825e663e67b0
 
 ARG RELEASE_VERSION=dev
+# The release workflow passes the repository URL (github.server_url/github.repository), so forks and renames label correctly.
+ARG IMAGE_SOURCE=
 LABEL org.opencontainers.image.title="kr-clamav" \
       org.opencontainers.image.description="ClamAV daemon (clamd on TCP 3310) with the tracker's upload size limits" \
       org.opencontainers.image.vendor="KR Surveys" \
-      org.opencontainers.image.source="https://github.com/cloudcitiwa/kr-central-2" \
+      org.opencontainers.image.source="${IMAGE_SOURCE}" \
       org.opencontainers.image.version="${RELEASE_VERSION}"
 
 # The build context is either infra/clamav (docker build ... infra/clamav, compose) or the repository root (the release

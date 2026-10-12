@@ -35,10 +35,12 @@ RUN pnpm install --frozen-lockfile --offline \
 # --- runtime: production dependencies, compiled code and pg_dump only; no pnpm/npm/yarn/corepack, no dev tools -------
 FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS runtime
 ARG RELEASE_VERSION=dev
+# The release workflow passes the repository URL (github.server_url/github.repository), so forks and renames label correctly.
+ARG IMAGE_SOURCE=
 LABEL org.opencontainers.image.title="kr-ops" \
       org.opencontainers.image.description="KR Subdivision Tracker ops jobs: migrate (with pre-migration dump) and nightly backup" \
       org.opencontainers.image.vendor="KR Surveys" \
-      org.opencontainers.image.source="https://github.com/cloudcitiwa/kr-central-2" \
+      org.opencontainers.image.source="${IMAGE_SOURCE}" \
       org.opencontainers.image.version="${RELEASE_VERSION}"
 # pg_dump keeps its own libraries in /opt/pgclient/lib (loaded through the wrapper only), so they cannot shadow the
 # system's libssl/libz for anything else in the image. The jobs start pg_dump with an empty PATH, hence the absolute path.
