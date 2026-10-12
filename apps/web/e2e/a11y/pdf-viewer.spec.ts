@@ -4,28 +4,34 @@ import type { ApiSession } from "../harness/api-client";
 import { createJob } from "../harness/jobs";
 import { STAFF } from "../harness/users";
 import { violationsOn } from "../support/a11y";
-import { pdfFile } from "../support/documents";
+import { pdfFile, type SyntheticFile } from "../support/documents";
+import { aes256OwnerPasswordPdf } from "../support/encrypted-pdf";
 import { card, openTracker } from "../support/tracker";
 import { expectFirstPageDrawn } from "../support/viewer";
 
 // The in-app PDF viewer (PRODUCT_SPEC §11.1) in the browsers it must support (§14) and without a mouse (§12, WCAG 2.1.1).
 // No polyfill is injected by the harness: whatever the browser lacks, the product has to supply (formerly known defects D4, D5).
 
-/** A job with a three-page `feature-survey.pdf` in the feature survey box, opened in the viewer. */
-async function openSurveyViewer(page: Page, staff: ApiSession, pages: number): Promise<Locator> {
+/** A job with `file` in the feature survey box, opened in the viewer. */
+async function openUploadedViewer(page: Page, staff: ApiSession, file: SyntheticFile): Promise<Locator> {
   const job = await createJob(staff);
-  const file = await pdfFile(
-    "feature-survey.pdf",
-    Array.from({ length: pages }, (_, index) => [`Synthetic feature survey, page ${(index + 1).toString()}`]),
-  );
   await staff.upload(
     job.id,
     { checkpointKey: "i2_0", slot: "survey" },
     { name: file.name, bytes: file.buffer, type: file.mimeType },
   );
   await openTracker(page, job.id);
-  await card(page, "i2_0").getByRole("button", { name: "feature-survey.pdf", exact: true }).click();
-  return page.getByRole("dialog", { name: "feature-survey.pdf" });
+  await card(page, "i2_0").getByRole("button", { name: file.name, exact: true }).click();
+  return page.getByRole("dialog", { name: file.name });
+}
+
+/** A job with a `feature-survey.pdf` of `pages` pages in the feature survey box, opened in the viewer. */
+async function openSurveyViewer(page: Page, staff: ApiSession, pages: number): Promise<Locator> {
+  const file = await pdfFile(
+    "feature-survey.pdf",
+    Array.from({ length: pages }, (_, index) => [`Synthetic feature survey, page ${(index + 1).toString()}`]),
+  );
+  return openUploadedViewer(page, staff, file);
 }
 
 test("D4: the PDF viewer's pages can be scrolled with the keyboard", async ({ page, signInAs, apiAs }) => {
@@ -63,30 +69,94 @@ test("D4: the PDF viewer's pages can be scrolled with the keyboard", async ({ pa
   expect(await violationsOn(page, { only: ["scrollable-region-focusable"] })).toEqual([]);
 });
 
-// Formerly known defect D5: pdf.js 6 needs `Map.prototype.getOrInsertComputed` (ES2026), which browsers from before about early 2026
-// (iOS Safari included) lack. The product installs the methods itself, on the page and in the pdf.js worker.
-test("D5: the PDF viewer draws pages in a browser without Map.getOrInsertComputed", async ({
+// Formerly known defect D5, and its round-2 sequel: pdf.js 6 needs ES2025/2026 built-ins that browsers from before about early 2026
+// (iOS Safari included) lack: `Map.prototype.getOrInsertComputed` and, found later, `Math.sumPrecise`, which the worker calls for every
+// embedded font and for the AES-256 (PDF 2.0) decryption. The product installs them itself, on the page and in the pdf.js worker.
+const REMOVE_BUILTINS = `
+for (const C of [Map, WeakMap]) { delete C.prototype.getOrInsert; delete C.prototype.getOrInsertComputed; }
+delete Math.sumPrecise;
+delete Promise.try;
+delete Promise.withResolvers;
+delete Uint8Array.fromBase64;
+delete Uint8Array.prototype.toBase64;
+delete Uint8Array.prototype.toHex;
+delete Set.prototype.intersection;
+delete URL.parse;
+delete globalThis.Iterator;
+`;
+
+/** Takes the built-ins away on the page whatever the browser ships, and in the worker (its global is out of reach of init scripts). */
+async function withoutModernBuiltins(page: Page): Promise<string[]> {
+  await page.addInitScript(REMOVE_BUILTINS);
+  // The polyfill module is the worker's first import, so removing them before it runs reaches the worker.
+  await page.route("**/pdfjs/es2026-polyfills.mjs", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: `${REMOVE_BUILTINS}\n${await response.text()}` });
+  });
+  const problems: string[] = [];
+  page.on("console", (message) => {
+    if (/is not a function|is not defined/.test(message.text())) problems.push(message.text());
+  });
+  page.on("pageerror", (error) => problems.push(error.message));
+  return problems;
+}
+
+test("D5: the PDF viewer draws pages in a browser without the ES2025/2026 built-ins pdf.js uses", async ({
   page,
   signInAs,
   apiAs,
 }) => {
-  // Take the methods away on the page whatever the browser ships...
-  await page.addInitScript(() => {
-    for (const collection of [Map, WeakMap]) {
-      Reflect.deleteProperty(collection.prototype, "getOrInsert");
-      Reflect.deleteProperty(collection.prototype, "getOrInsertComputed");
-    }
-  });
-  // ...and in the worker, whose global an init script cannot reach: the polyfill module is its first import, so remove them before it runs.
-  await page.route("**/pdfjs/map-upsert-polyfill.mjs", async (route) => {
-    const response = await route.fetch();
-    const remove = `for (const C of [Map, WeakMap]) { delete C.prototype.getOrInsert; delete C.prototype.getOrInsertComputed; }\n`;
-    await route.fulfill({ response, body: `${remove}${await response.text()}` });
-  });
+  const problems = await withoutModernBuiltins(page);
   const staff = await apiAs(STAFF);
   await signInAs(STAFF);
   const viewer = await openSurveyViewer(page, staff, 1);
   await expectFirstPageDrawn(viewer);
   await expect(viewer.getByText(/couldn.t be drawn/)).toHaveCount(0);
   expect(await page.evaluate(() => "getOrInsertComputed" in Map.prototype)).toBe(true);
+  expect(await page.evaluate(() => typeof (Math as { sumPrecise?: unknown }).sumPrecise)).toBe("function");
+  expect(problems).toEqual([]);
+});
+
+test("R2: an AES-256 PDF with only an owner password opens without Math.sumPrecise", async ({
+  page,
+  signInAs,
+  apiAs,
+}) => {
+  const problems = await withoutModernBuiltins(page);
+  const staff = await apiAs(STAFF);
+  await signInAs(STAFF);
+  const viewer = await openUploadedViewer(
+    page,
+    staff,
+    aes256OwnerPasswordPdf("owner-locked.pdf", ["Synthetic owner password only page"]),
+  );
+  await expectFirstPageDrawn(viewer);
+  await expect(viewer.getByText(/couldn.t load this pdf|couldn.t be drawn/i)).toHaveCount(0);
+  expect(problems).toEqual([]);
+});
+
+test("R2: a browser-printed PDF with embedded fonts draws them without Math.sumPrecise", async ({
+  page,
+  context,
+  signInAs,
+  apiAs,
+}) => {
+  // Chromium's own print-to-PDF embeds the page's fonts as TrueType/CID subsets, the kind pdf.js sanitises with Math.sumPrecise.
+  const printer = await context.newPage();
+  await printer.setContent(
+    '<body style="font:28px serif"><h1>Synthetic printed survey</h1><p style="font-family:sans-serif">Embedded font text</p></body>',
+  );
+  const printed = await printer.pdf({ format: "A4" });
+  await printer.close();
+
+  const problems = await withoutModernBuiltins(page);
+  const staff = await apiAs(STAFF);
+  await signInAs(STAFF);
+  const viewer = await openUploadedViewer(page, staff, {
+    name: "printed.pdf",
+    mimeType: "application/pdf",
+    buffer: printed,
+  });
+  await expectFirstPageDrawn(viewer);
+  expect(problems).toEqual([]);
 });
