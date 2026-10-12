@@ -1,4 +1,5 @@
-import { expect, test } from "../fixtures";
+import type { Page } from "@playwright/test";
+import { expect, test, type Fixtures } from "../fixtures";
 import { createJob } from "../harness/jobs";
 import { STAFF } from "../harness/users";
 import { decisionLetter } from "../support/documents";
@@ -6,11 +7,12 @@ import { card, openTracker } from "../support/tracker";
 
 // The tracker's structure for a screen reader (PRODUCT_SPEC §12, WCAG 1.3.1 and 2.4.6), in a real browser.
 
-test("the expanded tracker's outline is stages (h2) then checkpoints (h3), and evidence inputs are told apart", async ({
-  page,
-  signInAs,
-  apiAs,
-}) => {
+/** A staff member's tracker for a job whose Decision Letter (four conditions, one per agency) has been read. */
+async function openTrackerWithConditions(
+  page: Page,
+  signInAs: Fixtures["signInAs"],
+  apiAs: Fixtures["apiAs"],
+): Promise<void> {
   const staff = await apiAs(STAFF);
   const job = await createJob(staff);
   const letter = await decisionLetter("Decision Letter.pdf", [
@@ -29,6 +31,17 @@ test("the expanded tracker's outline is stages (h2) then checkpoints (h3), and e
   const approval = card(page, "i5_0");
   await approval.getByRole("button", { name: "Extract conditions from Decision Letter" }).click();
   await expect(approval.getByText("4 conditions extracted")).toBeVisible();
+  // The message comes first; the job is refreshed after it and only then are the condition cards drawn (wait for them, or the
+  // evidence inputs below are read before they exist).
+  await expect(page.getByRole("group", { name: /^Condition \d+$/ })).toHaveCount(4);
+}
+
+test("the expanded tracker's outline is stages (h2) then checkpoints (h3), and evidence inputs are told apart", async ({
+  page,
+  signInAs,
+  apiAs,
+}) => {
+  await openTrackerWithConditions(page, signInAs, apiAs);
 
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
   const stageHeadings = page.locator("section[id] > h2");
