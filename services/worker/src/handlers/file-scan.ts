@@ -19,7 +19,13 @@ import {
   saveScanResult,
   type ScanFile,
 } from "../data/files.js";
-import { isPermanentScanError, judgeScanError, mayRescan, type ScanErrorKind } from "../domain/scan.js";
+import {
+  isPermanentScanError,
+  isScanLimitSignature,
+  judgeScanError,
+  mayRescan,
+  type ScanErrorKind,
+} from "../domain/scan.js";
 import { TaskError } from "../errors.js";
 import type { FeatureFlags } from "../flags.js";
 import type { Handler, HandlerContext } from "./types.js";
@@ -68,9 +74,12 @@ export function fileScanHandler(deps: FileScanDeps): Handler {
       await auditInfected(trx, file, signature);
     });
     metrics.recordFileScan("infected");
+    const limit = isScanLimitSignature(signature);
     ctx.log.error(
-      { event: "malware_detected", fileId: file.id, signature },
-      "Malware found in an upload; the object is deleted",
+      { event: "malware_detected", fileId: file.id, signature, ...(limit && { scanLimitExceeded: true }) },
+      limit
+        ? "An upload went past a virus scan limit and is blocked; the object is deleted"
+        : "Malware found in an upload; the object is deleted",
     );
     await storage.delete(file.storage_key);
   }

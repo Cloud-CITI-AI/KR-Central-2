@@ -4,6 +4,16 @@
  * re-scans files in `error` up to SCAN_ERROR_MAX_RETRIES times.
  */
 
+/**
+ * With `AlertExceedsMax yes` (infra/clamav/clamd.conf) clamd answers "Heuristics.Limits.Exceeded.<limit> FOUND" for content
+ * it could not scan fully (nested too deep, too large once decompressed, too many files). That is a verdict, not an error:
+ * the file is blocked like any detection (status `infected`, object deleted, never served) and is not retried, because a
+ * second scan of the same bytes would give the same answer. Without the setting clamd skips the rest and says "OK".
+ */
+export function isScanLimitSignature(signature: string): boolean {
+  return /^Heuristics\.Limits\.Exceeded(\.|$)/.test(signature);
+}
+
 /** Why a scan gave no verdict. */
 export type ScanErrorKind =
   "connection" | "timeout" | "size_limit" | "scanner_error" | "protocol" | "object_missing" | "storage";

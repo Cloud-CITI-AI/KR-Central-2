@@ -10,7 +10,7 @@ export interface FakeClamd {
 
 export interface FakeBehaviour {
   /** What to do once the stream ended (or the limit hit). Default: scan for the marker. */
-  readonly reply?: "silent" | "garbage" | "scanner-error" | "empty-close";
+  readonly reply?: "silent" | "garbage" | "scanner-error" | "empty-close" | "limit-exceeded";
   /** Answer "INSTREAM size limit exceeded. ERROR" and close once more than this many bytes arrived. */
   readonly streamLimit?: number;
   /** Pause reading for this long after each chunk, to exercise backpressure. */
@@ -55,6 +55,8 @@ export function startFakeClamd(behaviour: FakeBehaviour = {}): Promise<FakeClamd
           if (reply === "silent") return;
           if (reply === "empty-close") return void socket.end();
           if (reply === "garbage") return void socket.end("what is this\0");
+          if (reply === "limit-exceeded")
+            return void socket.end("stream: Heuristics.Limits.Exceeded.MaxRecursion FOUND\0");
           if (reply === "scanner-error") return void socket.end("stream: Can't allocate memory. ERROR\0");
           return void socket.end(found ? "stream: Fake.Virus-1 FOUND\0" : "stream: OK\0");
         }

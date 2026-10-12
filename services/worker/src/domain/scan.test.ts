@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPermanentScanError, judgeScanError, mayRescan, type ScanErrorKind } from "./scan.js";
+import { isPermanentScanError, isScanLimitSignature, judgeScanError, mayRescan, type ScanErrorKind } from "./scan.js";
 
 describe("judgeScanError", () => {
   it("lets the queue retry a scanner that is down until the last attempt", () => {
@@ -56,5 +56,19 @@ describe("isPermanentScanError", () => {
       "storage",
     ] as const)
       expect(isPermanentScanError(kind)).toBe(judgeScanError(kind, 1, 3).final);
+  });
+});
+
+describe("isScanLimitSignature", () => {
+  it("recognises clamd's AlertExceedsMax signatures, whatever the limit", () => {
+    for (const limit of ["MaxRecursion", "MaxFileSize", "MaxScanSize", "MaxFiles"])
+      expect(isScanLimitSignature(`Heuristics.Limits.Exceeded.${limit}`)).toBe(true);
+    expect(isScanLimitSignature("Heuristics.Limits.Exceeded")).toBe(true);
+  });
+
+  it("does not match other signatures", () => {
+    expect(isScanLimitSignature("Win.Test.EICAR_HDB-1")).toBe(false);
+    expect(isScanLimitSignature("Heuristics.Limits.ExceededX")).toBe(false);
+    expect(isScanLimitSignature("Fake.Heuristics.Limits.Exceeded.MaxRecursion")).toBe(false);
   });
 });

@@ -51,6 +51,14 @@ describe("scan", () => {
     });
   });
 
+  it("reports content past a scan limit (AlertExceedsMax) as infected with the signature, not as an error", async () => {
+    const client = await clientFor({ reply: "limit-exceeded" });
+    expect(await client.scan(body("nested too deep"))).toEqual({
+      status: "infected",
+      signature: "Heuristics.Limits.Exceeded.MaxRecursion",
+    });
+  });
+
   it("sends length-prefixed chunks of at most 64 KiB and ends the stream with a zero-length chunk", async () => {
     const client = await clientFor();
     const data = randomBytes(CHUNK_BYTES * 2 + 100);

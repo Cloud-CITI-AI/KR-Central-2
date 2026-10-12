@@ -86,6 +86,10 @@ async function feed(socket: net.Socket, body: Readable, maxBytes: number): Promi
   if (!socket.destroyed) socket.write(Buffer.alloc(4)); // a zero-length chunk ends the stream
 }
 
+/**
+ * `stream: <signature> FOUND` is a block for every signature, including `Heuristics.Limits.Exceeded.<limit>` (content past
+ * a scan limit, AlertExceedsMax in infra/clamav/clamd.conf): never retried and never clean.
+ */
 function verdictFrom(reply: string): ScanVerdict {
   const found = /^stream: (.+) FOUND$/.exec(reply);
   if (found?.[1]) return { status: "infected", signature: found[1].slice(0, 200) };

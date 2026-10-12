@@ -87,6 +87,21 @@ describe("file.scan", () => {
     expect(ctx.captured.events()).toContain("malware_detected");
   });
 
+  it("blocks content past a clamd scan limit like malware: infected, object deleted, not retried", async () => {
+    await clamd.stop();
+    clamd = await startFakeClamd({ reply: "limit-exceeded" });
+    const file = await insertFile(db, storage, jobId, { bytes: "a deeply nested archive" });
+    const { ctx, outcome } = await run(file.id);
+    expect(outcome).toEqual({ result: { scanStatus: "infected", followUpOperationId: null } });
+    const row = await fileRow(db, file.id);
+    expect([row.scan_status, row.scan_detail]).toEqual(["infected", "Heuristics.Limits.Exceeded.MaxRecursion"]);
+    expect(await storage.exists(file.key)).toBe(false);
+    const audit = await db.selectFrom("audit_events").selectAll().where("entity_id", "=", file.id).execute();
+    expect(audit.map((a) => a.action)).toEqual(["file.infected"]);
+    expect(metrics.recordFileScan).toHaveBeenCalledExactlyOnceWith("infected");
+    expect(ctx.captured.events()).toContain("malware_detected");
+  });
+
   it("leaves a verdict that is already recorded alone when it is re-run", async () => {
     const file = await insertFile(db, storage, jobId, { scanStatus: "clean" });
     const before = await fileRow(db, file.id);
