@@ -17,6 +17,11 @@ const base = {
   PUBLIC_BASE_URL: "https://tracker.example.com",
   NODE_ENV: "production",
   REQUIRE_MFA_FOR_ADMIN: "true",
+  // staging and production refuse the 'fake-' placeholders of TEST_ENV, so these cases bring their own values
+  ENTRA_CLIENT_SECRET: "client-secret-for-tests-0123",
+  LOG_PSEUDONYM_SALT: "log-salt-for-tests-0123456",
+  S3_ACCESS_KEY_ID: "access-key-for-tests",
+  S3_SECRET_ACCESS_KEY: "secret-access-key-for-tests-0123",
 };
 const parse = (env: Record<string, string>) => parseConfig(ApiConfigSchema, { ...base, ...env });
 const PINNED = ["staging", "production"] as const;
