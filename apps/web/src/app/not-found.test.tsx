@@ -11,6 +11,7 @@ vi.mock("@/lib/session/get-me", () => session);
 import NotFound, { metadata } from "./not-found";
 
 beforeEach(() => {
+  session.getOptionalMe.mockClear();
   session.getOptionalMe.mockResolvedValue(null);
 });
 
@@ -36,28 +37,15 @@ describe("root not-found page", () => {
     expect(metadata.title).toBe("Page not found");
   });
 
-  it("for a signed-in person is the whole shell: name, theme, Admin, Sign out and the footer, with one h1 and one main", async () => {
-    incoming.headers = new Headers({ "x-request-id": "req-404-shell" });
-    const me = syntheticMe("admin");
-    session.getOptionalMe.mockResolvedValue(me);
+  it("is public even when a session exists: the signed-in 404 is the (app) group's, so no client providers load here", async () => {
+    incoming.headers = new Headers({ "x-request-id": "req-404-public" });
+    session.getOptionalMe.mockResolvedValue(syntheticMe("admin"));
     const { container } = render(await NotFound());
-    expect(screen.getByRole("banner")).toHaveTextContent(me.user.displayName);
-    expect(screen.getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin/users");
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
-    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
-    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(screen.getAllByRole("main")).toHaveLength(1);
-    expect(screen.getAllByRole("banner")).toHaveLength(1);
+    expect(session.getOptionalMe).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { level: 2, name: "Page not found" })).toBeInTheDocument();
-    expect(screen.getByText("Request ID: req-404-shell")).toBeInTheDocument();
-    await expectNoAxeViolations(container);
-  });
-
-  it("falls back to the signed-out page when the session cannot be read", async () => {
-    incoming.headers = new Headers();
-    session.getOptionalMe.mockRejectedValue(new Error("API down"));
-    render(await NotFound());
-    expect(screen.getByRole("heading", { level: 2, name: "Page not found" })).toBeInTheDocument();
+    expect(screen.getByText("Request ID: req-404-public")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Admin" })).toBeNull();
+    await expectNoAxeViolations(container);
   });
 });
