@@ -25,21 +25,18 @@ export const FIRST_LOAD_BUDGET_BYTES = 170_000;
 export const PDFJS_ENGINE_MARKERS: readonly string[] = ["pdfjs_internal_id_", "pdfjs_internal_editor_"];
 
 /**
- * Routes that are over the FE-9 budget today, each with the ceiling it may not grow past (gzip bytes, measured at
- * 2026-10-10 plus ~1 KB). They are product-code breaches reported to the orchestrator (WP-22 does not optimise product
- * code). A waiver is a ratchet: lower the ceiling as the route shrinks and delete the entry when the route is within
- * 170 KB; a waiver on a route that already fits fails the check so none is left behind.
+ * Routes that may exceed the FE-9 budget, each with the ceiling it may not grow past (gzip bytes). None today: every route is
+ * within 170 KB. A waiver is a ratchet: it is for a route that cannot fit and must be lowered as the route shrinks, a waiver on a
+ * route that already fits fails the check (so none is left behind), and the public routes (PUBLIC_ROUTES) never get one.
  *
- * FIX-R1-WEBCLIENT removed Zod and every contract schema from these first loads (they were 47 + 20 KB of the 254 KB):
- * the browser client uses the schema-free `@kr/contracts/routes-table` and `/capabilities`, and the forms that validate
- * with a schema load on demand. What remains is the app's own code (React Query, tracker and dashboard components).
+ * History: the signed-in routes were 200 to 218 KB behind waivers; FIX-R1-WEBCLIENT removed Zod and the contract schemas from
+ * them, and FIX-R2-PERF-WEB the rest (the viewer dialog, the tracker body, the dashboard content and the admin pages are
+ * lazy chunks; the root not-found no longer carries the signed-in shell).
  */
-export const BUDGET_WAIVERS: Readonly<Record<string, number>> = {
-  "/jobs/[jobId]": 218_200, // 217.2 KB measured (was 253.8), owner: WP-24
-  "/": 200_400, // 199.4 KB measured (was 239.5), owner: WP-24
-  "/admin/audit": 200_900, // 199.9 KB measured (was 237.8), owner: WP-24
-  "/admin/users": 200_900, // 199.9 KB measured (was 237.8), owner: WP-24
-};
+export const BUDGET_WAIVERS: Readonly<Record<string, number>> = {};
+
+/** The pages a person sees before signing in, and the root 404: every first visit loads them, so they are never waived. */
+export const PUBLIC_ROUTES: readonly string[] = ["/_not-found", "/sign-in", "/sign-in-error", "/signed-out"];
 
 const routeStatsSchema = z.array(z.object({ route: z.string(), firstLoadChunkPaths: z.array(z.string()) }));
 export type RouteStat = z.infer<typeof routeStatsSchema>[number];
@@ -93,6 +90,11 @@ export function unknownWaivers(
   return Object.keys(waivers).filter((route) => !known.has(route));
 }
 
+/** Public routes that hold a waiver: must be empty (they are the first thing every visitor loads). */
+export function waivedPublicRoutes(waivers: Readonly<Record<string, number>> = BUDGET_WAIVERS): string[] {
+  return PUBLIC_ROUTES.filter((route) => route in waivers);
+}
+
 export function findPdfJsEngineChunks(
   files: readonly string[],
   read: (path: string) => string,
@@ -128,8 +130,11 @@ export function budgetProblems(
   results: readonly RouteResult[],
   proof: PdfJsLazyProof,
   staleRoutes: readonly string[],
+  waivers: Readonly<Record<string, number>> = BUDGET_WAIVERS,
 ): string[] {
   const problems: string[] = [];
+  for (const route of waivedPublicRoutes(waivers))
+    problems.push(`${route}: a public route may not be waived from FE-9`);
   for (const r of results) {
     if (r.status === "over") {
       problems.push(`${r.route}: ${r.bytes} B gzip first-load JS is over its ${r.limitBytes} B limit`);

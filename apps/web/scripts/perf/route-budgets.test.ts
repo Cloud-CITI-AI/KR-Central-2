@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  BUDGET_WAIVERS,
   FIRST_LOAD_BUDGET_BYTES,
   PDFJS_ENGINE_MARKERS,
   budgetProblems,
@@ -12,7 +13,9 @@ import {
   limitFor,
   measureBuild,
   proveLazyPdfJs,
+  PUBLIC_ROUTES,
   unknownWaivers,
+  waivedPublicRoutes,
   type RouteStat,
 } from "./route-budgets.ts";
 
@@ -42,6 +45,21 @@ describe("evaluateRoutes", () => {
 
   it("reports a waiver on a route that fits the budget as stale", () => {
     expect(evaluateRoutes(routes, sizeOf, { "/": 200_000 })[0]?.status).toBe("stale-waiver");
+  });
+});
+
+describe("the waivers in force", () => {
+  it("are none: every route, signed in or not, is held to the FE-9 170 KB budget", () => {
+    expect(BUDGET_WAIVERS).toEqual({});
+  });
+
+  it("never include a public route, and the check says so when one does", () => {
+    expect(PUBLIC_ROUTES).toEqual(["/_not-found", "/sign-in", "/sign-in-error", "/signed-out"]);
+    expect(waivedPublicRoutes(BUDGET_WAIVERS)).toEqual([]);
+    expect(waivedPublicRoutes({ "/sign-in": 200_000, "/jobs/[jobId]": 180_000 })).toEqual(["/sign-in"]);
+    expect(budgetProblems([], { engineChunks: ["lazy.js"], routesLoadingPdfJs: [] }, [], { "/signed-out": 1 })).toEqual(
+      ["/signed-out: a public route may not be waived from FE-9"],
+    );
   });
 });
 
