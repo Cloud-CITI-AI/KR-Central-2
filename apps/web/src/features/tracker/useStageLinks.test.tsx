@@ -1,5 +1,5 @@
 import { STAGES } from "@kr/workflow";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockApi } from "@/test/msw/handlers";
@@ -110,7 +110,63 @@ describe("deep links", () => {
     screen.getByRole("link", { name: "Elsewhere" }).dispatchEvent(other);
     expect(other.defaultPrevented).toBe(false);
     const link = screen.getByRole("link", { name: "Go to Western Power ↓" });
-    fireEvent.click(link, { ctrlKey: true });
+    // jsdom would apply the link's fragment navigation later and leak a hashchange into the next test: cancel it here, after the hook has had its say
+    let reachedWindow: boolean | undefined;
+    const cancel = (event: Event) => {
+      reachedWindow = event.defaultPrevented;
+      event.preventDefault();
+    };
+    window.addEventListener("click", cancel);
+    try {
+      fireEvent.click(link, { ctrlKey: true });
+    } finally {
+      window.removeEventListener("click", cancel);
+    }
+    expect(reachedWindow).toBe(false);
+    expect(window.location.hash).toBe("");
     expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  // WCAG 2.4.3 / 2.1.1: the click is cancelled and the page scrolled by hand, so focus has to follow or the next Tab jumps back.
+  it("moves focus to the stage's bar when a link to the stage is used from the keyboard, so Tab goes on inside the stage", async () => {
+    const user = userEvent.setup();
+    show();
+    const link = screen.getByRole("link", { name: "Go to Western Power ↓" });
+    link.focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(bar("western-power")).toHaveFocus();
+    });
+    await user.tab();
+    expect(document.getElementById("western-power")).toContainElement(document.activeElement as HTMLElement);
+    expect(document.activeElement).not.toBe(bar("western-power"));
+  });
+
+  it("focuses without scrolling a second time, and again when the same link is used again", async () => {
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    show();
+    await userEvent.click(screen.getByRole("link", { name: "Go to Western Power ↓" }));
+    await userEvent.click(screen.getByRole("link", { name: "Go to Western Power ↓" }));
+    const preventScroll = focus.mock.calls.filter(([options]) => options?.preventScroll === true);
+    expect(preventScroll.length).toBeGreaterThanOrEqual(2);
+    focus.mockRestore();
+  });
+
+  it("moves focus to the card, made focusable by script only, when the hash changes to a checkpoint", async () => {
+    show();
+    window.location.hash = "#checkpoint-i4_2";
+    await waitFor(() => {
+      expect(document.getElementById("checkpoint-i4_2")).toHaveFocus();
+    });
+    expect(document.getElementById("checkpoint-i4_2")).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("does not take focus when ?stage= or a hash opens the page on a stage", () => {
+    show("survey");
+    expect(document.body).toHaveFocus();
+    window.location.hash = "#checkpoint-i13_2";
+    cleanup();
+    show();
+    expect(document.body).toHaveFocus();
   });
 });

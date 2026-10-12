@@ -66,3 +66,31 @@ test("the expanded tracker's outline is stages (h2) then checkpoints (h3), and e
     expect(names.some((name) => name.includes(`(condition ${number.toString()})`))).toBe(true);
   expect(new Set(names).size).toBeGreaterThanOrEqual(4);
 });
+
+// WCAG 2.4.3 / 2.1.1: "Go to <agency> ↓" and "Checklist ↑" scroll to a stage; focus has to go with the page, or the next Tab jumps back
+// to where the link was.
+const stageOfFocus = (page: Page) =>
+  page.evaluate(() => document.activeElement?.closest("section[id]")?.id ?? document.activeElement?.tagName ?? null);
+
+test("the stage links move focus with the page, so Tab goes on inside the stage they scrolled to", async ({
+  page,
+  signInAs,
+  apiAs,
+}) => {
+  await openTrackerWithConditions(page, signInAs, apiAs);
+
+  const goTo = page.getByRole("link", { name: "Go to Western Power ↓" });
+  await goTo.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#western-power").getByRole("button", { expanded: true }).first()).toBeFocused();
+  await page.keyboard.press("Tab");
+  expect(await stageOfFocus(page)).toBe("western-power");
+
+  const up = page.getByRole("link", { name: "Checklist ↑" }).first();
+  await up.focus();
+  await page.keyboard.press("Enter");
+  await expect.poll(() => stageOfFocus(page)).toBe("wapc-approval");
+  expect(await page.evaluate(() => document.activeElement?.tagName)).toBe("BUTTON");
+  await page.keyboard.press("Tab");
+  expect(await stageOfFocus(page)).toBe("wapc-approval");
+});
