@@ -18,40 +18,41 @@
 # Docker hosts whose kernel has no IPv6 cannot bind `::`: start with KR_STACK_HOST=0.0.0.0 in that case (it reaches
 # api, worker, web, migrate and clamav, which reads it as CLAMD_TCP_ADDR).
 #
-# api and worker read .env.example whole; the variables only the ops jobs may hold (DDL, superuser and backup role
-# credentials, backup bucket) and the blank ones are removed from them below (a `null` value removes a variable from the container). The
-# ops and web services get just their own variables, with the values of .env.example.
+# Every application service gets an explicit environment allowlist below, with the fake values of .env.example (only the
+# host names differ: localhost becomes the service name). No service reads .env.example or `.env` wholesale, and none
+# lists a variable as a bare key (`KEY:` means "take it from the shell or .env"), so the DDL, superuser and backup role
+# credentials and the backup bucket keys reach only bootstrap, migrate and backup, however your shell or `.env` is set
+# (ADR-0007, threat model M-23). A variable a service does not need is simply not listed. The schemas in
+# packages/db, services/*/src/config.ts say what each service reads.
 
 x-app-service: &app-service
-  env_file: .env.example
   restart: "no"
 
+# Shared by api and worker (both are tracker_app clients of the database and the files bucket).
 x-app-environment: &app-environment
   NODE_ENV: production
+  APP_ENV: local
+  LOG_LEVEL: debug
+  RELEASE_VERSION: dev
   HOST: ${KR_STACK_HOST:-::}
   DATABASE_URL: postgres://tracker_app:local-app-password@postgres:5432/tracker
+  DATABASE_SSL: "false"
   S3_ENDPOINT: http://s3:9090
-  CLAMAV_HOST: clamav
-  # Only the migrate and backup jobs hold these (ADR-0007, threat model M-23): never the api or the worker.
-  MIGRATION_DATABASE_URL:
-  BACKUP_DATABASE_URL:
-  SUPERUSER_DATABASE_URL:
-  TRACKER_MIGRATOR_PASSWORD:
-  TRACKER_APP_PASSWORD:
-  TRACKER_BACKUP_PASSWORD:
-  BACKUP_S3_ENDPOINT:
-  BACKUP_S3_REGION:
-  BACKUP_S3_BUCKET:
-  BACKUP_S3_ACCESS_KEY_ID:
-  BACKUP_S3_SECRET_ACCESS_KEY:
-  BACKUP_RETENTION_DAYS:
-  PG_DUMP_PATH:
-  # Blank in .env.example (unset); the config schemas reject an empty string for URLs and keys.
-  OTEL_EXPORTER_OTLP_ENDPOINT:
-  OTEL_EXPORTER_OTLP_HEADERS:
-  ENTRA_ADMIN_AUTH_CONTEXT_ID:
-  ANTHROPIC_API_KEY:
-  FEEDBACK_URL:
+  S3_REGION: auto
+  S3_BUCKET: tracker-files-local
+  S3_ACCESS_KEY_ID: fake-access-key
+  S3_SECRET_ACCESS_KEY: fake-secret-access-key
+  S3_FORCE_PATH_STYLE: "true"
+  UPLOAD_MAX_BYTES: "52428800"
+  MALWARE_SCAN_MODE: disabled
+  FEATURE_AI_STAMP_READING: "false"
+
+# The sign-in settings the API and the mock IdP must agree on (the same values as .env.example). The worker does not
+# sign anyone in and never holds them.
+x-entra-environment: &entra-environment
+  ENTRA_TENANT_ID: 00000000-0000-4000-8000-000000000001
+  ENTRA_CLIENT_ID: 00000000-0000-4000-8000-000000000002
+  ENTRA_CLIENT_SECRET: fake-client-secret-change-me
 
 services:
   postgres:
@@ -136,9 +137,9 @@ services:
     build: { context: ., dockerfile: packages/mock-idp/Dockerfile }
     image: kr-mock-idp:local
     restart: "no"
-    # Tenant, client id and secret come from .env.example, like the API's, so the two always agree.
-    env_file: .env.example
+    # Only the tenant, client id and secret (the same anchor as the API's, so the two always agree) and its own settings.
     environment:
+      <<: *entra-environment
       MOCK_IDP_PUBLIC_URL: http://mock-idp.localhost:4010
     ports: ["4010:4010"]
     networks:
@@ -159,8 +160,23 @@ services:
     build: { context: ., dockerfile: services/api/Dockerfile }
     image: kr-api:local
     environment:
-      <<: *app-environment
+      <<: [*app-environment, *entra-environment]
       PORT: "8080"
+      TRUST_PROXY_HOPS: "1"
+      PUBLIC_BASE_URL: http://localhost:3000
+      KR_STAFF_EMAIL_DOMAINS: krsurveys.com.au
+      SESSION_IDLE_MINUTES: "120"
+      SESSION_ABSOLUTE_HOURS: "12"
+      LOG_PSEUDONYM_SALT: fake-log-salt-change-me
+      REQUIRE_MFA_FOR_ADMIN: "false"
+      ADMIN_MFA_EVIDENCE: amr
+      DATABASE_POOL_MAX: "10"
+      RATE_LIMIT_SIGNIN_PER_MINUTE_PER_IP: "20"
+      RATE_LIMIT_WRITES_PER_MINUTE: "120"
+      RATE_LIMIT_UPLOADS_PER_MINUTE: "30"
+      RATE_LIMIT_READS_PER_MINUTE: "600"
+      JSON_BODY_LIMIT_BYTES: "102400"
+      FEATURE_ENTRA_GUEST_INVITES: "false"
       # The same URL the browser uses (see the top of this file).
       ENTRA_AUTHORITY_HOST: http://mock-idp.localhost:4010
     ports: ["8080:8080"]
@@ -180,6 +196,17 @@ services:
     environment:
       <<: *app-environment
       PORT: "8081"
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: "3310"
+      CLAMAV_TIMEOUT_MS: "60000"
+      CLAMAV_STREAM_MAX_BYTES: "62914560"
+      SCAN_ERROR_MAX_RETRIES: "3"
+      ANTHROPIC_MODEL: claude-sonnet-5-5
+      ANTHROPIC_TIMEOUT_MS: "30000"
+      WORKER_CONCURRENCY: "2"
+      WORKER_POLL_INTERVAL_MS: "1000"
+      WORKER_LEASE_SECONDS: "300"
+      PDF_MAX_PAGES: "60"
     depends_on:
       migrate: { condition: service_healthy }
       clamav: { condition: service_healthy }

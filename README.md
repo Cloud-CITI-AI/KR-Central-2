@@ -47,6 +47,9 @@ pnpm dev                        # web :3000, api :8080, worker health :8081
 `.env` is copied without the blank optional variables (an empty value is not the same as unset and fails config validation).
 The `db:*` and `dev` scripts of `@kr/db`, `@kr/api`, `@kr/worker` and `@kr/web` read the root `.env` themselves; a variable
 already set in your shell wins over the file. Sign-in needs a real Entra tenant or the mock IdP (see below).
+The container stack (`docker compose --profile stack`) does not read `.env` or your shell for its services: each one lists
+the few variables it needs in `docker-compose.yml`, so the database admin, backup and backup bucket credentials in `.env`
+reach only the `bootstrap` and `migrate` jobs (set there with the same fake values), never api, worker, web or mock-idp.
 
 A Docker host without IPv6 (no `/proc/net/if_inet6`, some sandboxes and CI containers) cannot bind `::`: run
 `KR_STACK_HOST=0.0.0.0 pnpm db:up` (ClamAV) and set `HOST=0.0.0.0` in `.env` (api and worker).
