@@ -1,10 +1,40 @@
+/*
+ * The hero photo, resized from the 1800 x 1200 JPEG (276 KB) to the 1280 px it is shown at (AVIF 48 KB, WebP 73 KB) with a 640 px
+ * one for phones (16 KB, 28 KB), served from public/brand (copies of design-tokens/assets, kept identical by a test) so the root
+ * layout can preload the same URL: it is the page's LCP element. The plain WebP declaration is the fallback for a browser that
+ * does not understand image-set()'s type(); the framing (centre 38%, cover) and the overlay are the prototype's.
+ */
 .top {
   color: #fff;
   background:
     var(--hero-overlay),
-    url("@kr/design-tokens/assets/hero-header-bg.jpg") center 38% / cover no-repeat,
+    url("/brand/hero-header-1280.webp") center 38% / cover no-repeat,
+    #141618;
+  background:
+    var(--hero-overlay),
+    image-set(
+        url("/brand/hero-header-1280.avif") type("image/avif"),
+        url("/brand/hero-header-1280.webp") type("image/webp")
+      )
+      center 38% / cover no-repeat,
     #141618;
   border-bottom: 4px solid var(--accent);
+}
+@media (max-width: 640px) {
+  .top {
+    background:
+      var(--hero-overlay),
+      url("/brand/hero-header-640.webp") center 38% / cover no-repeat,
+      #141618;
+    background:
+      var(--hero-overlay),
+      image-set(
+          url("/brand/hero-header-640.avif") type("image/avif"),
+          url("/brand/hero-header-640.webp") type("image/webp")
+        )
+        center 38% / cover no-repeat,
+      #141618;
+  }
 }
 .inner {
   display: grid;

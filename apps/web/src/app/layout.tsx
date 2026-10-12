@@ -10,6 +10,11 @@ export const metadata: Metadata = {
   description: "Keeping you up to date with your subdivision",
 };
 
+const HERO_PRELOADS = [
+  { href: "/brand/hero-header-640.avif", media: "(max-width: 640px)" },
+  { href: "/brand/hero-header-1280.avif", media: "(min-width: 641px)" },
+] as const;
+
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
 interface RootLayoutProps {
@@ -28,6 +33,11 @@ export default async function RootLayout({ children }: RootLayoutProps) {
     <html lang="en-AU" style={{ "--font-sans": fontStack } as CSSProperties} suppressHydrationWarning>
       <head>
         <script nonce={nonce}>{THEME_BOOTSTRAP_SCRIPT}</script>
+        {/* The header's hero photo is the LCP element of every page and is only discovered once the CSS has loaded: fetch it from the
+            HTML (AVIF, the format the stylesheet's image-set picks; the size follows the stylesheet's 640 px breakpoint). */}
+        {HERO_PRELOADS.map((hero) => (
+          <link key={hero.href} rel="preload" as="image" type="image/avif" fetchPriority="high" {...hero} />
+        ))}
       </head>
       <body>{children}</body>
     </html>

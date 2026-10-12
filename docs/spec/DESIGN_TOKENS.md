@@ -8,7 +8,8 @@ prototype stylesheet (`extracted.css`) and checked against the 51 screenshots.
 - Verbatim reference stylesheet: `packages/design-tokens/reference/prototype.css` — port its rules into CSS Modules
   (FE-5 choice: CSS Modules, no Tailwind) keeping values identical; never import it at runtime.
 - Assets: `packages/design-tokens/assets/` — `kr-surveys-logo.svg` (header brandmark, 40 px high), `hero-header-bg.jpg`
-  (header photo, `center 38% / cover`), `kr-mark.svg` (rotated watermark).
+  (header photo master, `center 38% / cover`; the app serves its `hero-header-1280` and `hero-header-640` AVIF and WebP
+  derivatives from `apps/web/public/brand` and preloads the AVIF: it is the LCP element), `kr-mark.svg` (rotated watermark).
 
 ## 1. Colour tokens
 
