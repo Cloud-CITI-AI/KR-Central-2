@@ -2,12 +2,16 @@ import { PROBLEM_TYPES } from "@kr/contracts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { draftKey } from "@/lib/api";
+import { MESSAGES } from "@/lib/messages";
+import { navigation } from "@/lib/navigation";
 import { syntheticJobCard } from "@/features/dashboard/test-fixtures";
 import { expectNoAxeViolations } from "@/test/axe";
 import { syntheticMe } from "@/test/fixtures";
 import { handlerFor, mockApi, mockOffline, mockProblem, mockRateLimited } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
+import { BannerRegion } from "@/components/ui/BannerRegion";
 import { renderWithProviders } from "@/test/render";
 import { AccessForm } from "./AccessForm";
 import { syntheticGrant } from "./test-fixtures";
@@ -149,5 +153,53 @@ describe("AccessForm", () => {
         "Can't reach the server – check your connection. What you see may be out of date, and changes can't be saved.",
       );
     });
+  });
+});
+
+describe("AccessForm when the session ends (PRODUCT_SPEC 3.1, 15)", () => {
+  const me = syntheticMe("admin");
+  const expireWhileFilled = async () => {
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
+    window.sessionStorage.clear();
+    server.use(jobs(), mockProblem("createAccessGrant", 401, PROBLEM_TYPES.unauthenticated));
+    const view = renderWithProviders(<AccessForm />, { me });
+    await ready();
+    await userEvent.type(email(), "a@example.com");
+    await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "Alex Example");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Role" }), "architect");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Job" }), open.id);
+    await grant();
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledTimes(1);
+    });
+    view.unmount();
+  };
+
+  it("keeps the typed fields when Grant access is refused with 401", async () => {
+    await expireWhileFilled();
+    expect(JSON.parse(window.sessionStorage.getItem(draftKey(me.user.id, "access-grant")) ?? "null")).toMatchObject({
+      text: JSON.stringify({ email: "a@example.com", name: "Alex Example", role: "architect", jobId: open.id }),
+    });
+  });
+
+  it("puts the fields back after sign-in, including the chosen role and job, and says so", async () => {
+    await expireWhileFilled();
+    server.use(jobs());
+    renderWithProviders(
+      <>
+        <BannerRegion />
+        <AccessForm />
+      </>,
+      { me },
+    );
+    await ready();
+    expect(email()).toHaveValue("a@example.com");
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue("Alex Example");
+    expect(screen.getByRole("combobox", { name: "Role" })).toHaveValue("architect");
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: "Job" })).toHaveValue(open.id);
+    });
+    expect(screen.getByText(MESSAGES.draftRestored)).toBeInTheDocument();
+    expect(window.sessionStorage).toHaveLength(0);
   });
 });

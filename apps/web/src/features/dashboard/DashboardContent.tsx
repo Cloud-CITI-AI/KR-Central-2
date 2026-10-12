@@ -1,17 +1,20 @@
 "use client";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState, useSyncExternalStore } from "react";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
+import { hasDraft } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { DashboardHeader } from "./DashboardHeader";
 import { JobGrid } from "./JobGrid";
 import { archivedText, dashboardFailureText } from "./messages";
+import { newJobDraftKey } from "./newJobDraft";
 import { SummaryChips } from "./SummaryChips";
 import { useJobFacets, useJobList } from "./queries";
 import { useDashboardParams } from "./useDashboardParams";
 import styles from "./Dashboard.module.css";
 
 const NEW_JOB_BUTTON_ID = "new-job-button";
+const subscribeNothing = () => () => undefined;
 
 // Both forms validate with the contract's schemas (Zod): loaded on demand, they stay out of the dashboard's first load (FE-9).
 const NewJobForm = lazy(() => import("./NewJobForm").then((module) => ({ default: module.NewJobForm })));
@@ -30,9 +33,21 @@ export function DashboardContent() {
         failed.every((query) => query.data !== undefined),
       )
     : null;
-  const { capabilities } = useSession();
+  const { capabilities, user } = useSession();
   const canCreate = capabilities.includes("jobs.create");
   const [creating, setCreating] = useState(false);
+  // Back from sign-in with a NEW JOB form that was being filled in: open it, so it can take its fields back (§3.1, §15). The
+  // server renders without knowing what this tab has kept, so the draft is looked for only in the browser, once.
+  const kept = useSyncExternalStore(
+    subscribeNothing,
+    () => canCreate && hasDraft(newJobDraftKey(user.id)),
+    () => false,
+  );
+  const [reopened, setReopened] = useState(false);
+  if (kept && !reopened) {
+    setReopened(true);
+    setCreating(true);
+  }
   return (
     <>
       <div className={styles.dash}>

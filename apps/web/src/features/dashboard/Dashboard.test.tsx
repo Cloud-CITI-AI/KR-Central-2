@@ -3,6 +3,7 @@ import { configure, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse } from "msw";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { BannerRegion } from "@/components/ui/BannerRegion";
+import { draftKey, persistDrafts, registerDraft } from "@/lib/api";
 import { expectNoAxeViolations } from "@/test/axe";
 import { syntheticMe } from "@/test/fixtures";
 import { handlerFor, mockApi, mockProblem } from "@/test/msw/handlers";
@@ -114,5 +115,34 @@ describe("Dashboard load failures", () => {
       expect(failureNotices()).toHaveLength(0);
     });
     expect(within(document.body).queryByText(/Request ID/)).not.toBeInTheDocument();
+  });
+});
+
+describe("Dashboard back from sign-in with a NEW JOB form in progress (PRODUCT_SPEC 3.1, 15)", () => {
+  it("opens the form so it can take its fields back, and keeps it closed when nothing was kept", async () => {
+    const me = syntheticMe("staff");
+    server.use(mockApi("getMe", me));
+    window.sessionStorage.clear();
+    const stop = registerDraft(draftKey(me.user.id, "new-job"), () => ({
+      text: JSON.stringify({ jobNumber: "S-0042", address: "", clientName: "", subdivisionType: "" }),
+      base: "",
+    }));
+    persistDrafts();
+    stop();
+    renderWithProviders(<Dashboard />, { me });
+    expect(await screen.findByRole("textbox", { name: "Job number" })).toHaveValue("S-0042");
+    expect(screen.getByRole("button", { name: "New job" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("does not open the form for a draft of another person", async () => {
+    const me = syntheticMe("staff");
+    server.use(mockApi("getMe", me));
+    window.sessionStorage.clear();
+    const stop = registerDraft(draftKey("someone-else", "new-job"), () => ({ text: "{}", base: "" }));
+    persistDrafts();
+    stop();
+    renderWithProviders(<Dashboard />, { me });
+    expect(await screen.findByRole("button", { name: "New job" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("textbox", { name: "Job number" })).toBeNull();
   });
 });

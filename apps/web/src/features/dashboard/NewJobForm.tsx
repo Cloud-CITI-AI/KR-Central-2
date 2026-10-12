@@ -8,9 +8,12 @@ import type { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { api, ApiProblem, queryKeys } from "@/lib/api";
-import { saveFailedMessage } from "@/lib/messages";
+import { api, ApiProblem, decodeFields, encodeFields, formFields, queryKeys, useDraft } from "@/lib/api";
+import { useBanners } from "@/lib/banner/BannerProvider";
+import { MESSAGES, saveFailedMessage } from "@/lib/messages";
+import { useSession } from "@/lib/session";
 import { NEW_JOB_MESSAGES, duplicateJobText, saveFailedJobText } from "./messages";
+import { newJobDraftKey } from "./newJobDraft";
 import styles from "./NewJobForm.module.css";
 
 export interface NewJobFormProps {
@@ -19,6 +22,7 @@ export interface NewJobFormProps {
 
 type CreateJobBody = z.output<typeof CreateJobRequest>;
 type Field = "jobNumber" | "address" | "subdivisionType";
+const TYPED_FIELDS = ["jobNumber", "address", "clientName", "subdivisionType"] as const;
 
 /** The inline NEW JOB form of the dashboard header (§6, prototype `form.newjob`): creates the job, then opens it. */
 export function NewJobForm({ onCancel }: NewJobFormProps) {
@@ -26,6 +30,27 @@ export function NewJobForm({ onCancel }: NewJobFormProps) {
   const queryClient = useQueryClient();
   const form = useRef<HTMLFormElement>(null);
   const [error, setError] = useState("");
+
+  // What was typed is kept when the session ends (an idle form is found out by the dashboard's refresh) and is put back after
+  // sign-in (§3.1, §15). The fields are uncontrolled, so they are read from and written to the form itself.
+  const { user } = useSession();
+  const banners = useBanners();
+  useDraft(
+    newJobDraftKey(user.id),
+    () => {
+      const fields = form.current ? formFields(form.current, TYPED_FIELDS) : null;
+      return fields && Object.values(fields).some((value) => value.trim() !== "") ? encodeFields(fields) : null;
+    },
+    (stored) => {
+      const fields = decodeFields(stored, TYPED_FIELDS);
+      if (!fields || !form.current) return;
+      for (const name of TYPED_FIELDS) {
+        const control = form.current.elements.namedItem(name);
+        if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) control.value = fields[name];
+      }
+      banners.show("draft-restored", MESSAGES.draftRestored);
+    },
+  );
 
   const focus = (name: Field) => {
     const control = form.current?.elements.namedItem(name);

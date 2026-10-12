@@ -7,9 +7,10 @@ import type { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { api, ApiProblem, queryKeys } from "@/lib/api";
+import { api, ApiProblem, decodeFields, draftKey, encodeFields, queryKeys, useDraft } from "@/lib/api";
+import { useBanners } from "@/lib/banner/BannerProvider";
 import { useSession } from "@/lib/session";
-import { saveFailedMessage } from "@/lib/messages";
+import { MESSAGES, saveFailedMessage } from "@/lib/messages";
 import { ACCESS_MESSAGES, ROLE_OPTIONS, addedText, duplicateText, saveFailedText } from "./messages";
 import { useJobChoices } from "./queries";
 import styles from "./AccessForm.module.css";
@@ -20,7 +21,7 @@ type Notice = { readonly kind: "ok" | "error"; readonly text: string } | null;
 /** The grant form (it loads the job picker itself): email, optional name, role, job (grouped In progress / Complete) and GRANT ACCESS (§6). */
 export function AccessForm() {
   const { choices: jobs } = useJobChoices();
-  const { features } = useSession();
+  const { features, user } = useSession();
   const queryClient = useQueryClient();
   const emailInput = useRef<HTMLInputElement>(null);
   const jobSelect = useRef<HTMLSelectElement>(null);
@@ -29,6 +30,23 @@ export function AccessForm() {
   const [role, setRole] = useState<GrantBody["role"]>("client");
   const [jobId, setJobId] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
+
+  // What was typed is kept when the session ends and put back after sign-in (§3.1, §15). Nothing to keep until the email or
+  // name has text: the role and job alone are only the form's choices.
+  const banners = useBanners();
+  useDraft(
+    draftKey(user.id, "access-grant"),
+    () => (email.trim() || name.trim() ? encodeFields({ email, name, role, jobId }) : null),
+    (stored) => {
+      const fields = decodeFields(stored, ["email", "name", "role", "jobId"]);
+      if (!fields) return;
+      setEmail(fields.email);
+      setName(fields.name);
+      setRole(fields.role === "architect" ? "architect" : "client");
+      setJobId(fields.jobId);
+      banners.show("draft-restored", MESSAGES.draftRestored);
+    },
+  );
   const jobNumberOf = (id: string) => jobs.find((job) => job.id === id)?.jobNumber ?? "that job";
 
   const grant = useMutation({

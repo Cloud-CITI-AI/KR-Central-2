@@ -3,10 +3,14 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
-import { queryKeys } from "@/lib/api";
+import { draftKey, queryKeys } from "@/lib/api";
+import { MESSAGES } from "@/lib/messages";
+import { navigation } from "@/lib/navigation";
+import { syntheticMe } from "@/test/fixtures";
 import { expectNoAxeViolations } from "@/test/axe";
 import { handlerFor, mockOffline, mockProblem, mockRateLimited } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
+import { BannerRegion } from "@/components/ui/BannerRegion";
 import { renderWithProviders } from "@/test/render";
 import { NewJobForm } from "./NewJobForm";
 import { pushed, setTestUrl } from "./test-router";
@@ -161,5 +165,63 @@ describe("NewJobForm", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(cancelled).toBe(1);
+  });
+});
+
+describe("NewJobForm when the session ends (PRODUCT_SPEC 3.1, 15)", () => {
+  const me = syntheticMe("staff");
+  const expireWhileFilled = async () => {
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
+    window.sessionStorage.clear();
+    setTestUrl("/");
+    server.use(mockProblem("createJob", 401, PROBLEM_TYPES.unauthenticated));
+    const view = renderWithProviders(<NewJobForm onCancel={() => undefined} />, { me });
+    await fill({ number: "S-0042", address: "5 Synthetic Way", client: "Example Client", type: "Freehold" });
+    await create();
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledTimes(1);
+    });
+    view.unmount();
+  };
+
+  it("keeps the typed fields when a request is refused with 401", async () => {
+    await expireWhileFilled();
+    expect(JSON.parse(window.sessionStorage.getItem(draftKey(me.user.id, "new-job")) ?? "null")).toMatchObject({
+      text: JSON.stringify({
+        jobNumber: "S-0042",
+        address: "5 Synthetic Way",
+        clientName: "Example Client",
+        subdivisionType: "Freehold",
+      }),
+    });
+  });
+
+  it("puts the fields back after sign-in and says so", async () => {
+    await expireWhileFilled();
+    renderWithProviders(
+      <>
+        <BannerRegion />
+        <NewJobForm onCancel={() => undefined} />
+      </>,
+      { me },
+    );
+    expect(screen.getByRole("textbox", { name: "Job number" })).toHaveValue("S-0042");
+    expect(screen.getByRole("textbox", { name: "Address" })).toHaveValue("5 Synthetic Way");
+    expect(screen.getByRole("textbox", { name: "Client (optional)" })).toHaveValue("Example Client");
+    expect(screen.getByRole("combobox", { name: "Subdivision type" })).toHaveValue("Freehold");
+    expect(screen.getByText(MESSAGES.draftRestored)).toBeInTheDocument();
+    expect(window.sessionStorage).toHaveLength(0);
+  });
+
+  it("keeps nothing for an empty form", async () => {
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
+    window.sessionStorage.clear();
+    setTestUrl("/");
+    server.use(mockProblem("createJob", 401, PROBLEM_TYPES.unauthenticated));
+    renderWithProviders(<NewJobForm onCancel={() => undefined} />, { me });
+    const { persistDrafts } = await import("@/lib/api");
+    persistDrafts();
+    expect(assign).not.toHaveBeenCalled();
+    expect(window.sessionStorage).toHaveLength(0);
   });
 });
