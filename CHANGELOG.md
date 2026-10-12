@@ -21,6 +21,7 @@ Releases are prepared by release-please from Conventional Commits.
 
 ### Changed
 
+- Backup: the `backup` cron connects as the new read-only `tracker_backup` role through `BACKUP_DATABASE_URL`; only the `migrate` service holds `MIGRATION_DATABASE_URL` (ADR-0008). Re-run the database bootstrap with `TRACKER_BACKUP_PASSWORD` to create the role before deploying.
 - Deploys are called from the release workflow after images are attested, run services in order (clamav → migrate → api → worker → web → backup) and verify attestations of private GHCR images.
 - Schema: OIDC flows are bound to the browser (`auth_flows.browser_binding_hash`), evidence and source files are constrained to their job, job numbers are checked (R15), sessions record `acrs`, files record `scan_attempts`.
 - API config: spec rate limits and 100 KB JSON body limit, `HOST` (`::`), `TRUST_PROXY_HOPS` default 1, identity-provider host pinned in staging/production, MFA evidence via `amr` or `acrs`.
@@ -29,6 +30,10 @@ Releases are prepared by release-please from Conventional Commits.
 
 ### Fixed
 
+- Sign-in: a guest whose identity provider did not verify the email (`xms_edov=false`) can no longer reach a job through an access grant added after their first sign-in, or through a grant bound while the email was verified. Grants bind only to accounts whose latest sign-in was verified (`users.email_verified`, migration 0002); an unverified sign-in of an account holding grants is refused and its sessions ended.
+- Admin sign-in with `ADMIN_MFA_EVIDENCE=acrs` now asks Entra for the authentication context (`claims` on the authorize request), so the ID token carries `acrs` and admins pass the MFA gate.
+- Configuration: the api, worker and ops refuse to start in production without an explicit `APP_ENV` (it used to default to `local`, switching every guardrail off), and in staging/production refuse `.env.example` placeholder secrets and `REQUIRE_MFA_FOR_ADMIN=false`. An empty optional variable (a pasted `.env.example`) now counts as unset instead of failing startup.
+- Database: `tracker_app` can only read `tracker.schema_migrations` (ADR-0007).
 - Conformance Notification: an upload to 4.2 starts its conformance read once the scan passes (or at once when scanning is disabled); the first-page readers no longer apply the 60-page cap.
 - Local stack (`docker compose --profile stack up`): the S3 mock has a health check and `migrate` waits for it, so a cold start no longer fails with `ECONNREFUSED` on the pre-migration backup.
 - Job edits no longer get a false 412 ("This item was changed by someone else") after another person ticks, decides or marks paid a checkpoint or edits a condition: the job's `version` now versions only the job's own fields, and checkpoint and condition writes only move its updated time.
