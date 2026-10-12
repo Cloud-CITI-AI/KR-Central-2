@@ -23,6 +23,7 @@ describe("Jobbar", () => {
     server.use(mockApi("listJobs", jobPage([syntheticCard(other), syntheticCard(job), syntheticCard(done, true)])));
     const { container } = renderTracker(<Jobbar job={job} onSaveAsPdf={() => undefined} />);
     const picker = screen.getByRole("combobox", { name: "Job" });
+    await userEvent.hover(picker);
     await waitFor(() => {
       expect(within(picker).getAllByRole("option")).toHaveLength(3);
     });
@@ -47,8 +48,31 @@ describe("Jobbar", () => {
       }),
     );
     renderTracker(<Jobbar job={job} onSaveAsPdf={() => undefined} />);
+    await userEvent.click(screen.getByRole("combobox", { name: "Job" }));
     expect(await screen.findByRole("option", { name: (name) => name.includes(second.jobNumber) })).toBeInTheDocument();
     expect(cursors).toEqual([null, "next-1"]);
+  });
+
+  it("asks the API for no jobs until the picker is reached for, and only the open job is listed before", async () => {
+    const job = syntheticJob();
+    const requests: string[] = [];
+    server.use(
+      handlerFor("listJobs", ({ request }) => {
+        requests.push(request.url);
+        return HttpResponse.json(jobPage([syntheticCard(job)]));
+      }),
+    );
+    renderTracker(<Jobbar job={job} onSaveAsPdf={() => undefined} />);
+    const picker = screen.getByRole("combobox", { name: "Job" });
+    expect(within(picker).getAllByRole("option")).toHaveLength(1);
+    await screen.findByRole("link", { name: "Dashboard" });
+    expect(requests).toEqual([]);
+    await userEvent.hover(picker);
+    await waitFor(() => {
+      expect(requests).toHaveLength(1);
+    });
+    await userEvent.click(picker);
+    expect(requests).toHaveLength(1);
   });
 
   it("links to the dashboard and saves as PDF with the spec's title", async () => {

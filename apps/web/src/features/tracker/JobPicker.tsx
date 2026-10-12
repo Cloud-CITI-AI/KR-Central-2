@@ -2,7 +2,7 @@
 import type { JobCard, JobDetail } from "@kr/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useId } from "react";
+import { useId, useState } from "react";
 import { Select } from "@/components/ui/Select";
 import { api, queryKeys } from "@/lib/api";
 import { groupPickerJobs } from "./pickerGroups";
@@ -30,13 +30,22 @@ async function fetchAllJobs(signal: AbortSignal): Promise<JobCard[]> {
   return jobs;
 }
 
-/** Label "JOB" and the job picker (§4, §5.1): choosing a job opens its tracker. */
+/**
+ * Label "JOB" and the job picker (§4, §5.1): choosing a job opens its tracker. Until the person reaches for the picker it
+ * shows only the open job and asks the API for nothing; the list is fetched the first time they hover, focus, click or
+ * type into it (hovering gives the pages a head start on the click).
+ */
 export function JobPicker({ job }: JobPickerProps) {
   const router = useRouter();
   const selectId = useId();
+  const [wanted, setWanted] = useState(false);
+  const want = () => {
+    setWanted(true);
+  };
   const jobs = useQuery({
     queryKey: queryKeys.jobs.list({ picker: true }),
     queryFn: ({ signal }) => fetchAllJobs(signal),
+    enabled: wanted,
     staleTime: 60_000,
     refetchInterval: false,
     refetchOnWindowFocus: false,
@@ -51,6 +60,10 @@ export function JobPicker({ job }: JobPickerProps) {
         id={selectId}
         className={styles.picker}
         value={job.id}
+        onPointerEnter={want}
+        onFocus={want}
+        onPointerDown={want}
+        onKeyDown={want}
         onChange={(event) => {
           if (event.target.value !== job.id) router.push(`/jobs/${event.target.value}`);
         }}
