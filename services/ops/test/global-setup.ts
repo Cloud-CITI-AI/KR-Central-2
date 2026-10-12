@@ -1,5 +1,11 @@
 import { bootstrapDatabase, createPool } from "@kr/db";
-import { TEST_APP_PASSWORD, TEST_MIGRATOR_PASSWORD, startTestDatabase, type TestDatabase } from "@kr/db/testing";
+import {
+  TEST_APP_PASSWORD,
+  TEST_BACKUP_PASSWORD,
+  TEST_MIGRATOR_PASSWORD,
+  startTestDatabase,
+  type TestDatabase,
+} from "@kr/db/testing";
 import type { TestProject } from "vitest/node";
 import { BARE_TEMPLATE } from "./constants.js";
 
@@ -25,9 +31,11 @@ export async function setup(project: TestProject): Promise<void> {
     superuserUrl: bareUrl.toString(),
     migratorPassword: TEST_MIGRATOR_PASSWORD,
     appPassword: TEST_APP_PASSWORD,
+    backupPassword: TEST_BACKUP_PASSWORD,
   });
   project.provide("databaseUrl", db.appUrl);
   project.provide("migratorDatabaseUrl", db.migratorUrl);
+  project.provide("backupDatabaseUrl", db.backupUrl);
   project.provide("superuserDatabaseUrl", db.superuserUrl);
 }
 
@@ -39,6 +47,7 @@ declare module "vitest" {
   export interface ProvidedContext {
     databaseUrl: string;
     migratorDatabaseUrl: string;
+    backupDatabaseUrl: string;
     superuserDatabaseUrl: string;
   }
 }

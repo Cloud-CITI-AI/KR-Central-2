@@ -53,6 +53,45 @@ describe("schema (integration, real Postgres 17)", () => {
     ).rejects.toThrow(/permission denied/);
   });
 
+  it("gives the backup role SELECT and nothing else, now and on tables created later (ADR-0008)", async () => {
+    const withClient = async <T>(url: string, fn: (c: pg.Client) => Promise<T>): Promise<T> => {
+      const c = new pg.Client({ connectionString: url });
+      await c.connect();
+      try {
+        return await fn(c);
+      } finally {
+        await c.end();
+      }
+    };
+    await withClient(inject("backupDatabaseUrl"), async (backup) => {
+      const extra = await backup.query(
+        "SELECT table_name, privilege_type FROM information_schema.role_table_grants WHERE grantee = 'tracker_backup' AND table_schema = 'tracker' AND privilege_type <> 'SELECT'",
+      );
+      expect(extra.rows).toEqual([]);
+      expect((await backup.query("SELECT count(*)::int AS n FROM audit_events")).rows[0]).toBeDefined();
+      expect((await backup.query("SELECT count(*)::int AS n FROM schema_migrations")).rows[0]?.n).toBeGreaterThan(0);
+      expect((await backup.query("SHOW default_transaction_read_only")).rows[0]?.default_transaction_read_only).toBe(
+        "on",
+      );
+      await expect(backup.query("DELETE FROM audit_events")).rejects.toThrow(/permission denied|read-only/);
+      await expect(backup.query("DELETE FROM schema_migrations")).rejects.toThrow(/permission denied|read-only/);
+      await expect(backup.query("CREATE TABLE backup_not_allowed (x int)")).rejects.toThrow(
+        /permission denied|read-only/,
+      );
+    });
+    await withClient(inject("migratorDatabaseUrl"), (migrator) =>
+      migrator.query("CREATE TABLE later_table (id int PRIMARY KEY)"),
+    );
+    try {
+      await withClient(inject("backupDatabaseUrl"), async (backup) => {
+        expect((await backup.query("SELECT count(*)::int AS n FROM later_table")).rowCount).toBe(1);
+        await expect(backup.query("INSERT INTO later_table VALUES (1)")).rejects.toThrow(/permission denied|read-only/);
+      });
+    } finally {
+      await withClient(inject("migratorDatabaseUrl"), (migrator) => migrator.query("DROP TABLE later_table"));
+    }
+  });
+
   it("denies DDL to the app role (DB-6)", async () => {
     await expect(sql`CREATE TABLE not_allowed (x int)`.execute(db)).rejects.toThrow(/permission denied/);
   });

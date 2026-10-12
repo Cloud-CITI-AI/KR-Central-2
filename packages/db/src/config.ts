@@ -6,6 +6,7 @@ const BootstrapEnv = z.object({
   SUPERUSER_DATABASE_URL: z.string().min(1),
   TRACKER_MIGRATOR_PASSWORD: z.string().min(16),
   TRACKER_APP_PASSWORD: z.string().min(16),
+  TRACKER_BACKUP_PASSWORD: z.string().min(16),
 });
 
 function parse<T extends z.ZodType>(schema: T, env: NodeJS.ProcessEnv): z.infer<T> {

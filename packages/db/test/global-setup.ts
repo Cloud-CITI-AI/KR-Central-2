@@ -7,6 +7,7 @@ export async function setup(project: TestProject): Promise<void> {
   db = await startTestDatabase();
   project.provide("databaseUrl", db.appUrl);
   project.provide("migratorDatabaseUrl", db.migratorUrl);
+  project.provide("backupDatabaseUrl", db.backupUrl);
 }
 
 export async function teardown(): Promise<void> {
@@ -17,5 +18,6 @@ declare module "vitest" {
   export interface ProvidedContext {
     databaseUrl: string;
     migratorDatabaseUrl: string;
+    backupDatabaseUrl: string;
   }
 }

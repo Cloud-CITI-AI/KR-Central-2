@@ -12,6 +12,7 @@ import { migrate } from "./migrate.js";
 
 export const TEST_MIGRATOR_PASSWORD = "test-migrator-password-not-secret";
 export const TEST_APP_PASSWORD = "test-app-password-not-secret";
+export const TEST_BACKUP_PASSWORD = "test-backup-password-not-secret";
 export const POSTGRES_TEST_IMAGE = "postgres:17-alpine";
 
 export interface TestDatabase {
@@ -19,6 +20,8 @@ export interface TestDatabase {
   readonly appUrl: string;
   /** Connect as tracker_migrator (DDL; use only for privilege tests). */
   readonly migratorUrl: string;
+  /** Connect as tracker_backup (read-only; what the nightly pg_dump uses). */
+  readonly backupUrl: string;
   readonly superuserUrl: string;
   stop(): Promise<void>;
 }
@@ -31,11 +34,20 @@ function withCredentials(url: string, user: string, password: string, database?:
   return u.toString();
 }
 
-async function prepare(superuserUrl: string): Promise<{ appUrl: string; migratorUrl: string }> {
-  await bootstrapDatabase({ superuserUrl, migratorPassword: TEST_MIGRATOR_PASSWORD, appPassword: TEST_APP_PASSWORD });
+async function prepare(superuserUrl: string): Promise<{ appUrl: string; migratorUrl: string; backupUrl: string }> {
+  await bootstrapDatabase({
+    superuserUrl,
+    migratorPassword: TEST_MIGRATOR_PASSWORD,
+    appPassword: TEST_APP_PASSWORD,
+    backupPassword: TEST_BACKUP_PASSWORD,
+  });
   const migratorUrl = withCredentials(superuserUrl, "tracker_migrator", TEST_MIGRATOR_PASSWORD);
   await migrate({ connectionString: migratorUrl });
-  return { appUrl: withCredentials(superuserUrl, "tracker_app", TEST_APP_PASSWORD), migratorUrl };
+  return {
+    appUrl: withCredentials(superuserUrl, "tracker_app", TEST_APP_PASSWORD),
+    migratorUrl,
+    backupUrl: withCredentials(superuserUrl, "tracker_backup", TEST_BACKUP_PASSWORD),
+  };
 }
 
 // Test infrastructure may read the environment directly (exempted from BE-2 in eslint.config.mjs).
@@ -55,10 +67,11 @@ export async function startTestDatabase(): Promise<TestDatabase> {
       decodeURIComponent(new URL(adminUrl).password),
       dbName,
     );
-    const { appUrl, migratorUrl } = await prepare(superuserUrl);
+    const { appUrl, migratorUrl, backupUrl } = await prepare(superuserUrl);
     return {
       appUrl,
       migratorUrl,
+      backupUrl,
       superuserUrl,
       async stop() {
         const c = new pg.Client({ connectionString: adminUrl });
@@ -71,10 +84,11 @@ export async function startTestDatabase(): Promise<TestDatabase> {
   const { PostgreSqlContainer } = await import("@testcontainers/postgresql");
   const container = await new PostgreSqlContainer(POSTGRES_TEST_IMAGE).withDatabase("tracker").start();
   const superuserUrl = container.getConnectionUri();
-  const { appUrl, migratorUrl } = await prepare(superuserUrl);
+  const { appUrl, migratorUrl, backupUrl } = await prepare(superuserUrl);
   return {
     appUrl,
     migratorUrl,
+    backupUrl,
     superuserUrl,
     async stop() {
       await container.stop();

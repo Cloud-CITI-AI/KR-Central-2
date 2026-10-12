@@ -1,4 +1,4 @@
-/** `node dist/bootstrap-cli.js` — one-off role/schema bootstrap by an operator (see docs/runbooks/database.md). */
+/** `node dist/bootstrap-cli.js` — one-off role/schema bootstrap (migrator, app and backup roles) by an operator (see docs/runbooks/database.md). */
 import { bootstrapDatabase } from "./bootstrap.js";
 import { loadBootstrapEnv } from "./config.js";
 
@@ -7,6 +7,7 @@ bootstrapDatabase({
   superuserUrl: env.SUPERUSER_DATABASE_URL,
   migratorPassword: env.TRACKER_MIGRATOR_PASSWORD,
   appPassword: env.TRACKER_APP_PASSWORD,
+  backupPassword: env.TRACKER_BACKUP_PASSWORD,
 })
   .then(() => process.stdout.write("bootstrap complete\n"))
   .catch((err: unknown) => {
