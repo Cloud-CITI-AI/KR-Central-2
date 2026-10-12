@@ -40,6 +40,19 @@ describe("schema (integration, real Postgres 17)", () => {
     await expect(sql`DELETE FROM audit_events`.execute(db)).rejects.toThrow(/permission denied/);
   });
 
+  it("lets the app role only read the migration ledger (ADR-0007)", async () => {
+    const grants = await sql<{ privilege_type: string }>`
+      SELECT privilege_type FROM information_schema.role_table_grants
+      WHERE grantee = 'tracker_app' AND table_schema = 'tracker' AND table_name = 'schema_migrations'
+      ORDER BY privilege_type`.execute(db);
+    expect(grants.rows.map((r) => r.privilege_type)).toEqual(["SELECT"]);
+    await expect(sql`DELETE FROM schema_migrations`.execute(db)).rejects.toThrow(/permission denied/);
+    await expect(sql`UPDATE schema_migrations SET checksum = 'x'`.execute(db)).rejects.toThrow(/permission denied/);
+    await expect(
+      sql`INSERT INTO schema_migrations (version, name, checksum) VALUES ('9999', 'x', 'x')`.execute(db),
+    ).rejects.toThrow(/permission denied/);
+  });
+
   it("denies DDL to the app role (DB-6)", async () => {
     await expect(sql`CREATE TABLE not_allowed (x int)`.execute(db)).rejects.toThrow(/permission denied/);
   });

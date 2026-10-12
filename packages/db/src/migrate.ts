@@ -66,6 +66,9 @@ export async function migrate(opts: MigrateOptions): Promise<string[]> {
       `CREATE TABLE IF NOT EXISTS tracker.schema_migrations (
          version text PRIMARY KEY, name text NOT NULL, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())`,
     );
+    // The default privileges of bootstrap.ts give tracker_app DML on every new table; the ledger is the migrator's alone
+    // (ADR-0007: the app role may at most read it). Idempotent, so it also corrects a ledger created before this line.
+    await client.query("REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON tracker.schema_migrations FROM tracker_app");
     const done = new Map(
       (
         await client.query<{ version: string; checksum: string }>(
