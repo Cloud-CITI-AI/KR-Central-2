@@ -8,8 +8,13 @@
 #   docker compose --profile stack up --build        # web on http://localhost:3000, api on :8080
 #   docker compose --profile stack down              # add -v to drop the database and signature volumes
 # Values come from .env.example (fake). Only the host names change (localhost becomes the service name) and NODE_ENV,
-# PORT and HOST are set per service. Sign-in needs a real Entra tenant or the workspace mock IdP running on the host
-# (no mock IdP is baked into any image); the stack proves the images start, migrate and talk to each other.
+# PORT and HOST are set per service.
+#
+# Sign-in uses the `mock-idp` service (packages/mock-idp, synthetic users, never built by the release workflow). The API
+# (inside the compose network) and your browser (on the host) must use the SAME authority URL, because the API puts the
+# authority's endpoints into the redirect it sends the browser to and checks the token issuer against it. That URL is
+# http://mock-idp.localhost:4010: the service has this network alias, and browsers resolve *.localhost to 127.0.0.1 (if
+# yours does not, add `127.0.0.1 mock-idp.localhost` to your hosts file). Open http://localhost:3000 and pick a user.
 # Docker hosts whose kernel has no IPv6 cannot bind `::`: start with KR_STACK_HOST=0.0.0.0 in that case (it reaches
 # api, worker, web, migrate and clamav, which reads it as CLAMD_TCP_ADDR).
 #
@@ -122,6 +127,28 @@ services:
     depends_on:
       bootstrap: { condition: service_completed_successfully }
       s3: { condition: service_healthy }
+  mock-idp:
+    profiles: [stack]
+    build: { context: ., dockerfile: packages/mock-idp/Dockerfile }
+    image: kr-mock-idp:local
+    restart: "no"
+    # Tenant, client id and secret come from .env.example, like the API's, so the two always agree.
+    env_file: .env.example
+    environment:
+      MOCK_IDP_PUBLIC_URL: http://mock-idp.localhost:4010
+    ports: ["4010:4010"]
+    networks:
+      default:
+        aliases: [mock-idp.localhost]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:4010/$${ENTRA_TENANT_ID}/v2.0/.well-known/openid-configuration > /dev/null",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 30
   api:
     <<: *app-service
     profiles: [stack]
@@ -130,6 +157,8 @@ services:
     environment:
       <<: *app-environment
       PORT: "8080"
+      # The same URL the browser uses (see the top of this file).
+      ENTRA_AUTHORITY_HOST: http://mock-idp.localhost:4010
     ports: ["8080:8080"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz"]
@@ -138,6 +167,7 @@ services:
       retries: 30
     depends_on:
       migrate: { condition: service_healthy }
+      mock-idp: { condition: service_healthy }
   worker:
     <<: *app-service
     profiles: [stack]

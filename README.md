@@ -4,15 +4,15 @@ Web application for KR Surveys (Western Australia) to track subdivision jobs thr
 shared with clients and architects. It replaces the single-file prototype with a Railway-hosted, Postgres-backed
 system that signs users in with Microsoft Entra ID (KR tenant; the first eligible user becomes the administrator).
 
-| Part      | Path                 | What it is                                                                                       |
-| --------- | -------------------- | ------------------------------------------------------------------------------------------------ |
-| Web       | `apps/web`           | Next.js 16 (App Router) UI + same-origin proxy to the API (`/api/v1/*`)                          |
-| API       | `services/api`       | Fastify 5 modular monolith (auth, jobs, checkpoints, files, conditions, notes, access, audit)    |
-| Worker    | `services/worker`    | Background jobs: malware scan, Decision Letter extraction, conformed-date reading, email parsing |
-| Workflow  | `packages/workflow`  | The 46 checkpoints as typed data + pure rules (progress, next actions, alerts, dates)            |
-| Contracts | `packages/contracts` | zod schemas, route registry, permissions → `openapi.yaml`                                        |
-| Database  | `packages/db`        | SQL migrations, Kysely types, migration runner, operations queue, audit helper                   |
-| Others    | `packages/*`         | design tokens, config, logger, telemetry, storage (S3), document parsing, mock IdP (tests)       |
+| Part      | Path                 | What it is                                                                                                   |
+| --------- | -------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Web       | `apps/web`           | Next.js 16 (App Router) UI + same-origin proxy to the API (`/api/v1/*`)                                      |
+| API       | `services/api`       | Fastify 5 modular monolith (auth, jobs, checkpoints, files, conditions, notes, access, audit)                |
+| Worker    | `services/worker`    | Background jobs: malware scan, Decision Letter extraction, conformed-date reading, email parsing             |
+| Workflow  | `packages/workflow`  | The 46 checkpoints as typed data + pure rules (progress, next actions, alerts, dates)                        |
+| Contracts | `packages/contracts` | zod schemas, route registry, permissions → `openapi.yaml`                                                    |
+| Database  | `packages/db`        | SQL migrations, Kysely types, migration runner, operations queue, audit helper                               |
+| Others    | `packages/*`         | design tokens, config, logger, telemetry, storage (S3), document parsing, mock IdP (tests and local sign-in) |
 
 ## Start here
 
@@ -50,6 +50,21 @@ already set in your shell wins over the file. Sign-in needs a real Entra tenant 
 
 A Docker host without IPv6 (no `/proc/net/if_inet6`, some sandboxes and CI containers) cannot bind `::`: run
 `KR_STACK_HOST=0.0.0.0 pnpm db:up` (ClamAV) and set `HOST=0.0.0.0` in `.env` (api and worker).
+
+### Signing in locally
+
+Sign-in needs Microsoft Entra ID. Without a tenant use the mock IdP (`packages/mock-idp`): it signs in four synthetic people
+(Ada First, the first member to sign in and so the admin, Sam Staff, and the guests Cleo Client and Archie Architect)
+without a password and is never deployed.
+
+- **With `pnpm dev`:** in a second terminal run `pnpm --filter @kr/mock-idp start` (it listens on `127.0.0.1:4010` and reads
+  the tenant, client and secret from `.env`, so they match the API's), then start the apps pointed at it:
+  `ENTRA_AUTHORITY_HOST=http://127.0.0.1:4010 pnpm dev`. Open <http://localhost:3000> and choose a person.
+- **With the container stack** (the production images built from this checkout, the `mock-idp` service included):
+  `docker compose --profile stack up --build` (prefix `KR_STACK_HOST=0.0.0.0` on a host without IPv6), then open
+  <http://localhost:3000>. The API and your browser must use one authority URL, so the stack uses
+  `http://mock-idp.localhost:4010`: the service carries that name as a network alias and browsers resolve `*.localhost` to
+  your machine. If yours does not, add `127.0.0.1 mock-idp.localhost` to your hosts file.
 
 Quality gate before every push: `pnpm verify` (lint, typecheck, unit, integration, contract, build).
 End-to-end tests: `pnpm test:e2e` (Playwright; set `E2E_CHROMIUM_PATH` if browsers cannot be downloaded).

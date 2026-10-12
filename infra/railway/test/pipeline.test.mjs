@@ -178,3 +178,22 @@ test("README local development: bootstraps the roles and every dev/db script loa
     /process\.loadEnvFile\(new URL\("\.\.\/\.\.\/\.env", import\.meta\.url\)\)/,
   );
 });
+
+// ---- mock IdP launcher and compose service (BUG 7) ------------------------------------------------------------------
+
+test("the local stack can sign in: the mock IdP has a launcher and a compose service on the authority URL the API uses", () => {
+  const pkg = JSON.parse(read("packages/mock-idp/package.json"));
+  assert.equal(pkg.bin["kr-mock-idp"], "./dist/cli.js");
+  assert.match(pkg.scripts.start, /--env-file-if-exists=\.\.\/\.\.\/\.env dist\/cli\.js/);
+  const compose = read("docker-compose.yml");
+  const service = (name) => new RegExp(`^ {2}${name}:\\n((?: {4}.*\\n|\\n)+)`, "m").exec(compose)?.[1] ?? "";
+  const idp = service("mock-idp");
+  assert.match(idp, /dockerfile: packages\/mock-idp\/Dockerfile/);
+  assert.match(idp, /aliases: \[mock-idp\.localhost\]/);
+  assert.match(idp, /MOCK_IDP_PUBLIC_URL: http:\/\/mock-idp\.localhost:4010/);
+  assert.match(idp, /ports: \["4010:4010"\]/);
+  const api = service("api");
+  assert.match(api, /ENTRA_AUTHORITY_HOST: http:\/\/mock-idp\.localhost:4010/);
+  assert.match(api, /mock-idp: \{ condition: service_healthy \}/);
+  assert.ok(existsSync(new URL("packages/mock-idp/Dockerfile", repo)));
+});

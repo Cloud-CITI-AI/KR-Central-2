@@ -34,6 +34,13 @@ export interface MockIdpOptions {
   readonly users: readonly MockUser[];
   /** Listen port (default 0 = any free port). */
   readonly port?: number;
+  /** Listen address (default 127.0.0.1; a container needs 0.0.0.0 to be reachable). */
+  readonly host?: string;
+  /**
+   * The URL browsers and the API use to reach the mock, when that is not `http://127.0.0.1:<port>` (a compose hostname).
+   * It becomes `authorityHost` and the base of the default issuer; both sides must use the same one.
+   */
+  readonly publicUrl?: string;
   /** Issuer URL; default `${authorityHost}/${tenantId}/v2.0` (the shape of Entra's). */
   readonly issuer?: string;
   /** Allowed redirect URIs; when omitted every redirect URI is accepted (mock only). */

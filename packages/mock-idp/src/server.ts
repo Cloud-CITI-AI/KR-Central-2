@@ -85,9 +85,12 @@ export async function startMockIdp(opts: MockIdpOptions): Promise<MockIdp> {
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(opts.port ?? 0, "127.0.0.1", resolve);
+    server.listen(opts.port ?? 0, opts.host ?? "127.0.0.1", resolve);
   });
-  const authorityHost = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const authorityHost = (opts.publicUrl ?? `http://127.0.0.1:${(server.address() as AddressInfo).port}`).replace(
+    /\/+$/,
+    "",
+  );
   const issuer = opts.issuer ?? `${authorityHost}/${opts.tenantId}/v2.0`;
   const mount = new URL(issuer).pathname.replace(/\/$/, "");
 

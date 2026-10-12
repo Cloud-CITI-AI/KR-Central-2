@@ -12,11 +12,15 @@
       "default": "./dist/index.js"
     }
   },
+  "bin": {
+    "kr-mock-idp": "./dist/cli.js"
+  },
   "files": [
     "dist"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "start": "node --env-file-if-exists=../../.env dist/cli.js",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "format": "prettier --write .",
