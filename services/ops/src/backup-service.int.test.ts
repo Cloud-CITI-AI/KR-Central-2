@@ -1,13 +1,16 @@
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createPool } from "@kr/db";
 import type { ObjectStorage } from "@kr/storage";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { silentLog } from "../test/silent-log.js";
-import { opsConfig, pgDump17, startS3Mock, type S3Mock } from "../test/support.js";
+import { backupConfig, createEmptyDatabase, pgDump17, pgRestore17, startS3Mock, type S3Mock } from "../test/support.js";
 import { runBackup } from "./backup-service.js";
 import { loadManifest } from "./manifest.js";
+import { pgEnv } from "./pg-url.js";
 
 const FILES = "tracker-files-test";
 const BACKUPS = "tracker-backups-test";
@@ -21,8 +24,8 @@ let now = new Date("2026-10-09T18:15:00Z");
 
 const run = (over: { pgDump?: string; source?: ObjectStorage } = {}) =>
   runBackup({
-    config: opsConfig(
-      { MIGRATION_DATABASE_URL: inject("migratorDatabaseUrl"), PG_DUMP_PATH: over.pgDump ?? pgDumpPath },
+    config: backupConfig(
+      { BACKUP_DATABASE_URL: inject("backupDatabaseUrl"), PG_DUMP_PATH: over.pgDump ?? pgDumpPath },
       s3,
       BACKUPS,
     ),
@@ -78,6 +81,54 @@ describe("backup against real Postgres 17 and S3 buckets", () => {
       "jobs/job-a/file-2",
       "jobs/job-b/file-3",
     ]);
+  });
+
+  it("dumps as the read-only role, and restoring that dump alone recreates the privileges and default privileges", async () => {
+    // The dump of the first test was taken as tracker_backup (SELECT only, never the migrator). Restore it into an empty
+    // database: whatever tracker_app and tracker_backup may do afterwards comes from the archive, not from bootstrap.
+    const dump = await bytesOf(backups, "db/nightly/20261009T181500Z.dump");
+    const target = await createEmptyDatabase(inject("superuserDatabaseUrl"));
+    const pool = createPool({ connectionString: target.superuserUrl, maxConnections: 1 });
+    try {
+      const env = pgEnv(target.superuserUrl, false);
+      const restore = spawn(await pgRestore17(), ["--no-password", "--exit-on-error", `--dbname=${env.PGDATABASE}`], {
+        env,
+        stdio: ["pipe", "ignore", "pipe"],
+      });
+      let stderr = "";
+      restore.stderr.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      restore.stdin.end(dump);
+      const code = await new Promise<number | null>((resolve) => restore.once("close", resolve));
+      expect(stderr).toBe("");
+      expect(code).toBe(0);
+
+      const can = async (role: string, table: string, privilege: string): Promise<boolean> =>
+        (await pool.query<{ ok: boolean }>("SELECT has_table_privilege($1, $2, $3) AS ok", [role, table, privilege]))
+          .rows[0]!.ok;
+      expect(await can("tracker_app", "tracker.users", "INSERT")).toBe(true);
+      expect(await can("tracker_app", "tracker.audit_events", "INSERT")).toBe(true);
+      expect(await can("tracker_app", "tracker.audit_events", "UPDATE")).toBe(false);
+      expect(await can("tracker_app", "tracker.audit_events", "DELETE")).toBe(false);
+      expect(await can("tracker_app", "tracker.schema_migrations", "SELECT")).toBe(true);
+      expect(await can("tracker_app", "tracker.schema_migrations", "DELETE")).toBe(false);
+      expect(await can("tracker_backup", "tracker.users", "SELECT")).toBe(true);
+      expect(await can("tracker_backup", "tracker.users", "INSERT")).toBe(false);
+
+      const defaults = await pool.query<{ role: string; kind: string; acl: string }>(
+        `SELECT d.defaclrole::regrole::text AS role, d.defaclobjtype AS kind, d.defaclacl::text AS acl
+           FROM pg_default_acl d JOIN pg_namespace n ON n.oid = d.defaclnamespace WHERE n.nspname = 'tracker'`,
+      );
+      const aclOf = (kind: string): string => defaults.rows.find((r) => r.kind === kind)?.acl ?? "";
+      expect(defaults.rows.every((r) => r.role === "tracker_migrator")).toBe(true);
+      expect(aclOf("r")).toContain("tracker_app=arwd");
+      expect(aclOf("r")).toContain("tracker_backup=r/");
+      expect(aclOf("S")).toContain("tracker_backup=r/");
+    } finally {
+      await pool.end();
+      await target.drop();
+    }
   });
 
   it("copies only new objects on the next night and writes a new dump", async () => {

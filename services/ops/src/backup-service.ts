@@ -5,13 +5,13 @@
 import type { Logger } from "@kr/logger";
 import type { ObjectStorage } from "@kr/storage";
 import { DUMP_PREFIXES, runBackupJob, type BackupSummary } from "./backup-job.js";
-import type { OpsConfig } from "./config.js";
+import type { BackupConfig } from "./config.js";
 import type { Clock } from "./migrate-job.js";
 import { copyObjects } from "./object-copy.js";
 import { dumpToStorage } from "./pg-dump.js";
 
 export interface BackupServiceDeps {
-  readonly config: OpsConfig;
+  readonly config: BackupConfig;
   readonly log: Logger;
   /** The files bucket, read only. */
   readonly source: Pick<ObjectStorage, "list" | "get">;
@@ -31,7 +31,7 @@ export function runBackup(deps: BackupServiceDeps): Promise<BackupSummary> {
         storage: backup,
         key,
         pgDumpPath: config.PG_DUMP_PATH,
-        databaseUrl: config.MIGRATION_DATABASE_URL,
+        databaseUrl: config.BACKUP_DATABASE_URL,
         ssl: config.DATABASE_SSL,
       }),
     copyObjects: () =>

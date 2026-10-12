@@ -7,9 +7,9 @@ import { ConfigError } from "@kr/config";
 import { createLogger } from "@kr/logger";
 import { createS3Storage } from "@kr/storage";
 import { runBackup } from "./backup-service.js";
-import { loadOpsConfig, requireSourceBucket } from "./config.js";
+import { loadBackupConfig, requireSourceBucket } from "./config.js";
 
-const config = loadOpsConfig();
+const config = loadBackupConfig();
 const log = createLogger({ service: "kr-ops-backup", env: config.APP_ENV, level: config.LOG_LEVEL });
 
 let sourceBucket;

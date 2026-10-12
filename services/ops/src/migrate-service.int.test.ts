@@ -6,7 +6,7 @@ import { createPool, loadMigrations, MIGRATIONS_DIR, migrate } from "@kr/db";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   createBareDatabase,
-  opsConfig,
+  migrateConfig,
   pgDump17,
   startS3Mock,
   type S3Mock,
@@ -69,7 +69,7 @@ async function start(
   overrides: { PG_DUMP_PATH?: string; migrationsDir?: string; release?: string } = {},
 ) {
   const service = await startMigrateService({
-    config: opsConfig(
+    config: migrateConfig(
       { MIGRATION_DATABASE_URL: db.migratorUrl, PG_DUMP_PATH: overrides.PG_DUMP_PATH ?? pgDumpPath },
       s3,
       BUCKET,

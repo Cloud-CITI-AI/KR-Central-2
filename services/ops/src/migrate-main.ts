@@ -5,10 +5,10 @@
  */
 import { createLogger } from "@kr/logger";
 import { createS3Storage } from "@kr/storage";
-import { loadOpsConfig } from "./config.js";
+import { loadMigrateConfig } from "./config.js";
 import { startMigrateService } from "./migrate-service.js";
 
-const config = loadOpsConfig();
+const config = loadMigrateConfig();
 const log = createLogger({ service: "kr-ops-migrate", env: config.APP_ENV, level: config.LOG_LEVEL });
 const storage = createS3Storage({
   endpoint: config.BACKUP_S3_ENDPOINT,

@@ -5,7 +5,7 @@
 import { migrate } from "@kr/db";
 import type { Logger } from "@kr/logger";
 import type { ObjectStorage } from "@kr/storage";
-import type { OpsConfig } from "./config.js";
+import type { MigrateConfig } from "./config.js";
 import { startHealthServer, type MigrateStatus } from "./health-server.js";
 import { runMigrationJob, type Clock, type MigrateOutcome } from "./migrate-job.js";
 import { dumpToStorage } from "./pg-dump.js";
@@ -13,7 +13,7 @@ import { withSslMode } from "./pg-url.js";
 import { findPendingMigrations } from "./pending.js";
 
 export interface MigrateServiceDeps {
-  readonly config: OpsConfig;
+  readonly config: MigrateConfig;
   readonly log: Logger;
   /** The backup bucket. */
   readonly storage: Pick<ObjectStorage, "put" | "head">;

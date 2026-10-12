@@ -8,7 +8,7 @@ import { createPool } from "@kr/db";
 import { TEST_MIGRATOR_PASSWORD } from "@kr/db/testing";
 import { createS3Storage, type S3Storage } from "@kr/storage";
 import { GenericContainer, Wait, type StartedTestContainer } from "testcontainers";
-import { OpsConfigSchema, type OpsConfig } from "../src/config.js";
+import { BackupConfigSchema, MigrateConfigSchema, type BackupConfig, type MigrateConfig } from "../src/config.js";
 import { BARE_TEMPLATE } from "./constants.js";
 
 export interface ThrowawayDatabase {
@@ -102,21 +102,81 @@ export async function pgDump17(): Promise<string> {
   return path;
 }
 
-/** A parsed OpsConfig for tests: health endpoint on an ephemeral loopback port. */
-export function opsConfig(
-  overrides: Partial<OpsConfig> & { MIGRATION_DATABASE_URL: string; PG_DUMP_PATH: string },
+const commonEnv = (s3: S3Mock, bucket: string) => ({
+  APP_ENV: "local",
+  LOG_LEVEL: "error",
+  BACKUP_S3_ENDPOINT: s3.endpoint,
+  BACKUP_S3_BUCKET: bucket,
+  BACKUP_S3_ACCESS_KEY_ID: S3_TEST_CREDENTIALS.accessKeyId,
+  BACKUP_S3_SECRET_ACCESS_KEY: S3_TEST_CREDENTIALS.secretAccessKey,
+  RELEASE_VERSION: "v1.2.3-test",
+});
+
+/** A parsed migrate-service config for tests: health endpoint on an ephemeral loopback port. */
+export function migrateConfig(
+  overrides: Partial<MigrateConfig> & { MIGRATION_DATABASE_URL: string; PG_DUMP_PATH: string },
   s3: S3Mock,
   bucket: string,
-): OpsConfig {
-  const base = parseConfig(OpsConfigSchema, {
-    APP_ENV: "local",
-    LOG_LEVEL: "error",
+): MigrateConfig {
+  const base = parseConfig(MigrateConfigSchema, {
+    ...commonEnv(s3, bucket),
     MIGRATION_DATABASE_URL: overrides.MIGRATION_DATABASE_URL,
-    BACKUP_S3_ENDPOINT: s3.endpoint,
-    BACKUP_S3_BUCKET: bucket,
-    BACKUP_S3_ACCESS_KEY_ID: S3_TEST_CREDENTIALS.accessKeyId,
-    BACKUP_S3_SECRET_ACCESS_KEY: S3_TEST_CREDENTIALS.secretAccessKey,
-    RELEASE_VERSION: "v1.2.3-test",
   });
   return { ...base, HOST: "127.0.0.1", PORT: 0, ...overrides };
+}
+
+/** A parsed backup-cron config for tests. The database is the read-only tracker_backup role, never the migrator. */
+export function backupConfig(
+  overrides: Partial<BackupConfig> & { BACKUP_DATABASE_URL: string; PG_DUMP_PATH: string },
+  s3: S3Mock,
+  bucket: string,
+): BackupConfig {
+  const base = parseConfig(BackupConfigSchema, {
+    ...commonEnv(s3, bucket),
+    BACKUP_DATABASE_URL: overrides.BACKUP_DATABASE_URL,
+  });
+  return { ...base, HOST: "127.0.0.1", PORT: 0, ...overrides };
+}
+
+/** An empty database (no roles' grants, no schema) on the cluster, to prove what a restore alone recreates. */
+export async function createEmptyDatabase(
+  superuserUrl: string,
+): Promise<{ superuserUrl: string; drop(): Promise<void> }> {
+  const name = `ops_restore_${randomBytes(6).toString("hex")}`;
+  const admin = createPool({ connectionString: superuserUrl, maxConnections: 1 });
+  try {
+    await admin.query(`CREATE DATABASE ${name} TEMPLATE template0`);
+  } finally {
+    await admin.end();
+  }
+  const url = new URL(superuserUrl);
+  url.pathname = `/${name}`;
+  return {
+    superuserUrl: url.toString(),
+    async drop() {
+      const pool = createPool({ connectionString: superuserUrl, maxConnections: 1 });
+      try {
+        await pool.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+      } finally {
+        await pool.end();
+      }
+    },
+  };
+}
+
+/**
+ * A `pg_restore` executable for the tests, the counterpart of pgDump17 (same image, host network). The archive is read
+ * from stdin. TEST_PG_RESTORE_PATH points at a local pg_restore 17 instead.
+ */
+export async function pgRestore17(): Promise<string> {
+  const local = process.env.TEST_PG_RESTORE_PATH;
+  if (local) return local;
+  const dir = await mkdtemp(join(tmpdir(), "kr-ops-pgrestore17-"));
+  const path = join(dir, "pg_restore");
+  await writeFile(
+    path,
+    '#!/bin/sh\nexec docker run --rm -i --network host -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE -e PGCONNECT_TIMEOUT -e PGAPPNAME postgres:17-alpine pg_restore "$@"\n',
+  );
+  await chmod(path, 0o755);
+  return path;
 }
