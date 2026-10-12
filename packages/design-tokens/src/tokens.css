@@ -174,6 +174,46 @@ textarea {
   outline-offset: 2px;
 }
 @media print {
+  /* Print is always the light palette (DESIGN_TOKENS §6: white page): with the backgrounds kept (below) a reader whose OS or saved
+     theme is dark would otherwise get the dark cards, panels and tints on a white sheet. Same selectors as the dark blocks above,
+     later in the file, so these win; the unit test pins them to the light block. */
+  :root:not([data-theme="light"]),
+  :root[data-theme="dark"] {
+    color-scheme: light;
+    --tex: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27240%27 height=%27240%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%27.8%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3CfeColorMatrix values=%270 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .13 0 0 0 0%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E");
+    --field: #f5f5f3;
+    --mark-op: 0.07;
+    --on-bg: #f2f2f0;
+    --on-bg-2: #d6d6d2;
+    --bg: #61625d;
+    --surface: #ffffff;
+    --ink: #303133;
+    --ink-2: #5e5e5e;
+    --ink-3: #686868;
+    --line: #eaeaea;
+    --brand: #141618;
+    --brand-ink: #ffffff;
+    --accent: #d65614;
+    --accent-ink: #b5410e;
+    --accent-soft: #fbe9df;
+    --red-bg: #fce8e6;
+    --red-line: #efbcb6;
+    --red-ink: #9b2c22;
+    --green-bg: #e3f3e5;
+    --green-line: #a8d6b0;
+    --green-ink: #2e6b3a;
+    --grey-bg: #ebeae8;
+    --grey-line: #cfcdc9;
+    --grey-ink: #64635f;
+    --fee: #7a5d00;
+    --fee-soft: #fbf0b8;
+    --item: #1f5f8b;
+    --item-soft: #e1eef7;
+    --claim: #a3410b;
+    --claim-soft: #fde2cf;
+    --shadow: 0 1px 2px rgba(40, 30, 20, 0.06);
+    --on-status: #ffffff;
+  }
   /* Browsers drop backgrounds when printing (and "Save as PDF" has background graphics off by default) unless asked not to: without
      this the dark hero left the white logo and title on white, and the ring, bars, stage tracks, swatches and status tints vanished. */
   *,

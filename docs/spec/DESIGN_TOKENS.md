@@ -128,3 +128,6 @@ track and count (except excluded label), outcome dates stack. Transitions: bar w
 
 `@media print`: white background, no watermark, hide `.no-pdf` elements (buttons, drop zones, access manager, theme/user
 controls), stages expanded, `break-inside: avoid` on cards, outcome box, condition cards.
+
+Print always uses the light palette, whatever the saved theme or the OS setting: backgrounds are kept (`print-color-adjust: exact`), so
+the print block re-declares the light tokens for both dark selectors (a unit test pins them to the `:root` block).

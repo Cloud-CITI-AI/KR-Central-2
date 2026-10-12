@@ -28,6 +28,20 @@ describe("design tokens", () => {
       expect(dark, k).toContain(`${cssVar(k as ColorToken)}: ${v};`);
   });
 
+  it("prints in the light palette whatever the theme (DESIGN_TOKENS §6, white page)", () => {
+    // `print-color-adjust: exact` keeps backgrounds in print, so the dark palette would print as dark blocks on the white sheet unless
+    // the print block re-declares every light token for both dark selectors.
+    const print = css.slice(css.indexOf("@media print {"));
+    const darkSelectors = print.slice(0, print.indexOf("{", print.indexOf("{") + 1));
+    expect(darkSelectors).toContain(':root:not([data-theme="light"])');
+    expect(darkSelectors).toContain(':root[data-theme="dark"]');
+    const light = block(":root {");
+    const declarations = light.split("\n").filter((line) => /^\s+--[\w-]+:/.test(line));
+    expect(declarations.length).toBeGreaterThan(30);
+    for (const line of declarations) expect(print, line.trim()).toContain(line.trim());
+    expect(print).toContain("color-scheme: light;");
+  });
+
   describe("WCAG 2.2 AA text contrast (1.4.3, known defect D3)", () => {
     const channel = (hex: string, at: number): number => {
       const c = parseInt(hex.slice(at, at + 2), 16) / 255;

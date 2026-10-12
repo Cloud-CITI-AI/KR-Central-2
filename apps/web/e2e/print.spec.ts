@@ -88,3 +88,45 @@ test("print drops the dashboard's filters and search and keeps the job cards", a
   await expect(page.getByRole("searchbox", { name: "Search jobs" })).toBeHidden();
   await expect(page.getByRole("article", { name: job.jobNumber })).toBeVisible();
 });
+
+// With backgrounds kept in print, the dark palette (the default for anyone whose OS is dark, PRODUCT_SPEC §12) would print as
+// dark cards, panels and tints on the white sheet. Print is always the light palette, whether the dark theme is chosen in the
+// app (`kr-theme`) or comes from the OS.
+for (const source of ["the saved theme", "the OS setting"] as const) {
+  test(`print is white with dark text when dark comes from ${source}`, async ({ page, signInAs }) => {
+    const staff = await signInAs(STAFF);
+    const job = await createJob(staff);
+    await patchCheckpoint(staff, job.id, "i2_0", { status: "completed" });
+    if (source === "the saved theme") {
+      await page.addInitScript(() => {
+        localStorage.setItem("kr-theme", "dark");
+      });
+    } else await page.emulateMedia({ colorScheme: "dark" });
+    await openTracker(page, job.id);
+
+    const surface = page.locator('[class*="_track"]').first(); // a card surface (var(--surface))
+    const tint = page.locator('[class*="_bar"][data-state="not_completed"]').first(); // a status tint (var(--red-bg))
+    const background = (locator: Locator): Promise<string> =>
+      locator.evaluate((el) => getComputedStyle(el).backgroundColor);
+    // Sanity: on screen both really are dark, so the print assertions below can fail.
+    expect(luminance(await background(surface)), "the card surface on screen").toBeLessThan(0.1);
+    expect(luminance(await background(tint)), "the not-completed tint on screen").toBeLessThan(0.1);
+
+    await printed(page); // the media type changes; the OS colour scheme stays as it was
+    const printedSurface = await background(surface);
+    const printedTint = await background(tint);
+    expect(luminance(printedSurface), `card surface ${printedSurface} in print`).toBeGreaterThan(0.8);
+    expect(luminance(printedTint), `not-completed tint ${printedTint} in print`).toBeGreaterThan(0.6);
+    const body = await page.evaluate(() => {
+      const style = getComputedStyle(document.body);
+      return { background: style.backgroundColor, color: style.color };
+    });
+    expect(body.background).toBe("rgb(255, 255, 255)");
+    expect(luminance(body.color), `body text ${body.color}`).toBeLessThan(0.1);
+    const heading = await page
+      .getByRole("heading", { level: 2 })
+      .first()
+      .evaluate((el) => getComputedStyle(el).color);
+    expect(contrast(heading, printedTint), `stage heading ${heading} on ${printedTint}`).toBeGreaterThanOrEqual(4.5);
+  });
+}
