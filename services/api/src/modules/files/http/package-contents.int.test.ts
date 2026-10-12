@@ -52,6 +52,15 @@ describe("downloadJobPackage contents (real Postgres, in-memory storage)", () =>
     expect(names).toEqual(["Job summary.txt", "evil.vbe.txt", "Plan.pdf"]);
   });
 
+  it("zips a sniffed PDF stored as report.exe, invoice.pdf.lnk or noext under a .pdf name", async () => {
+    const job = await f.makeJob({ jobNumber: "PC-0003B" });
+    for (const name of ["report.exe", "invoice.pdf.lnk", "noext"]) {
+      await seedFile(t, f, { jobId: job.id, data: pdfBytes(40, name), name, checkpointKey: "i2_0", slot: "survey" });
+    }
+    const names = [...(await entries(job.id)).keys()].map((k) => k.split("/").pop());
+    expect(names).toEqual(["Job summary.txt", "report.exe.pdf", "invoice.pdf.lnk.pdf", "noext.pdf"]);
+  });
+
   it("leaves out evidence of superseded conditions", async () => {
     const job = await f.makeJob({ jobNumber: "PC-0003" });
     const old = await f.makeCondition({ jobId: job.id, number: 1, agency: "WAPC" });

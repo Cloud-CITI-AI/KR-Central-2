@@ -18,6 +18,8 @@ export interface PackageFile {
   readonly id: string;
   readonly name: string;
   readonly kind: FileKind;
+  /** The sniffed content type; picks the extension a mis-named image or video is served under. */
+  readonly contentType: string;
   readonly checkpointKey: string | null;
   readonly conditionId: string | null;
   readonly storageKey: string;
@@ -81,7 +83,7 @@ export function planPackage(
   const add = (file: PackageFile, folder: string) => {
     entries.push({
       file,
-      path: uniquePath(used, `${top}/${folder}/${entryName(servedFileName(file.name, file.kind))}`),
+      path: uniquePath(used, `${top}/${folder}/${entryName(servedFileName(file.name, file.kind, file.contentType))}`),
     });
   };
   for (const stage of STAGES) {

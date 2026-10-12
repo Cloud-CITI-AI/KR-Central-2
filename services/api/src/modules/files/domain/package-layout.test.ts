@@ -15,6 +15,7 @@ const file = (name: string, o: Partial<PackageFile> = {}): PackageFile => ({
   id: `f${++seq}`,
   name,
   kind: "pdf",
+  contentType: "application/pdf",
   checkpointKey: null,
   conditionId: null,
   storageKey: `jobs/j/f${seq}`,
@@ -68,6 +69,23 @@ describe("planPackage", () => {
     ]);
   });
 
+  it("serves a sniffed binary under an extension canonical for its kind, never one the recipient's machine runs", () => {
+    expect(
+      paths([
+        file("report.exe", { checkpointKey: "i13_notif" }),
+        file("invoice.pdf.lnk", { checkpointKey: "i13_notif" }),
+        file("noext", { checkpointKey: "i13_notif" }),
+        file("photo.scr", { checkpointKey: "i13_notif", kind: "image", contentType: "image/jpeg" }),
+        file("clip.exe", { checkpointKey: "i13_notif", kind: "video", contentType: "video/webm" }),
+        file("Plan.pdf", { checkpointKey: "i13_notif" }),
+      ]),
+    ).toEqual(
+      ["report.exe.pdf", "invoice.pdf.lnk.pdf", "noext.pdf", "photo.scr.jpg", "clip.exe.webm", "Plan.pdf"].map(
+        (n) => `${TOP}/09 Landgate/12.2 Notification and Documents/${n}`,
+      ),
+    );
+  });
+
   it("puts condition evidence under the condition's agency stage, before that stage's checkpoints", () => {
     const conditions: PackageCondition[] = [
       { id: "c2", number: 2, agency: "Western Power" },
@@ -78,8 +96,8 @@ describe("planPackage", () => {
       paths(
         [
           file("Clearance.pdf", { checkpointKey: "i6_9" }),
-          file("b.jpg", { conditionId: "c3" }),
-          file("a.jpg", { conditionId: "c2" }),
+          file("b.jpg", { conditionId: "c3", kind: "image", contentType: "image/jpeg" }),
+          file("a.jpg", { conditionId: "c2", kind: "image", contentType: "image/jpeg" }),
           file("w.pdf", { conditionId: "c1" }),
         ],
         conditions,
@@ -98,11 +116,11 @@ describe("planPackage", () => {
         file("Plan.pdf", { checkpointKey: "i2_0" }),
         file("plan.PDF", { checkpointKey: "i2_0" }),
         file("Plan.pdf", { checkpointKey: "i2_0" }),
-        file("README", { checkpointKey: "i2_0" }),
-        file("readme", { checkpointKey: "i2_0" }),
+        file("Notes.txt", { checkpointKey: "i2_0", kind: "text", contentType: "text/plain" }),
+        file("notes.txt", { checkpointKey: "i2_0", kind: "text", contentType: "text/plain" }),
         file("Plan (2).pdf", { checkpointKey: "i2_0" }),
       ]).map((p) => p.split("/").pop()),
-    ).toEqual(["Plan.pdf", "plan (2).PDF", "Plan (3).pdf", "README", "readme (2)", "Plan (2) (2).pdf"]);
+    ).toEqual(["Plan.pdf", "plan (2).PDF", "Plan (3).pdf", "Notes.txt", "notes (2).txt", "Plan (2) (2).pdf"]);
   });
 
   it("cleans names of path characters and keeps the extension of long names", () => {

@@ -6,23 +6,45 @@ const MAX_LENGTH = 255;
 const UNSAFE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu;
 const FALLBACK = "file";
 
-/** Extensions a stored text or email file may be served under (spec §11); pasted emails are stored as .txt. */
-const SERVED_EXTENSIONS: Readonly<Partial<Record<FileKind, ReadonlySet<string>>>> = {
-  text: new Set(["txt", "csv", "md"]),
-  email: new Set(["eml", "msg", "txt"]),
+/** What each kind may be served under, and the extension appended when the name's own is not one of them (spec §11). */
+interface ServedRule {
+  readonly allowed: ReadonlySet<string>;
+  /** The sniffed content type -> canonical extension, for kinds with more than one format. */
+  readonly byContentType?: Readonly<Record<string, string>>;
+  readonly fallback: string;
+}
+
+const SERVED_RULES: Readonly<Record<FileKind, ServedRule>> = {
+  // Pasted emails are stored as .txt.
+  text: { allowed: new Set(["txt", "csv", "md"]), fallback: "txt" },
+  email: { allowed: new Set(["eml", "msg", "txt"]), fallback: "txt" },
+  pdf: { allowed: new Set(["pdf"]), fallback: "pdf" },
+  dwg: { allowed: new Set(["dwg"]), fallback: "dwg" },
+  image: {
+    allowed: new Set(["png", "jpg", "jpeg", "gif", "webp", "heic"]),
+    byContentType: { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" },
+    fallback: "png",
+  },
+  video: {
+    allowed: new Set(["mp4", "mov", "m4v", "webm"]),
+    byContentType: { "video/mp4": "mp4", "video/webm": "webm" },
+    fallback: "mp4",
+  },
 };
 
 /**
- * The name a stored file is downloaded and zipped under. Text and email content under any other extension (".vbe",
- * ".url", ".reg", ".exe" ... stored before uploads were restricted to .txt/.csv/.md) gets ".txt" appended, so the
- * download can never be something the recipient's machine runs. Other kinds are verified binary formats and keep their
- * name.
+ * The name a stored file is downloaded and zipped under (the stored display name is not changed). Content under an
+ * extension that is not one of its kind's own (".exe", ".lnk", ".vbe", ".url", no extension ...) gets the kind's canonical
+ * extension appended, so the download can never be something the recipient's machine runs: a PDF uploaded as
+ * "report.exe" is served as "report.exe.pdf", a text file stored before uploads were restricted as "evil.vbe.txt".
+ * The kind is what the bytes were sniffed to be at upload; `contentType` (the sniffed type) picks the extension for
+ * kinds with several formats (images, video) and defaults to png / mp4 when it is unknown.
  */
-export function servedFileName(name: string, kind: FileKind): string {
-  const allowed = SERVED_EXTENSIONS[kind];
-  if (allowed === undefined) return name;
+export function servedFileName(name: string, kind: FileKind, contentType?: string): string {
+  const rule = SERVED_RULES[kind];
   const extension = /\.([^./\\]+)$/.exec(name)?.[1]?.toLowerCase() ?? "";
-  return allowed.has(extension) ? name : `${name}.txt`;
+  if (rule.allowed.has(extension)) return name;
+  return `${name}.${(contentType !== undefined ? rule.byContentType?.[contentType.toLowerCase()] : undefined) ?? rule.fallback}`;
 }
 
 /**

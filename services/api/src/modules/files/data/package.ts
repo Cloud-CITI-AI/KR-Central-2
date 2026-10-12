@@ -65,6 +65,7 @@ export async function loadPackageRows(
         id: f.id,
         name: f.original_name,
         kind: f.kind,
+        contentType: f.content_type,
         checkpointKey: f.checkpoint_key,
         conditionId: f.condition_id,
         storageKey: f.storage_key,

@@ -70,6 +70,21 @@ describe("getFileContent (real Postgres, in-memory storage)", () => {
     );
   });
 
+  it.each([
+    ["report.exe", "report.exe.pdf"],
+    ["invoice.pdf.lnk", "invoice.pdf.lnk.pdf"],
+    ["noext", "noext.pdf"],
+  ])("downloads a PDF stored as %j under the name %j, inline or not", async (name, served) => {
+    const file = await seedFile(t, f, { jobId, data: pdfBytes(300), name });
+    for (const disposition of ["attachment", "inline"]) {
+      const res = await content(client, file.id, `?disposition=${disposition}`);
+      expect(res.statusCode).toBe(200);
+      expect(res.headers["content-disposition"]).toBe(
+        `${disposition}; filename="${served}"; filename*=UTF-8''${served}`,
+      );
+    }
+  });
+
   describe("headers (PRODUCT_SPEC 11)", () => {
     it("a PDF is inline, no-store, nosniff and sized, with an RFC 5987 file name and no sandbox CSP", async () => {
       const data = pdfBytes(500);

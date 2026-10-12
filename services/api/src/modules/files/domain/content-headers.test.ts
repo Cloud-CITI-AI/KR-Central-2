@@ -122,6 +122,21 @@ describe("contentHeadersFor with a dangerous extension on a text file stored bef
     expect(h.contentDisposition).toBe(`attachment; filename="evil.vbe.txt"; filename*=UTF-8''evil.vbe.txt`);
   });
 
+  it.each([
+    ["pdf", "application/pdf", "report.exe", "report.exe.pdf"],
+    ["pdf", "application/pdf", "invoice.pdf.lnk", "invoice.pdf.lnk.pdf"],
+    ["pdf", "application/pdf", "noext", "noext.pdf"],
+    ["image", "image/png", "photo.exe", "photo.exe.png"],
+    ["image", "image/jpeg", "photo.hta", "photo.hta.jpg"],
+    ["video", "video/mp4", "clip.scr", "clip.scr.mp4"],
+    ["dwg", "image/vnd.dwg", "site.bat", "site.bat.dwg"],
+  ] as const)("serves a sniffed %s stored as %j under %j", (kind, contentType, name, served) => {
+    for (const requested of ["inline", "attachment"] as const)
+      expect(contentHeadersFor(file(kind, contentType, name), requested).contentDisposition).toBe(
+        `${requested === "inline" && kind !== "dwg" ? "inline" : "attachment"}; filename="${served}"; filename*=UTF-8''${served}`,
+      );
+  });
+
   it("leaves the name of other kinds and of proper text files alone", () => {
     expect(contentHeadersFor(file("pdf", "application/pdf", "Plan.pdf"), "inline").contentDisposition).toContain(
       'filename="Plan.pdf"',

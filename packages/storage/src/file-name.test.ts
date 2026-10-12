@@ -66,10 +66,46 @@ describe("servedFileName", () => {
     ["Query.txt", "email", "Query.txt"],
     ["mail.eml", "email", "mail.eml"],
     ["mail.MSG", "email", "mail.MSG"],
-    ["evil.vbe", "pdf", "evil.vbe"],
     ["Plan.pdf", "pdf", "Plan.pdf"],
+    ["Plan.PDF", "pdf", "Plan.PDF"],
+    ["site.dwg", "dwg", "site.dwg"],
+    ["photo.JPG", "image", "photo.JPG"],
+    ["photo.jpeg", "image", "photo.jpeg"],
+    ["photo.png", "image", "photo.png"],
+    ["photo.gif", "image", "photo.gif"],
+    ["photo.webp", "image", "photo.webp"],
+    ["photo.heic", "image", "photo.heic"],
+    ["clip.mp4", "video", "clip.mp4"],
+    ["clip.MOV", "video", "clip.MOV"],
+    ["clip.webm", "video", "clip.webm"],
   ] as const)("%j (%s) is served as %j", (name, kind, expected) => {
     expect(servedFileName(name, kind)).toBe(expected);
+  });
+
+  // QA r2: a sniffed binary keeps its stored name but is served under an extension canonical for what it is, so a PDF
+  // uploaded as report.exe is never downloaded or zipped as something the recipient's machine runs.
+  it.each([
+    ["report.exe", "pdf", undefined, "report.exe.pdf"],
+    ["invoice.pdf.lnk", "pdf", "application/pdf", "invoice.pdf.lnk.pdf"],
+    ["noext", "pdf", undefined, "noext.pdf"],
+    ["evil.vbe", "pdf", undefined, "evil.vbe.pdf"],
+    ["plan.bat", "dwg", "image/vnd.dwg", "plan.bat.dwg"],
+    ["photo.exe", "image", "image/jpeg", "photo.exe.jpg"],
+    ["photo.scr", "image", "image/png", "photo.scr.png"],
+    ["photo.hta", "image", "image/gif", "photo.hta.gif"],
+    ["photo.cmd", "image", "image/webp", "photo.cmd.webp"],
+    ["photo.pdf", "image", "image/png", "photo.pdf.png"],
+    ["photo.js", "image", undefined, "photo.js.png"],
+    ["clip.exe", "video", "video/mp4", "clip.exe.mp4"],
+    ["clip.msi", "video", "video/webm", "clip.msi.webm"],
+    ["clip", "video", undefined, "clip.mp4"],
+    ["Plan.png", "pdf", "application/pdf", "Plan.png.pdf"],
+  ] as const)("%j (%s %s) is served as %j", (name, kind, contentType, expected) => {
+    expect(servedFileName(name, kind, contentType)).toBe(expected);
+  });
+
+  it("does not take a dot inside a directory-like name for an extension", () => {
+    expect(servedFileName("v1.2/final", "pdf")).toBe("v1.2/final.pdf");
   });
 });
 
