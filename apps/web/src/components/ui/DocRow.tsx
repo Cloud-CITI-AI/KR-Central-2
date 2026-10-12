@@ -1,7 +1,7 @@
 "use client";
 import type { FileMeta } from "@kr/contracts";
 import { useEffect, useRef, useState } from "react";
-import { fileExtension } from "@/lib/files";
+import { fileExtension, scanStateText } from "@/lib/files";
 import { Button } from "./Button";
 import { VisuallyHidden } from "./VisuallyHidden";
 import styles from "./DocRow.module.css";
@@ -16,13 +16,6 @@ export interface DocRowProps {
   readonly removing?: boolean;
 }
 
-/** Scan state texts, exactly as PRODUCT_SPEC §5.5 (infected and error files cannot be opened). */
-const SCAN_TEXT = {
-  pending: "Scanning…",
-  infected: "Blocked – failed the virus scan",
-  error: "Couldn't be checked for viruses – remove it and upload it again",
-} as const;
-
 /** One uploaded file: extension badge, name (opens the viewer), scan state, and × with inline confirmation. */
 export function DocRow({ file, onOpen, onRemove, removing = false }: DocRowProps) {
   const [confirming, setConfirming] = useState(false);
@@ -30,7 +23,7 @@ export function DocRow({ file, onOpen, onRemove, removing = false }: DocRowProps
   const question = useRef<HTMLSpanElement>(null);
   const wasConfirming = useRef(false);
   const blocked = file.scanStatus === "infected" || file.scanStatus === "error";
-  const stateText = file.scanStatus in SCAN_TEXT ? SCAN_TEXT[file.scanStatus as keyof typeof SCAN_TEXT] : undefined;
+  const stateText = scanStateText(file);
 
   useEffect(() => {
     // Asking moves focus to the safe answer (No); answering puts it back on the × that asked.
@@ -57,7 +50,10 @@ export function DocRow({ file, onOpen, onRemove, removing = false }: DocRowProps
         </button>
       )}
       {stateText && (
-        <span role="status" className={`${styles.state} ${file.scanStatus === "pending" ? styles.scanning : ""}`}>
+        <span
+          role="status"
+          className={`${styles.state} ${file.scanStatus === "pending" || (file.scanStatus === "error" && !file.scanRetriesExhausted) ? styles.scanning : ""}`}
+        >
           {stateText}
         </span>
       )}

@@ -1,3 +1,4 @@
+import type { FileMeta } from "@kr/contracts";
 import { formatMegabytes } from "@/lib/format";
 
 export interface FileRejection {
@@ -55,4 +56,29 @@ export function validateFiles(
     }
   }
   return { accepted, rejected };
+}
+
+/** The scan states of a file row, exactly as PRODUCT_SPEC §5.5 words them (infected and error files cannot be opened). */
+export const SCAN_TEXT = {
+  pending: "Scanning…",
+  infected: "Blocked – failed the virus scan",
+  /** Only once the worker's automatic re-scans are used up (`scanRetriesExhausted`). */
+  error: "Couldn't be checked for viruses – remove it and upload it again",
+  /** A failed scan the hourly sweep will still retry: the file is not lost, so do not ask for a re-upload (§11, §5.5). */
+  retrying: "Still being checked for viruses…",
+} as const;
+
+/** The row text for a file's scan state, or undefined when there is none to show (clean, skipped). */
+export function scanStateText(file: Pick<FileMeta, "scanStatus" | "scanRetriesExhausted">): string | undefined {
+  switch (file.scanStatus) {
+    case "pending":
+      return SCAN_TEXT.pending;
+    case "infected":
+      return SCAN_TEXT.infected;
+    case "error":
+      return file.scanRetriesExhausted ? SCAN_TEXT.error : SCAN_TEXT.retrying;
+    case "clean":
+    case "skipped":
+      return undefined;
+  }
 }

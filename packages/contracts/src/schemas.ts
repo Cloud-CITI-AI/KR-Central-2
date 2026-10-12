@@ -137,6 +137,10 @@ export const FileMeta = z
     contentType: z.string().meta({ description: "Sniffed media type" }),
     sizeBytes: z.number().int().nonnegative(),
     scanStatus: ScanStatus,
+    scanRetriesExhausted: z.boolean().meta({
+      description:
+        "Meaningful when scanStatus is 'error': true once no automatic re-scan is left, so the file must be removed and uploaded again; false while the hourly sweep will still try it",
+    }),
     uploadedAt: IsoDateTime,
     uploadedBy: UserRef.nullable(),
     canDelete: z.boolean().meta({ description: "Whether the current user may delete this file" }),

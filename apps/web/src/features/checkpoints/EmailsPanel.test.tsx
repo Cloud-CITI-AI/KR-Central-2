@@ -114,7 +114,8 @@ describe("emails panel", () => {
       withEmails([
         email(base.id, "Fresh", { scanStatus: "pending" }),
         email(base.id, "Infected", { scanStatus: "infected" }),
-        email(base.id, "Odd", { scanStatus: "error" }),
+        email(base.id, "Odd", { scanStatus: "error", scanRetriesExhausted: true }),
+        email(base.id, "Retried", { scanStatus: "error", scanRetriesExhausted: false }),
         email(base.id, "Slow", {
           email: {
             parseStatus: "pending",
@@ -133,6 +134,8 @@ describe("emails panel", () => {
     expect(screen.getByText("Scanning…")).toBeInTheDocument();
     expect(screen.getByText("Blocked – failed the virus scan")).toBeInTheDocument();
     expect(screen.getByText(/Couldn't be checked for viruses/)).toBeInTheDocument();
+    // a failed scan the worker will still retry is not "upload it again"
+    expect(screen.getByText("Still being checked for viruses…")).toBeInTheDocument();
     expect(screen.getByText("Reading the email…")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Infected" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Fresh" })).toBeInTheDocument();

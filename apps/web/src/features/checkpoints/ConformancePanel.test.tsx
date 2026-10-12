@@ -222,7 +222,9 @@ describe("conformance panel", () => {
       const pending = pdf(job.id, NAME, { scanStatus: "pending" });
       server.use(
         handlerFor("getOperation", () => {
-          served.job = withCheckpoint(job, "i4_2", { files: [{ ...pending, scanStatus: "error" }] });
+          served.job = withCheckpoint(job, "i4_2", {
+            files: [{ ...pending, scanStatus: "error", scanRetriesExhausted: true }],
+          });
           return HttpResponse.json(scanOperation(job.id, "failed"));
         }),
       );

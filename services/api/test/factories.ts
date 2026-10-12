@@ -58,6 +58,7 @@ export interface FileOverrides {
   readonly conditionId?: string;
   readonly uploadedBy?: string | null;
   readonly scanStatus?: FileRow["scan_status"];
+  readonly scanRetriesExhausted?: boolean;
   readonly kind?: FileRow["kind"];
   readonly name?: string;
   readonly sizeBytes?: number;
@@ -150,6 +151,7 @@ export function createFactories(db: Db, seed: number = seedFromTestFile()) {
           size_bytes: o.sizeBytes ?? faker.number.int({ min: 1_000, max: 5_000_000 }),
           sha256: Buffer.from(faker.string.hexadecimal({ length: 64, prefix: "" }), "hex"),
           scan_status: o.scanStatus ?? "clean",
+          scan_retries_exhausted: o.scanRetriesExhausted ?? false,
           uploaded_by: o.uploadedBy ?? null,
         })
         .returningAll()

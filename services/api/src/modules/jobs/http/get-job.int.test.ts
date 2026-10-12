@@ -132,6 +132,23 @@ describe("getJob (real Postgres)", () => {
     }
   });
 
+  it("tells a failed scan the worker will still retry from one that is final (scanRetriesExhausted)", async () => {
+    const job = await f.makeJob();
+    const retrying = await f.makeFile({ jobId: job.id, checkpointKey: "i2_0", slot: "survey", scanStatus: "error" });
+    const final = await f.makeFile({
+      jobId: job.id,
+      checkpointKey: "i2_0",
+      slot: "survey",
+      scanStatus: "error",
+      scanRetriesExhausted: true,
+    });
+    const files = cp((await get(staff, job.id)).json<Detail>(), "i2_0").files;
+    expect(files.map((x) => [x.id, x.scanStatus, x.scanRetriesExhausted])).toEqual([
+      [retrying.id, "error", false],
+      [final.id, "error", true],
+    ]);
+  });
+
   it("lists the files that are not deleted, with scan state, uploader and canDelete", async () => {
     const job = await f.makeJob();
     await f.makeGrant({ jobId: job.id, userId: client.user.id, role: "client" });

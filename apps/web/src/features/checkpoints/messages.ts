@@ -32,12 +32,8 @@ export function pasteFailedText(requestId: string | undefined): string {
   return `The pasted email couldn't be added${requestId ? ` (Request ID: ${requestId})` : ""}`;
 }
 
-/** The scan states of a file row, exactly as §5.5 words them (infected and error files cannot be opened). */
-export const SCAN_STATE_TEXT = {
-  pending: "Scanning…",
-  infected: "Blocked – failed the virus scan",
-  error: "Couldn't be checked for viruses – remove it and upload it again",
-} as const;
+/** The scan states of a file row, exactly as §5.5 words them. Rows use `scanStateText(file)`, which also knows about retries. */
+export { SCAN_TEXT as SCAN_STATE_TEXT, scanStateText } from "@/lib/files";
 
 /** The conformance read finished without a result: the PDF could not be read (§10.1). */
 export function conformanceUnreadableText(name: string): string {

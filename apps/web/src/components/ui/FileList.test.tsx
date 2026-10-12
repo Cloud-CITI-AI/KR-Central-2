@@ -16,6 +16,7 @@ const make = (id: string, name: string): FileMeta => ({
   contentType: "application/pdf",
   sizeBytes: 1,
   scanStatus: "clean",
+  scanRetriesExhausted: false,
   uploadedAt: "2026-09-28T03:50:56.543Z",
   uploadedBy: null,
   canDelete: true,

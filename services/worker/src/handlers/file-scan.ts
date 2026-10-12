@@ -19,7 +19,7 @@ import {
   saveScanResult,
   type ScanFile,
 } from "../data/files.js";
-import { judgeScanError, mayRescan, type ScanErrorKind } from "../domain/scan.js";
+import { isPermanentScanError, judgeScanError, mayRescan, type ScanErrorKind } from "../domain/scan.js";
 import { TaskError } from "../errors.js";
 import type { FeatureFlags } from "../flags.js";
 import type { Handler, HandlerContext } from "./types.js";
@@ -88,9 +88,14 @@ export function fileScanHandler(deps: FileScanDeps): Handler {
         },
       );
     }
-    const failedScans = await db
-      .transaction()
-      .execute((trx) => saveScanResult(trx, file.id, { status: "error", detail, failed: true }));
+    const failedScans = await db.transaction().execute((trx) =>
+      saveScanResult(trx, file.id, {
+        status: "error",
+        detail,
+        failed: true,
+        retry: { maxRetries: config.SCAN_ERROR_MAX_RETRIES, permanent: isPermanentScanError(kind) },
+      }),
+    );
     metrics.recordFileScan("error");
     const event = mayRescan(failedScans, config.SCAN_ERROR_MAX_RETRIES) ? "scan_failed" : "scan_retries_exhausted";
     ctx.log[event === "scan_failed" ? "warn" : "error"](

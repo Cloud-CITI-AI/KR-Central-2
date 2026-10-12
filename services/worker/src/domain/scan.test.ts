@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { judgeScanError, mayRescan, type ScanErrorKind } from "./scan.js";
+import { isPermanentScanError, judgeScanError, mayRescan, type ScanErrorKind } from "./scan.js";
 
 describe("judgeScanError", () => {
   it("lets the queue retry a scanner that is down until the last attempt", () => {
@@ -41,5 +41,20 @@ describe("mayRescan", () => {
     expect([1, 2, 3, 4].map((failed) => mayRescan(failed, 3))).toEqual([true, true, true, false]);
     expect(mayRescan(0, 3)).toBe(false);
     expect(mayRescan(1, 0)).toBe(false);
+  });
+});
+
+describe("isPermanentScanError", () => {
+  it("is the same set judgeScanError ends the operation for at once", () => {
+    for (const kind of [
+      "connection",
+      "timeout",
+      "size_limit",
+      "scanner_error",
+      "protocol",
+      "object_missing",
+      "storage",
+    ] as const)
+      expect(isPermanentScanError(kind)).toBe(judgeScanError(kind, 1, 3).final);
   });
 });

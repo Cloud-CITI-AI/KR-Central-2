@@ -123,6 +123,17 @@ describe("file.scan", () => {
     expect([row.scan_status, row.scan_attempts]).toEqual(["clean", 1]);
   });
 
+  it("clears scan_retries_exhausted when a later scan passes", async () => {
+    const file = await insertFile(db, storage, jobId, {
+      scanStatus: "error",
+      scanAttempts: 4,
+      scanRetriesExhausted: true,
+    });
+    await run(file.id);
+    const row = await fileRow(db, file.id);
+    expect([row.scan_status, row.scan_retries_exhausted]).toEqual(["clean", false]);
+  });
+
   it("rejects a payload that is not a file id", async () => {
     const { outcome } = await run("not-a-uuid");
     expect(outcome).toMatchObject({ error: { code: "invalid_payload", retryable: false } });
@@ -278,6 +289,22 @@ describe("file.scan: failures", () => {
     ]);
     expect(metrics.recordFileScan).toHaveBeenCalledExactlyOnceWith("error");
     expect(ctx.captured.events()).toContain("scan_failed");
+    // the first failure is not the last: the hourly sweep will scan it again, so the tracker must not say "upload it again"
+    expect(row.scan_retries_exhausted).toBe(false);
+  });
+
+  it("marks the retries exhausted on the failure after the last re-scan (SCAN_ERROR_MAX_RETRIES = 3 -> failure 4), not before", async () => {
+    await clamd.stop();
+    for (const [attempts, exhausted] of [
+      [0, false],
+      [2, false],
+      [3, true],
+    ] as const) {
+      const file = await insertFile(db, storage, jobId, { scanStatus: "error", scanAttempts: attempts });
+      await run(file.id, { attempt: 3 });
+      const row = await fileRow(db, file.id);
+      expect([row.scan_attempts, row.scan_retries_exhausted]).toEqual([attempts + 1, exhausted]);
+    }
   });
 
   it("records an error at once when the object is missing, and alerts when the retries are used up", async () => {
@@ -286,7 +313,15 @@ describe("file.scan: failures", () => {
     expect(failed(outcome).code).toBe("scan_error");
     const row = await fileRow(db, file.id);
     expect([row.scan_attempts, row.scan_detail]).toEqual([4, "The stored file could not be found."]);
+    expect(row.scan_retries_exhausted).toBe(true);
     expect(ctx.captured.events()).toContain("scan_retries_exhausted");
+  });
+
+  it("marks the retries exhausted at once when retrying cannot help (the object is missing)", async () => {
+    const file = await insertFile(db, storage, jobId, { noObject: true });
+    await run(file.id, { attempt: 1 });
+    const row = await fileRow(db, file.id);
+    expect([row.scan_status, row.scan_attempts, row.scan_retries_exhausted]).toEqual(["error", 1, true]);
   });
 
   it("with the clamd circuit open, fails fast, keeps the file pending and has the queue try again later", async () => {

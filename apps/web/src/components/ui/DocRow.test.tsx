@@ -16,6 +16,7 @@ const file = (overrides: Partial<FileMeta> = {}): FileMeta => ({
   contentType: "application/pdf",
   sizeBytes: 100,
   scanStatus: "clean",
+  scanRetriesExhausted: false,
   uploadedAt: "2026-09-28T03:50:56.543Z",
   uploadedBy: null,
   canDelete: true,
@@ -80,8 +81,15 @@ describe("DocRow: scan states (PRODUCT_SPEC §5.5)", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("a scan error the worker will still retry says it is being checked, not to upload it again", () => {
+    row({ file: file({ scanStatus: "error", scanRetriesExhausted: false }) });
+    expect(screen.getByRole("status")).toHaveTextContent("Still being checked for viruses…");
+    expect(screen.getByRole("status")).not.toHaveTextContent("upload it again");
+    expect(screen.getByRole("button", { name: "Remove Decision Letter.pdf" })).toBeInTheDocument();
+  });
+
   it("a scan error shows the retry-exhausted text and cannot be opened, but can be removed", () => {
-    row({ file: file({ scanStatus: "error" }) });
+    row({ file: file({ scanStatus: "error", scanRetriesExhausted: true }) });
     expect(screen.getByRole("status")).toHaveTextContent(
       "Couldn't be checked for viruses – remove it and upload it again",
     );

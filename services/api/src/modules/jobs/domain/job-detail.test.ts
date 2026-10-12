@@ -77,6 +77,7 @@ function file(id: string, o: Partial<FileRow>): FileRow {
     scan_detail: null,
     scanned_at: null,
     scan_attempts: 0,
+    scan_retries_exhausted: false,
     uploaded_by: ids.staff,
     uploaded_at: T0,
     deleted_at: null,

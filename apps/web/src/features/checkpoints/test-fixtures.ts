@@ -19,6 +19,7 @@ export function syntheticFile(jobId: string, overrides: Partial<FileMeta> = {}):
     contentType: name.toLowerCase().endsWith(".dwg") ? "application/octet-stream" : "application/pdf",
     sizeBytes: 1024,
     scanStatus: "clean",
+    scanRetriesExhausted: false,
     uploadedAt: UPLOADED,
     uploadedBy: null,
     canDelete: true,

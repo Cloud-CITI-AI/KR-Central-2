@@ -19,14 +19,20 @@ export type ViewerView =
 export const OUTLOOK_MSG = "application/vnd.ms-outlook";
 
 /** Choose the body: a scan state that blocks the file wins over its kind (§5.5, §11.1). */
-export function viewFor(file: Pick<FileMeta, "kind" | "scanStatus" | "contentType" | "email">): ViewerView {
+export function viewFor(
+  file: Pick<FileMeta, "kind" | "scanStatus" | "scanRetriesExhausted" | "contentType" | "email">,
+): ViewerView {
   switch (file.scanStatus) {
     case "pending":
       return { type: "unavailable", message: VIEWER_MESSAGES.pending };
     case "infected":
       return { type: "unavailable", message: VIEWER_MESSAGES.infected };
     case "error":
-      return { type: "unavailable", message: VIEWER_MESSAGES.scanError };
+      // While the worker still re-scans it, the file is "still being checked", not lost.
+      return {
+        type: "unavailable",
+        message: file.scanRetriesExhausted ? VIEWER_MESSAGES.scanError : VIEWER_MESSAGES.pending,
+      };
     case "clean":
     case "skipped":
       break;

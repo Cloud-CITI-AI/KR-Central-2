@@ -160,8 +160,13 @@ describe("ViewerBody", () => {
     ["infected", "Blocked – failed the virus scan"],
     ["error", "Couldn't be checked for viruses – remove it and upload it again"],
   ] as const)("shows the %s message instead of the content", (scanStatus, message) => {
-    renderViewer(<ViewerBody file={syntheticFile({ scanStatus })} />);
+    renderViewer(<ViewerBody file={syntheticFile({ scanStatus, scanRetriesExhausted: scanStatus === "error" })} />);
     expect(screen.getByRole("status")).toHaveTextContent(message);
     expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("says a failed scan that will be retried is still being checked", () => {
+    renderViewer(<ViewerBody file={syntheticFile({ scanStatus: "error", scanRetriesExhausted: false })} />);
+    expect(screen.getByRole("status")).toHaveTextContent("This file is still being checked for viruses.");
   });
 });

@@ -14,6 +14,7 @@ export function syntheticFile(overrides: Partial<FileMeta> = {}): FileMeta {
     contentType: "application/pdf",
     sizeBytes: 1234,
     scanStatus: "clean",
+    scanRetriesExhausted: false,
     uploadedAt: "2026-09-28T03:50:56.543Z",
     uploadedBy: null,
     canDelete: false,

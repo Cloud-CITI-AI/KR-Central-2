@@ -20,10 +20,20 @@ describe("viewFor", () => {
     ["infected", "Blocked – failed the virus scan"],
     ["error", "Couldn't be checked for viruses – remove it and upload it again"],
   ] as const)("a %s file shows its message whatever its kind", (scanStatus, message) => {
-    expect(viewFor(syntheticFile({ scanStatus }))).toEqual({ type: "unavailable", message });
-    expect(viewFor(syntheticFile({ scanStatus, kind: "dwg", contentType: "image/vnd.dwg" }))).toEqual({
+    const scanRetriesExhausted = scanStatus === "error";
+    expect(viewFor(syntheticFile({ scanStatus, scanRetriesExhausted }))).toEqual({ type: "unavailable", message });
+    expect(
+      viewFor(syntheticFile({ scanStatus, scanRetriesExhausted, kind: "dwg", contentType: "image/vnd.dwg" })),
+    ).toEqual({
       type: "unavailable",
       message,
+    });
+  });
+
+  it("treats a failed scan that will be retried as still being checked, not lost", () => {
+    expect(viewFor(syntheticFile({ scanStatus: "error", scanRetriesExhausted: false }))).toEqual({
+      type: "unavailable",
+      message: "This file is still being checked for viruses.",
     });
   });
 

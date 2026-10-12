@@ -71,6 +71,7 @@ export function toFileMeta(file: FileRow, ctx: FileMetaContext): FileMeta {
     contentType: file.content_type,
     sizeBytes: Number(file.size_bytes),
     scanStatus: file.scan_status,
+    scanRetriesExhausted: file.scan_retries_exhausted,
     uploadedAt: iso(file.uploaded_at),
     uploadedBy: toUserRef(ctx.uploader),
     canDelete: ctx.canDelete,

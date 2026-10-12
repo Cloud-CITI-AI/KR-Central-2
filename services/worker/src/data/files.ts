@@ -44,6 +44,12 @@ export interface ScanResult {
   readonly detail: string | null;
   /** True for a failed scan: counts toward SCAN_ERROR_MAX_RETRIES. */
   readonly failed?: boolean;
+  /**
+   * With `failed`: what decides files.scan_retries_exhausted, the flag the tracker uses to say "couldn't be checked, upload it again"
+   * only once no automatic re-scan is left. Exhausted when retrying cannot help, or when this failure is beyond `maxRetries`
+   * (the same rule as mayRescan: failure n is re-scanned while 1 <= n <= maxRetries).
+   */
+  readonly retry?: { readonly maxRetries: number; readonly permanent: boolean };
 }
 
 /** Records the verdict. Returns the new scan_attempts. */
@@ -55,6 +61,11 @@ export async function saveScanResult(trx: Transaction<Database>, fileId: string,
       scan_detail: result.detail,
       scanned_at: sql<Date>`now()`,
       ...(result.failed ? { scan_attempts: sql<number>`scan_attempts + 1` } : {}),
+      // Any verdict but a failure clears it; a failure sets it when no automatic re-scan is left.
+      scan_retries_exhausted:
+        result.failed && result.retry
+          ? sql<boolean>`${result.retry.permanent} or scan_attempts + 1 > ${result.retry.maxRetries}`
+          : false,
     })
     .where("id", "=", fileId)
     .returning("scan_attempts")

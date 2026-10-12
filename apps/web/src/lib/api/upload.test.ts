@@ -16,6 +16,7 @@ const RESULT = {
     contentType: "application/pdf",
     sizeBytes: 3,
     scanStatus: "pending",
+    scanRetriesExhausted: false,
     uploadedAt: "2026-09-28T03:50:56.543Z",
     uploadedBy: null,
     canDelete: true,

@@ -16,6 +16,7 @@ export interface FileOptions {
   readonly kind?: FileKindValue;
   readonly scanStatus?: ScanStatusValue;
   readonly scanAttempts?: number;
+  readonly scanRetriesExhausted?: boolean;
   readonly checkpointKey?: string;
   readonly slot?: string;
   /** Attach as evidence of this condition instead of to a checkpoint slot. */
@@ -58,6 +59,7 @@ export async function insertFile(
       sha256: createHash("sha256").update(bytes).digest(),
       scan_status: o.scanStatus ?? "pending",
       scan_attempts: o.scanAttempts ?? 0,
+      scan_retries_exhausted: o.scanRetriesExhausted ?? false,
     })
     .execute();
   if (!o.noObject) await storage.put({ key, body: bytes, contentType: "application/octet-stream" });

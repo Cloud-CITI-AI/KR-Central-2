@@ -40,3 +40,8 @@ export function judgeScanError(kind: ScanErrorKind, attempt: number, maxAttempts
 export function mayRescan(failedScans: number, maxRetries: number): boolean {
   return failedScans >= 1 && failedScans <= maxRetries;
 }
+
+/** True for the errors that retrying cannot fix (the file is too large for the scanner, or its bytes are gone). */
+export function isPermanentScanError(kind: ScanErrorKind): boolean {
+  return PERMANENT.has(kind);
+}

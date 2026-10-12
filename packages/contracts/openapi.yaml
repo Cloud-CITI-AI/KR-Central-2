@@ -3731,6 +3731,11 @@ components:
           maximum: 9007199254740991
         scanStatus:
           $ref: "#/components/schemas/ScanStatus"
+        scanRetriesExhausted:
+          type: boolean
+          description: "Meaningful when scanStatus is 'error': true once no automatic
+            re-scan is left, so the file must be removed and uploaded again;
+            false while the hourly sweep will still try it"
         uploadedAt:
           type: string
           format: date-time
@@ -3759,6 +3764,7 @@ components:
         - contentType
         - sizeBytes
         - scanStatus
+        - scanRetriesExhausted
         - uploadedAt
         - uploadedBy
         - canDelete

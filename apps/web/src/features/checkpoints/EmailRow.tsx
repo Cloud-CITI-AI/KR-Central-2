@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { VisuallyHidden } from "@/components/ui/VisuallyHidden";
 import { formatInstantDateTime } from "./dateTime";
-import { SCAN_STATE_TEXT } from "./messages";
+import { scanStateText } from "./messages";
 import styles from "./Emails.module.css";
 
 export interface EmailRowProps {
@@ -24,7 +24,8 @@ function metaLine(file: FileMeta): string {
 
 /** The line that replaces the meta while the email cannot be shown yet, or at all. */
 function stateText(file: FileMeta): string | null {
-  if (file.scanStatus in SCAN_STATE_TEXT) return SCAN_STATE_TEXT[file.scanStatus as keyof typeof SCAN_STATE_TEXT];
+  const scan = scanStateText(file);
+  if (scan !== undefined) return scan;
   if (file.email?.parseStatus === "pending") return "Reading the email…";
   if (file.email?.parseStatus === "failed") return "Couldn't be read as an email – remove it and drop it again";
   return null;

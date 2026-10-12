@@ -156,6 +156,8 @@ export interface FilesTable {
   scan_detail: string | null;
   scanned_at: Timestamp | null;
   scan_attempts: ColumnType<number, number | undefined, number>;
+  /** With scan_status 'error': no automatic re-scan is left (SCAN_ERROR_MAX_RETRIES used up, or retrying cannot help). */
+  scan_retries_exhausted: ColumnType<boolean, boolean | undefined, boolean>;
   uploaded_by: string | null;
   uploaded_at: GeneratedTimestamp;
   deleted_at: Timestamp | null;
