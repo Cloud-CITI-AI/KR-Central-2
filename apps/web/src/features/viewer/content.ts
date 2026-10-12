@@ -1,5 +1,5 @@
 import type { FileMeta } from "@kr/contracts";
-import { apiPath } from "@/lib/api/client";
+import { apiPath, redirectToSignIn } from "@/lib/api/client";
 import { VIEWER_MESSAGES } from "./messages";
 
 /** Same-origin URL of a file's bytes through the BFF (ADR-0005). The browser sends the session cookie itself. */
@@ -46,4 +46,25 @@ export function viewFor(
 /** "Open in new tab" only where the server answers inline (PDF, image, video, text); the rest would download. */
 export function opensInTab(view: ViewerView): boolean {
   return view.type === "pdf" || view.type === "image" || view.type === "video" || view.type === "text";
+}
+
+/**
+ * Why a file's bytes did not load into an `<img>` or `<video>`, which only report "error": ask the same URL for its
+ * first byte (a `Range` request, so a large video is not downloaded again) and read the HTTP status. 0 when the server
+ * cannot be reached; 401 sends the person to sign-in, as every other file request does.
+ */
+export async function probeContentStatus(fileId: string, signal?: AbortSignal): Promise<number> {
+  try {
+    const response = await fetch(contentUrl(fileId), {
+      credentials: "same-origin",
+      headers: { range: "bytes=0-0" },
+      signal: signal ?? null,
+    });
+    void response.body?.cancel();
+    if (response.status === 401) redirectToSignIn();
+    return response.status;
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    return 0;
+  }
 }

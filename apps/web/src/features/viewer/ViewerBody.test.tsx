@@ -1,6 +1,6 @@
 import { HttpResponse } from "msw";
 import type { FileMeta } from "@kr/contracts";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { navigation } from "@/lib/navigation";
 import { expectNoAxeViolations } from "@/test/axe";
@@ -17,7 +17,10 @@ describe("ViewerBody", () => {
     const file = syntheticFile({ name: "plan.png", kind: "image", contentType: "image/png" });
     renderViewer(<ViewerBody file={file} />);
     const image = screen.getByRole("img", { name: "plan.png" });
-    expect(image).toHaveAttribute("src", `/api/v1/files/${file.id}/content`);
+    // next/image re-assigns `src` when there is an onError handler, which makes it absolute.
+    expect(new URL(image.getAttribute("src") ?? "", "http://localhost").pathname).toBe(
+      `/api/v1/files/${file.id}/content`,
+    );
   });
 
   it("plays a video from the content URL, which the server answers with Range", () => {
@@ -26,6 +29,89 @@ describe("ViewerBody", () => {
     const video = container.querySelector("video");
     expect(video).toHaveAttribute("src", `/api/v1/files/${file.id}/content`);
     expect(video).toHaveAttribute("controls");
+  });
+
+  describe("media that fails to load", () => {
+    const storageDown = () =>
+      handlerFor("getFileContent", () =>
+        HttpResponse.json(
+          {
+            type: "urn:kr:problem:storage-unavailable",
+            title: "Storage unavailable",
+            status: 503,
+            requestId: "req-s3",
+          },
+          { status: 503, headers: { "content-type": "application/problem+json", "retry-after": "5" } },
+        ),
+      );
+    const missing = () => handlerFor("getFileContent", () => new HttpResponse(null, { status: 404 }));
+    const media = [
+      ["image", { name: "plan.png", kind: "image", contentType: "image/png" }, "img"],
+      ["video", { name: "site.mp4", kind: "video", contentType: "video/mp4" }, "video"],
+    ] as const;
+
+    it.each(media)("says the %s can't be loaded right now when storage answers 503", async (_kind, over, tag) => {
+      server.use(storageDown());
+      const { container } = renderViewer(<ViewerBody file={syntheticFile(over)} />);
+      fireEvent.error(container.querySelector(tag)!);
+      const notice = await screen.findByRole("status");
+      expect(notice).toHaveTextContent("This file can't be loaded right now – try again shortly");
+      expect(notice).not.toHaveTextContent(/Open in new tab/);
+      expect(container.querySelector(tag)).toBeNull();
+      await expectNoAxeViolations(container);
+    });
+
+    it.each(media)("shows the standard can't-load message for a %s that answers 404", async (_kind, over, tag) => {
+      server.use(missing());
+      const { container } = renderViewer(<ViewerBody file={syntheticFile(over)} />);
+      fireEvent.error(container.querySelector(tag)!);
+      expect(await screen.findByRole("status")).toHaveTextContent("Couldn’t load this file. Use “Open in new tab”.");
+      expect(container.querySelector(tag)).toBeNull();
+    });
+
+    it("uses the standard message when the probe cannot reach the server either", async () => {
+      server.use(handlerFor("getFileContent", () => HttpResponse.error()));
+      const { container } = renderViewer(<ViewerBody file={syntheticFile(media[0][1])} />);
+      fireEvent.error(container.querySelector("img")!);
+      expect(await screen.findByRole("status")).toHaveTextContent("Couldn’t load this file. Use “Open in new tab”.");
+    });
+
+    it("sends a signed-out viewer to sign-in when the probe answers 401", async () => {
+      const assign = vi.spyOn(navigation, "assign").mockImplementation(() => undefined);
+      server.use(handlerFor("getFileContent", () => new HttpResponse(null, { status: 401 })));
+      const { container } = renderViewer(<ViewerBody file={syntheticFile(media[0][1])} />);
+      fireEvent.error(container.querySelector("img")!);
+      expect(await screen.findByRole("status")).toHaveTextContent("Couldn’t load this file.");
+      expect(assign).toHaveBeenCalledWith("/sign-in");
+      assign.mockRestore();
+    });
+
+    it("clears the message when the dialog moves to another file", async () => {
+      server.use(missing());
+      const first = syntheticFile({ name: "a.png", kind: "image", contentType: "image/png" });
+      const second = syntheticFile({ name: "b.png", kind: "image", contentType: "image/png" });
+      const { container, rerender } = renderViewer(<ViewerBody file={first} />);
+      fireEvent.error(container.querySelector("img")!);
+      expect(await screen.findByRole("status")).toBeInTheDocument();
+      rerender(<ViewerBody file={second} />);
+      await waitFor(() => {
+        expect(screen.queryByRole("status")).toBeNull();
+      });
+      expect(screen.getByRole("img", { name: "b.png" })).toBeInTheDocument();
+    });
+
+    it("keeps showing a media element that loaded, without asking the server again", () => {
+      let asked = false;
+      server.use(
+        handlerFor("getFileContent", () => {
+          asked = true;
+          return new HttpResponse(null, { status: 404 });
+        }),
+      );
+      renderViewer(<ViewerBody file={syntheticFile(media[0][1])} />);
+      expect(screen.getByRole("img", { name: "plan.png" })).toBeInTheDocument();
+      expect(asked).toBe(false);
+    });
   });
 
   it("shows text in a <pre> after loading it", async () => {
