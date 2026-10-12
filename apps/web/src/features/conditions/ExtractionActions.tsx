@@ -55,7 +55,37 @@ export function ExtractionActions({ job, pdfs }: ExtractionActionsProps) {
   const running =
     start.isPending || (followed !== null && operation?.status !== "succeeded" && operation?.status !== "failed");
   const row = useRef<HTMLDivElement>(null);
+  const message = useRef<HTMLDivElement>(null);
   const wasConfirming = useRef(false);
+  const announced = useRef<string | null>(null);
+  const settled = operation?.status === "succeeded" || operation?.status === "failed";
+
+  /**
+   * The button that was pressed is disabled while the letter is read, so focus falls to <body> and the result is announced to
+   * nobody's place (WCAG 2.4.3). Put it on the message, unless the person has moved on to something else meanwhile.
+   */
+  const focusMessage = () => {
+    const active = document.activeElement;
+    if (
+      active === null ||
+      active === document.body ||
+      row.current?.contains(active) ||
+      message.current?.contains(active)
+    ) {
+      message.current?.focus();
+    }
+  };
+
+  useEffect(() => {
+    // Only for a reading this person started here; one resumed after a reload does not take focus.
+    if (following === null || !settled || announced.current === following) return;
+    announced.current = following;
+    focusMessage();
+  }, [following, settled]);
+
+  useEffect(() => {
+    if (problem) focusMessage();
+  }, [problem]);
 
   useEffect(() => {
     // Asking moves focus to the safe answer (Cancel); answering puts it back on the button that asked.
@@ -174,7 +204,7 @@ export function ExtractionActions({ job, pdfs }: ExtractionActionsProps) {
       ) : (
         pdfs.length > 0 && <p className={cx(styles.msg, styles.ok)}>{DECISION_LETTER_ONLY}</p>
       )}
-      <div role="status" className={styles.notice}>
+      <div ref={message} role="status" tabIndex={-1} className={styles.notice}>
         {lines.map(({ text, ok }) => (
           <p key={text} className={cx(styles.msg, ok && styles.ok)}>
             {text}

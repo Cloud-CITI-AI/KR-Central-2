@@ -175,6 +175,69 @@ describe("conditions panel: the folder and the extraction", () => {
     });
   });
 
+  describe("focus (WCAG 2.4.3, QA r2)", () => {
+    const stubExtraction = (job: ReturnType<typeof withFiles>, message: string | null = null, count = 1) => {
+      server.use(
+        handlerFor("startConditionsExtraction", () =>
+          HttpResponse.json(extractionOperation(job.id, "queued"), { status: 202 }),
+        ),
+        handlerFor("getOperation", () =>
+          HttpResponse.json(extractionOperation(job.id, "succeeded", extractionResult(count, message))),
+        ),
+      );
+    };
+
+    it("moves focus to the result message when Enter on Extract is followed by '1 condition extracted'", async () => {
+      const job = withFiles(["Decision Letter.pdf"]);
+      renderCard(job, "i5_0");
+      stubExtraction(job);
+      screen.getByRole("button", EXTRACT).focus();
+      await userEvent.keyboard("{Enter}");
+      const result = await screen.findByText("1 condition extracted", {}, { timeout: 4000 });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(result.closest("[role=status]"));
+      });
+      expect(result.closest("[role=status]")).toHaveAttribute("tabindex", "-1");
+    });
+
+    it("moves focus to the message when the extraction cannot be started", async () => {
+      const job = withFiles(["Decision Letter.pdf"]);
+      renderCard(job, "i5_0");
+      server.use(mockProblem("startConditionsExtraction", 409, PROBLEM_TYPES.conflict, { detail: "Not now." }));
+      screen.getByRole("button", EXTRACT).focus();
+      await userEvent.keyboard("{Enter}");
+      await screen.findByText("Not now.");
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByText("Not now.").closest("[role=status]"));
+      });
+    });
+
+    it("does not take focus from where the person moved to meanwhile", async () => {
+      const job = withFiles(["Decision Letter.pdf"]);
+      renderCard(job, "i5_0");
+      stubExtraction(job);
+      const elsewhere = document.createElement("button");
+      document.body.append(elsewhere);
+      screen.getByRole("button", EXTRACT).focus();
+      await userEvent.keyboard("{Enter}");
+      elsewhere.focus();
+      await screen.findByText("1 condition extracted", {}, { timeout: 4000 });
+      expect(document.activeElement).toBe(elsewhere);
+      elsewhere.remove();
+    });
+
+    it("does not move focus for a reading resumed after a reload", async () => {
+      const job = {
+        ...withFiles(["Decision Letter.pdf"]),
+        activeOperations: [{ id: OPERATION_ID, type: "conditions.extract" as const, status: "running" as const }],
+      };
+      renderCard(job, "i5_0");
+      stubExtraction(job);
+      await screen.findByText("1 condition extracted", {}, { timeout: 4000 });
+      expect(document.activeElement).toBe(document.body);
+    });
+  });
+
   it("says when no numbered conditions were found", async () => {
     const job = withFiles(["Decision Letter.pdf"]);
     renderCard(job, "i5_0");
