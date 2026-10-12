@@ -29,7 +29,15 @@ beforeEach(async () => {
   await db.deleteFrom("operations").execute();
 });
 
-it("scans an uploaded email, queues its parse, and reads a Decision Letter, all through the poller", async () => {
+// One poller runs eight operations in turn, each parse in a fresh tsx-loaded thread. With the api, ops and worker
+// integration suites running side by side on four cores (root `pnpm test:integration`), the email alone took more than
+// `until`'s default 10 s, which then returned the unparsed row ("expected null to be 'Lot 3 query'").
+const PIPELINE_WAIT_MS = 60_000;
+const settled = <T>(read: () => Promise<T>, done: (value: T) => boolean): Promise<T> =>
+  until(read, done, PIPELINE_WAIT_MS);
+
+const pipeline = "scans an uploaded email, queues its parse, and reads a Decision Letter, all through the poller";
+it(pipeline, { timeout: 4 * PIPELINE_WAIT_MS }, async () => {
   const clamd = await startFakeClamd();
   const storage = createMemoryStorage();
   const config = loadWorkerConfig({
@@ -105,7 +113,7 @@ it("scans an uploaded email, queues its parse, and reads a Decision Letter, all 
     await enqueue(db, jobId, "file.scan", { fileId: bad.id });
     await enqueue(db, jobId, "conditions.extract", { fileId: letter.id, replaceExisting: false });
 
-    const email = await until(
+    const email = await settled(
       () =>
         db
           .selectFrom("email_messages")
@@ -115,12 +123,12 @@ it("scans an uploaded email, queues its parse, and reads a Decision Letter, all 
       (e) => e.parse_status === "parsed",
     );
     expect(email.subject).toBe("Lot 3 query");
-    const conditions = await until(
+    const conditions = await settled(
       () => db.selectFrom("conditions").select("agency").where("job_id", "=", jobId).execute(),
       (rows) => rows.length > 0,
     );
     expect(conditions).toEqual([{ agency: "Western Power" }]);
-    const scans = await until(
+    const scans = await settled(
       () => db.selectFrom("files").select(["id", "scan_status"]).where("job_id", "=", jobId).execute(),
       (rows) => rows.every((r) => r.scan_status !== "pending"),
     );
@@ -134,7 +142,7 @@ it("scans an uploaded email, queues its parse, and reads a Decision Letter, all 
       [broken.id]: "clean",
     });
     expect(await storage.exists(bad.key)).toBe(false);
-    const operations = await until(
+    const operations = await settled(
       () => db.selectFrom("operations").select(["type", "status"]).where("job_id", "=", jobId).execute(),
       (rows) => rows.length >= 8 && rows.every((o) => o.status === "succeeded" || o.status === "failed"),
     );
@@ -153,7 +161,7 @@ it("scans an uploaded email, queues its parse, and reads a Decision Letter, all 
     // what is stored as operations.result is the contract's shape: found, nothing found, and unreadable
     const stored = async (type: "conditions.extract" | "conformance.read", fileId: string) =>
       (
-        await until(
+        await settled(
           () =>
             db
               .selectFrom("operations")
