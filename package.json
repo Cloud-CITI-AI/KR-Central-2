@@ -19,6 +19,7 @@
     "test:unit": "pnpm -r test:unit",
     "test:integration": "pnpm -r test:integration",
     "test:contract": "pnpm -r test:contract",
+    "test:infra": "node --test infra/railway/ infra/clamav/test/*.mjs infra/test/*.mjs",
     "test:e2e": "pnpm --filter @kr/web test:e2e",
     "test:mutation": "pnpm -r test:mutation",
     "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm build",

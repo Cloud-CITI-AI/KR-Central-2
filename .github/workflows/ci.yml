@@ -59,6 +59,49 @@ jobs:
       - name: Work package plan is consistent (owned paths, waves, required brief sections)
         run: node scripts/plan/check-work-packages.mjs
 
+  infra:
+    # ADR-0008: the Railway pipeline/docs guards, the ClamAV image's entrypoint and the infra checks run on every PR, not
+    # only after a release is tagged. Node built-ins only (infra/ is not a workspace package), so no install is needed;
+    # Docker (preinstalled) answers `docker compose config` for the stack test.
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: "24" }
+      - run: pnpm test:infra
+
+  images:
+    # Every Dockerfile builds before a release is cut (release.yml first builds and pushes them after tagging). Nothing
+    # is pushed or attested here (push: false); infra/test/ci-wiring.test.mjs keeps this list equal to the repo's Dockerfiles.
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: apps/web/Dockerfile
+          - dockerfile: infra/clamav/Dockerfile
+          - dockerfile: packages/mock-idp/Dockerfile
+          - dockerfile: services/api/Dockerfile
+          - dockerfile: services/ops/Dockerfile
+          - dockerfile: services/worker/Dockerfile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Build ${{ matrix.dockerfile }} (not pushed)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          provenance: false
+
   pr-size:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -77,7 +120,7 @@ jobs:
 
   verify:
     if: always()
-    needs: [node, api-contract, format, pr-size]
+    needs: [node, api-contract, format, infra, images, pr-size]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
