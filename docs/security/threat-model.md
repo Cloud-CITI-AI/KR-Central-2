@@ -1,6 +1,6 @@
 # Threat model — KR Subdivision Tracker
 
-Owner: security CODEOWNER (`@cloudcitiwa/kr-tracker-security`). Method: STRIDE per component over the trust
+Owner: security CODEOWNER (`@CLOUD-CITI-AI/kr-tracker-security`). Method: STRIDE per component over the trust
 boundaries below, ranked against ASVS 5.0 L2 (L3 for authentication, PRODUCT_SPEC section 14). Sources: ADR-0002,
 0003, 0005, 0006, 0007, 0008, 0011, 0013, 0014, PRODUCT_SPEC sections 2.1, 3, 10, 11 and the code on `main`.
 Review: whenever a trust boundary changes (checklist SC-C5), and before each go-live gate.
