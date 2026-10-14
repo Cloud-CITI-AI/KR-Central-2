@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Playbook question or rule problem
-    url: https://github.com/cloudcitiwa/kr-central-2/issues/new?labels=playbook
+    url: https://github.com/cloud-citi-ai/kr-central-2/issues/new?labels=playbook
     about: Report a wrong, missing or contradictory playbook rule (vendored playbook v1.0.0, see ADR-0013).
