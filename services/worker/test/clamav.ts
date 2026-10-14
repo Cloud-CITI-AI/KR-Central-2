@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { GenericContainer } from "testcontainers";
+import { GenericContainer, Wait } from "testcontainers";
 import { createClamdClient } from "../src/clients/clamd.js";
 
 export interface RealClamd {
@@ -19,8 +19,8 @@ export const EICAR = ["X5O!P%@AP[4\\PZX54(P^)7CC)7}$", "EICAR-STANDARD-ANTIVIRUS
 /**
  * The real clamd (clamav/clamav:stable, or CLAMAV_IMAGE) with the repository's infra/clamav/clamd.conf mounted as shipped.
  * Only the bind address changes, to `0.0.0.0`: Docker's default bridge network has no IPv6 (even when the host does, as on
- * CI runners), and clamd then refuses to bind `::`. Resolves once clamd answers PING (it takes 30 to 90 s to load its
- * signatures).
+ * CI runners), and clamd then refuses to bind `::`. Readiness is the TCP port and then PING, not the image's HEALTHCHECK:
+ * testcontainers would wait on that for only 60 s, and clamd takes 30 to 90 s to load its signatures.
  */
 export async function startRealClamd(): Promise<RealClamd> {
   let conf = readFileSync(CONF, "utf8");
@@ -31,6 +31,8 @@ export async function startRealClamd(): Promise<RealClamd> {
   const container = await new GenericContainer(process.env.CLAMAV_IMAGE ?? "clamav/clamav:stable")
     .withExposedPorts(3310)
     .withBindMounts([{ source: file, target: "/etc/clamav/clamd.conf", mode: "ro" }])
+    .withWaitStrategy(Wait.forListeningPorts())
+    .withStartupTimeout(170_000)
     .start();
   const host = container.getHost();
   const port = container.getMappedPort(3310);
