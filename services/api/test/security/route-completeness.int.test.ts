@@ -101,7 +101,9 @@ describe("authentication: every non-public route answers 401 without a valid ses
       `${SESSION_COOKIE}=${"A".repeat(44)}`,
       `${SESSION_COOKIE}='; DROP TABLE sessions;--`,
       `kr_session=${w.actors.admin.cookieValue}`,
-      `${SESSION_COOKIE}=${w.actors.admin.cookieValue.slice(0, -1)}A`,
+      // Last character changed; it must differ from the real one (a 1-in-16 chance otherwise: 32 random bytes in
+      // base64url end in one of 16 characters, `A` among them).
+      `${SESSION_COOKIE}=${w.actors.admin.cookieValue.slice(0, -1)}${w.actors.admin.cookieValue.endsWith("A") ? "E" : "A"}`,
       `__Secure-kr_session=${w.actors.admin.cookieValue}`,
       await ended("revoked"),
       await ended("idle"),
