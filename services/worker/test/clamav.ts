@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,12 +18,13 @@ export const EICAR = ["X5O!P%@AP[4\\PZX54(P^)7CC)7}$", "EICAR-STANDARD-ANTIVIRUS
 
 /**
  * The real clamd (clamav/clamav:stable, or CLAMAV_IMAGE) with the repository's infra/clamav/clamd.conf mounted as shipped.
- * Only the bind address changes on a host kernel without IPv6, where clamd refuses `::`. Resolves once clamd answers PING
- * (it takes 30 to 90 s to load its signatures).
+ * Only the bind address changes, to `0.0.0.0`: Docker's default bridge network has no IPv6 (even when the host does, as on
+ * CI runners), and clamd then refuses to bind `::`. Resolves once clamd answers PING (it takes 30 to 90 s to load its
+ * signatures).
  */
 export async function startRealClamd(): Promise<RealClamd> {
   let conf = readFileSync(CONF, "utf8");
-  if (!existsSync("/proc/net/if_inet6")) conf = conf.replace(/^TCPAddr ::$/m, "TCPAddr 0.0.0.0");
+  conf = conf.replace(/^TCPAddr ::$/m, "TCPAddr 0.0.0.0");
   const dir = mkdtempSync(join(tmpdir(), "kr-clamd-"));
   const file = join(dir, "clamd.conf");
   writeFileSync(file, conf);
