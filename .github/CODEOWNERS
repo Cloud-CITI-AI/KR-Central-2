@@ -1,33 +1,33 @@
 # Playbook templates/project/.github/CODEOWNERS — team handles are placeholders until KR names owners (open risk R-1).
 # Last match wins; keep protected-path rules at the bottom.
-*                                       @cloudcitiwa/kr-tracker-maintainers
+*                                       @CLOUD-CITI-AI/kr-tracker-maintainers
 
 # Tier High paths: require domain owner review (docs/05 §5.2)
-/services/api/src/modules/auth/**       @cloudcitiwa/kr-tracker-security
-/services/api/src/modules/access/**     @cloudcitiwa/kr-tracker-security
-/services/api/src/platform/**           @cloudcitiwa/kr-tracker-security
-/packages/contracts/src/permissions.ts  @cloudcitiwa/kr-tracker-security
-/packages/db/migrations/**              @cloudcitiwa/kr-tracker-data
-/infra/**                               @cloudcitiwa/kr-tracker-platform
-/apps/web/src/proxy.ts                  @cloudcitiwa/kr-tracker-security
-/apps/web/next.config.ts                @cloudcitiwa/kr-tracker-security
-/apps/web/src/app/api/**                @cloudcitiwa/kr-tracker-security
-/services/api/src/modules/users/**      @cloudcitiwa/kr-tracker-security
-/services/api/src/modules/files/**      @cloudcitiwa/kr-tracker-security
-/services/api/src/config.ts             @cloudcitiwa/kr-tracker-security
-/services/worker/**                     @cloudcitiwa/kr-tracker-security
-/services/ops/**                        @cloudcitiwa/kr-tracker-data @cloudcitiwa/kr-tracker-platform
-/packages/db/src/bootstrap*.ts          @cloudcitiwa/kr-tracker-data @cloudcitiwa/kr-tracker-security
-/packages/storage/**                    @cloudcitiwa/kr-tracker-security
-/packages/document-parsing/**           @cloudcitiwa/kr-tracker-security
-/.env.example                           @cloudcitiwa/kr-tracker-security
-/docs/adr/**                            @cloudcitiwa/kr-tracker-maintainers @cloudcitiwa/kr-tracker-security
+/services/api/src/modules/auth/**       @CLOUD-CITI-AI/kr-tracker-security
+/services/api/src/modules/access/**     @CLOUD-CITI-AI/kr-tracker-security
+/services/api/src/platform/**           @CLOUD-CITI-AI/kr-tracker-security
+/packages/contracts/src/permissions.ts  @CLOUD-CITI-AI/kr-tracker-security
+/packages/db/migrations/**              @CLOUD-CITI-AI/kr-tracker-data
+/infra/**                               @CLOUD-CITI-AI/kr-tracker-platform
+/apps/web/src/proxy.ts                  @CLOUD-CITI-AI/kr-tracker-security
+/apps/web/next.config.ts                @CLOUD-CITI-AI/kr-tracker-security
+/apps/web/src/app/api/**                @CLOUD-CITI-AI/kr-tracker-security
+/services/api/src/modules/users/**      @CLOUD-CITI-AI/kr-tracker-security
+/services/api/src/modules/files/**      @CLOUD-CITI-AI/kr-tracker-security
+/services/api/src/config.ts             @CLOUD-CITI-AI/kr-tracker-security
+/services/worker/**                     @CLOUD-CITI-AI/kr-tracker-security
+/services/ops/**                        @CLOUD-CITI-AI/kr-tracker-data @CLOUD-CITI-AI/kr-tracker-platform
+/packages/db/src/bootstrap*.ts          @CLOUD-CITI-AI/kr-tracker-data @CLOUD-CITI-AI/kr-tracker-security
+/packages/storage/**                    @CLOUD-CITI-AI/kr-tracker-security
+/packages/document-parsing/**           @CLOUD-CITI-AI/kr-tracker-security
+/.env.example                           @CLOUD-CITI-AI/kr-tracker-security
+/docs/adr/**                            @CLOUD-CITI-AI/kr-tracker-maintainers @CLOUD-CITI-AI/kr-tracker-security
 
 # Protected paths (rule X1): agents cannot change these; humans need platform + security approval
-/AGENTS.md                              @cloudcitiwa/kr-tracker-platform
-**/AGENTS.md                            @cloudcitiwa/kr-tracker-platform
-/CLAUDE.md                              @cloudcitiwa/kr-tracker-platform
-/.claude/                               @cloudcitiwa/kr-tracker-platform @cloudcitiwa/kr-tracker-security
-/.github/                               @cloudcitiwa/kr-tracker-platform @cloudcitiwa/kr-tracker-security
-/.github/CODEOWNERS                     @cloudcitiwa/kr-tracker-platform @cloudcitiwa/kr-tracker-security
-/renovate.json                          @cloudcitiwa/kr-tracker-platform @cloudcitiwa/kr-tracker-security
+/AGENTS.md                              @CLOUD-CITI-AI/kr-tracker-platform
+**/AGENTS.md                            @CLOUD-CITI-AI/kr-tracker-platform
+/CLAUDE.md                              @CLOUD-CITI-AI/kr-tracker-platform
+/.claude/                               @CLOUD-CITI-AI/kr-tracker-platform @CLOUD-CITI-AI/kr-tracker-security
+/.github/                               @CLOUD-CITI-AI/kr-tracker-platform @CLOUD-CITI-AI/kr-tracker-security
+/.github/CODEOWNERS                     @CLOUD-CITI-AI/kr-tracker-platform @CLOUD-CITI-AI/kr-tracker-security
+/renovate.json                          @CLOUD-CITI-AI/kr-tracker-platform @CLOUD-CITI-AI/kr-tracker-security
