@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/cloudcitiwa/kr-central-2/infra/railway/service.schema.json",
+  "$id": "https://github.com/cloud-citi-ai/kr-central-2/infra/railway/service.schema.json",
   "title": "Railway service settings (ADR-0008)",
   "description": "Declarative settings of one Railway service. deploy-images.mjs applies them with serviceInstanceUpdate before each deploy and fails when Railway reports different values.",
   "type": "object",

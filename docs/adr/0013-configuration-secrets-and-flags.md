@@ -27,9 +27,9 @@ identity.
   with owner and removal/review date; flag lint in CI lists flags past their date.
 - `.env.example` contains every variable with fake values; a unit test compares config schema keys with it.
 
-- **Playbook sync**: the playbook's `playbook-sync` workflow is not installed yet because there is no organisation
-  playbook repository to sync from; managed files are vendored at playbook v1.0.0 (`managed-by` headers) and
-  `playbook-guard` checks their markers. Install `playbook-sync` when KR/cloudcitiwa publishes the playbook repo.
+- **Playbook sync**: the playbook's `playbook-sync` workflow is not installed yet; managed files are vendored at
+  playbook v1.0.0 (`managed-by` headers) and `playbook-guard` checks their markers. The organisation playbook
+  repository is `cloud-citi-ai/agentic-playbook`; install `playbook-sync` from it.
 
 ## Consequences
 

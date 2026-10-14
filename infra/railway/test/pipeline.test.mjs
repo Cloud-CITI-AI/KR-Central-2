@@ -373,7 +373,7 @@ for (const file of [
     const dockerfile = read(file);
     assert.match(dockerfile, /^ARG IMAGE_SOURCE=?$/m);
     assert.match(dockerfile, /org\.opencontainers\.image\.source="\$\{IMAGE_SOURCE\}"/);
-    assert.doesNotMatch(dockerfile, /github\.com\/cloudcitiwa\/kr-central-2/);
+    assert.doesNotMatch(dockerfile, /github\.com\/[\w.-]+\/kr-central-2/i);
   });
 }
 
