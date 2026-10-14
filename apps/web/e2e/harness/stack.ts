@@ -118,8 +118,8 @@ async function startControl(idp: MockIdp): Promise<{ url: string; close: () => P
 
 function startClamd(scope: RunScope): { host: string; port: number } {
   let conf = readFileSync(CLAMD_CONF, "utf8");
-  // clamd refuses `::` on a host kernel without IPv6.
-  if (!existsIpv6()) conf = conf.replace(/^TCPAddr ::$/m, "TCPAddr 0.0.0.0");
+  // Docker's default bridge network has no IPv6 (even when the host does, as on CI runners), and clamd then refuses `::`.
+  conf = conf.replace(/^TCPAddr ::$/m, "TCPAddr 0.0.0.0");
   const dir = mkdtempSync(join(tmpdir(), "kr-e2e-clamd-"));
   const file = join(dir, "clamd.conf");
   writeFileSync(file, conf);
@@ -132,15 +132,6 @@ function startClamd(scope: RunScope): { host: string; port: number } {
     mounts: [{ source: file, target: "/etc/clamav/clamd.conf" }],
   });
   return { host: container.host, port: container.port };
-}
-
-function existsIpv6(): boolean {
-  try {
-    readFileSync("/proc/net/if_inet6");
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** clamd answers PING only after loading its signatures (30 to 90 s). */
