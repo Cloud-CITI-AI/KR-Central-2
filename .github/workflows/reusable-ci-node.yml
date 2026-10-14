@@ -31,7 +31,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build workspace dependencies of the package
         env: { PKG: "${{ matrix.pkg }}" }
-        run: pnpm --filter "./${PKG}^..." build
+        run: pnpm --filter "{./${PKG}}^..." build
       - name: Lint
         working-directory: ${{ matrix.pkg }}
         run: pnpm lint
