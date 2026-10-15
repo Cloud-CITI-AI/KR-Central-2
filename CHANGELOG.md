@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.0.4](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.3...v1.0.4) (2026-10-15)
+
+
+### Bug Fixes
+
+* **images:** apply Alpine security updates in the Node runtime stages ([ee431f7](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/ee431f72ed371ea104acbf765e216e414d617b60))
+* **images:** apply Alpine security updates in the Node runtime stages ([690dc6f](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/690dc6f611c830aafafa6fcf68fa39cadff2edf4))
+
 ## [1.0.3](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.2...v1.0.3) (2026-10-15)
 
 
