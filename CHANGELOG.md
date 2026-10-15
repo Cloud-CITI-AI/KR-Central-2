@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.0.3](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.2...v1.0.3) (2026-10-15)
+
+
+### Bug Fixes
+
+* **images:** move the Node base image to the current node:24-alpine digest ([a57ebb7](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/a57ebb71cb3ebae8f70938d693f587b520683121))
+* **images:** move the Node base image to the current node:24-alpine digest ([af9ddb3](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/af9ddb389639291b652e4e013a2fd1c9530d1773))
+
 ## [1.0.2](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.1...v1.0.2) (2026-10-15)
 
 
