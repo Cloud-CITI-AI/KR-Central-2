@@ -17,7 +17,7 @@ RUN mkdir -p /pgclient/bin /pgclient/lib \
        | while read -r lib; do cp -L "$lib" "/pgclient/lib/$(basename "$lib")"; done
 
 # --- fetch: every dependency in the lockfile into the pnpm store (cached until the lockfile changes) ---------------
-FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS fetch
+FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS fetch
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     PNPM_HOME=/pnpm \
     npm_config_store_dir=/pnpm/store
@@ -33,7 +33,7 @@ RUN pnpm install --frozen-lockfile --offline \
     && pnpm --filter @kr/ops deploy --prod /out
 
 # --- runtime: production dependencies, compiled code and pg_dump only; no pnpm/npm/yarn/corepack, no dev tools -------
-FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS runtime
+FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS runtime
 ARG RELEASE_VERSION=dev
 # The release workflow passes the repository URL (github.server_url/github.repository), so forks and renames label correctly.
 ARG IMAGE_SOURCE=
