@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.0.2](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.1...v1.0.2) (2026-10-15)
+
+
+### Bug Fixes
+
+* **clamav:** move the base image to the current clamav/clamav:stable digest ([19ed15a](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/19ed15abe202cfe27074598d8d0b91e64a98d803))
+* **clamav:** move the base image to the current clamav/clamav:stable digest ([fb88e5e](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/fb88e5edc00dc5d47590b1266be3e3ad5fe3d047))
+
 ## [1.0.1](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.0...v1.0.1) (2026-10-15)
 
 
