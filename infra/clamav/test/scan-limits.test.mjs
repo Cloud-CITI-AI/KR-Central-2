@@ -10,7 +10,6 @@
  */
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync } from "node:fs";
 import net from "node:net";
 import { dirname, join } from "node:path";
 import assert from "node:assert/strict";
@@ -76,10 +75,10 @@ async function* syntheticFile(bytes) {
 before(async () => {
   const image = process.env.CLAMAV_IMAGE ?? "kr-clamav:test";
   if (!process.env.CLAMAV_IMAGE) docker("build", "-q", "-f", join(imageDir, "Dockerfile"), "-t", image, imageDir);
-  // The image runs as shipped. Only the bind address changes when the host kernel has no IPv6 (CI runners and Railway
-  // have it; some sandboxes do not, and clamd then refuses to bind `::`): CLAMD_TCP_ADDR, read by kr-entrypoint.sh.
-  const addr = existsSync("/proc/net/if_inet6") ? [] : ["-e", "CLAMD_TCP_ADDR=0.0.0.0"];
-  docker("run", "-d", "--name", name, "-p", "127.0.0.1::3310", ...addr, image);
+  // The image runs as shipped. Only the bind address changes, through CLAMD_TCP_ADDR (read by kr-entrypoint.sh): Docker's
+  // default bridge network has no IPv6 even when the host does (CI runners), and clamd then refuses to bind `::`. Railway's
+  // private network has IPv6, so the image default stays `::` there.
+  docker("run", "-d", "--name", name, "-p", "127.0.0.1::3310", "-e", "CLAMD_TCP_ADDR=0.0.0.0", image);
   port = Number(docker("port", name, "3310/tcp").split(":").pop());
   const deadline = Date.now() + 240_000;
   for (;;) {
