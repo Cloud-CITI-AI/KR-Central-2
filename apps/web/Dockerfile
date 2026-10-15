@@ -29,7 +29,9 @@ LABEL org.opencontainers.image.title="kr-web" \
       org.opencontainers.image.vendor="KR Surveys" \
       org.opencontainers.image.source="${IMAGE_SOURCE}" \
       org.opencontainers.image.version="${RELEASE_VERSION}"
-RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+# Apply Alpine security fixes published after the base image was built (the release scan fails on fixable highs).
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
       /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 # HOSTNAME=:: binds IPv6 and IPv4 (dual-stack) so Railway's private network (IPv6) and its health check both reach it.
 # Railway injects PORT; 3000 is the local default.
@@ -43,7 +45,7 @@ COPY --from=build /repo/apps/web/.next/standalone ./
 COPY --from=build /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /repo/apps/web/public ./apps/web/public
 # Non-root. PID 1 is node itself: Next's server handles SIGTERM/SIGINT and the image spawns no other processes, so no
-# init reaper (tini) is needed; the image needs no package repository at build time.
+# init reaper (tini) is needed.
 USER node
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]

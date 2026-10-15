@@ -27,7 +27,9 @@ LABEL org.opencontainers.image.title="kr-api" \
       org.opencontainers.image.vendor="KR Surveys" \
       org.opencontainers.image.source="${IMAGE_SOURCE}" \
       org.opencontainers.image.version="${RELEASE_VERSION}"
-RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+# Apply Alpine security fixes published after the base image was built (the release scan fails on fixable highs).
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
       /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 ENV NODE_ENV=production \
     HOST=:: \
@@ -38,7 +40,7 @@ COPY --from=build /out/package.json ./package.json
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
 # Non-root. PID 1 is node itself: the service handles SIGTERM/SIGINT (graceful shutdown) and spawns no long-lived
-# children, so no init reaper (tini) is needed; the image needs no package repository at build time.
+# children, so no init reaper (tini) is needed.
 USER node
 EXPOSE 8080
 CMD ["node", "dist/main.js"]

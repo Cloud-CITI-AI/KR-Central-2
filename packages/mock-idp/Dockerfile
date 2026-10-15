@@ -22,7 +22,9 @@ FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed
 LABEL org.opencontainers.image.title="kr-mock-idp" \
       org.opencontainers.image.description="Mock Microsoft Entra ID for the local compose stack (synthetic users, never deployed)" \
       org.opencontainers.image.vendor="KR Surveys"
-RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+# Apply Alpine security fixes published after the base image was built (the release scan fails on fixable highs).
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
       /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 ENV NODE_ENV=production \
     MOCK_IDP_HOST=0.0.0.0 \

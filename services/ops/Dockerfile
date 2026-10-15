@@ -7,7 +7,7 @@
 # Base: node:24-alpine pinned by digest (multi-arch index digest of 24.21.0 on Alpine 3.24; bump deliberately).
 
 # --- pgclient: pg_dump 17 and its shared libraries, taken from the official image of the same major as the database ----
-# Copied instead of `apk add postgresql17-client` so the build needs no package repository and the client is the exact,
+# Copied instead of `apk add postgresql17-client` so the client is the exact,
 # digest-pinned build the tests run (postgres:17-alpine, Alpine 3.24). Bump this digest together with the base's.
 FROM postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24 AS pgclient
 SHELL ["/bin/ash", "-o", "pipefail", "-c"]
@@ -45,7 +45,9 @@ LABEL org.opencontainers.image.title="kr-ops" \
 # pg_dump keeps its own libraries in /opt/pgclient/lib (loaded through the wrapper only), so they cannot shadow the
 # system's libssl/libz for anything else in the image. The jobs start pg_dump with an empty PATH, hence the absolute path.
 COPY --from=pgclient /pgclient/ /opt/pgclient/
-RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+# Apply Alpine security fixes published after the base image was built (the release scan fails on fixable highs).
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
       /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-* \
     && printf '#!/bin/sh\nLD_LIBRARY_PATH=/opt/pgclient/lib exec /opt/pgclient/bin/pg_dump "$@"\n' > /usr/bin/pg_dump \
     && chmod 0755 /usr/bin/pg_dump \
