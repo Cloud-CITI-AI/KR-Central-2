@@ -2,7 +2,7 @@
 # over TCP 3310 (INSTREAM); the limits in clamd.conf are above UPLOAD_MAX_BYTES so every accepted upload can be scanned.
 # Base: clamav/clamav:stable pinned by digest (ClamAV 1.5.x on Alpine 3.24, signatures baked in at build time and then
 # kept fresh by freshclam; bump the digest deliberately). Build:  docker build -f infra/clamav/Dockerfile -t kr-clamav infra/clamav   (or with context . as the release does)
-FROM clamav/clamav:stable@sha256:ebec5bc138401b36ae987caa1a3fa3c3b2a21ed3d51f0bfa5852825e663e67b0
+FROM clamav/clamav:stable@sha256:638d90201ee7ee6a82d249a2fc23b132e578673b5f1f2766852b127676ca1ef6
 
 ARG RELEASE_VERSION=dev
 # The release workflow passes the repository URL (github.server_url/github.repository), so forks and renames label correctly.
