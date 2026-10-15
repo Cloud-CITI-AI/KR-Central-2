@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.0.1](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.0...v1.0.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **release:** let release-please tag single-package release PRs ([7a21b46](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/7a21b4617df2675b823d80a1d656d01e3b004d55))
+* **release:** let release-please tag single-package release PRs ([a121280](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/a121280f0fc0f9b7f5713bf335b6c5549b2dad7c))
+
 ## 1.0.0 (2026-10-14)
 
 
