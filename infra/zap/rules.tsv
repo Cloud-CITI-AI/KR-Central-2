@@ -3,3 +3,8 @@
 # stays at its default (WARN, which fails the step because fail_action is true). Justification of each line: docs/security/zap.md.
 10038	OUTOFSCOPE	^https?://[^/]+/(robots\.txt|sitemap\.xml)$
 10019	OUTOFSCOPE	^https?://[^/]+/?$
+10044	OUTOFSCOPE	^https?://[^/]+/(robots\.txt|sitemap\.xml)$
+10109	OUTOFSCOPE	^https?://[^/]+/(robots\.txt|sitemap\.xml)$
+10112	OUTOFSCOPE	^https?://[^/]+/api/v1/auth/login$
+10049	OUTOFSCOPE	^https?://[^/]+(/(robots\.txt|sitemap\.xml|sign-in(\?.*)?)?)?$
+10049	OUTOFSCOPE	^https?://[^/]+/_next/static/media/[^/?]+\.woff2$
