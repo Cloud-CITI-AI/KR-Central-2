@@ -28,7 +28,9 @@ LABEL org.opencontainers.image.title="kr-worker" \
       org.opencontainers.image.vendor="KR Surveys" \
       org.opencontainers.image.source="${IMAGE_SOURCE}" \
       org.opencontainers.image.version="${RELEASE_VERSION}"
-RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+# Apply Alpine security fixes published after the base image was built (the release scan fails on fixable highs).
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
       /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 ENV NODE_ENV=production \
     HOST=:: \
@@ -38,8 +40,8 @@ WORKDIR /app
 COPY --from=build /out/package.json ./package.json
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
-# Non-root. PID 1 is node itself and the worker spawns no long-lived children, so no init reaper (tini) is needed; the
-# image needs no package repository at build time. Node as PID 1 ignores SIGTERM without a handler, and src/main.ts
+# Non-root. PID 1 is node itself and the worker spawns no long-lived children, so no init reaper (tini) is needed.
+# Node as PID 1 ignores SIGTERM without a handler, and src/main.ts
 # installs one (SIGTERM and SIGINT: stop claiming, finish in-flight work within 25 s, then exit), so Railway's stop
 # ends the container cleanly inside its grace period.
 USER node
