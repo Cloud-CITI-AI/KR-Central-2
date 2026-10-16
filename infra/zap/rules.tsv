@@ -10,3 +10,4 @@
 10112	OUTOFSCOPE	^https?://[^/]+/api/v1/auth/login$
 10049	OUTOFSCOPE	^https?://[^/]+(/(robots\.txt|sitemap\.xml|sign-in(\?.*)?)?)?$
 10049	OUTOFSCOPE	^https?://[^/]+/_next/static/(media|chunks)/[^/?]+\.(woff2|css)$
+10049	OUTOFSCOPE	^https?://[^/]+/brand/[^/?]+\.(avif|webp|svg)$
