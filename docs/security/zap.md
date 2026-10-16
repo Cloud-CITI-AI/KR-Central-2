@@ -25,7 +25,10 @@ alerts; here no alert at all). This page records how the overrides were derived 
 | 7    | 10049 Non-Storable Content            | `/_next/static/media/*.woff2`                                            | Informational: public, content-hashed font files carry no user data, so a cache miss costs only bandwidth. Why staging serves them as non-storable (Next.js normally marks `/_next/static` immutable) is not yet known; worth checking the edge's caching, not a security issue.                                                                                                                                                                                                                                  |
 
 Every line is an anchored regex (`^https?://[^/]+...$`), so a new page that triggers the same rule is not covered. Rows 3 to 7
-were added after the first HTTPS staging run (deploy of v1.0.4, 2026-10-15), which reported them as WARN-NEW.
+were added after the first HTTPS staging run (deploy of v1.0.4, 2026-10-15), which reported them as WARN-NEW. The same run
+reported 90004 (Cross-Origin-Embedder-Policy missing); that was fixed in the product, not overridden:
+`apps/web/next.config.ts` sends `Cross-Origin-Embedder-Policy: require-corp`, which the CSP already makes safe (every
+fetch, image, font and worker is same-origin, `data:` or `blob:`).
 
 ## How the overrides were derived (local baseline run, 2026-10-09)
 
