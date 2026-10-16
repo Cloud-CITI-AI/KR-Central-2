@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import config from "../../../next.config";
 
 describe("next.config security headers", () => {
-  it("sets HSTS, nosniff, Referrer-Policy, Permissions-Policy, frame and COOP headers on every path", async () => {
+  it("sets HSTS, nosniff, Referrer-Policy, Permissions-Policy, frame, COOP and COEP headers on every path", async () => {
     const rules = (await config.headers?.()) ?? [];
     expect(rules).toHaveLength(1);
     expect(rules[0]?.source).toBe("/:path*");
@@ -14,6 +14,7 @@ describe("next.config security headers", () => {
       "Referrer-Policy": "strict-origin-when-cross-origin",
       "X-Frame-Options": "DENY",
       "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "require-corp",
     });
     expect(headers["Permissions-Policy"]).toContain("camera=()");
   });

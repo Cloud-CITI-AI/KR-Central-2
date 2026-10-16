@@ -12,6 +12,8 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // Safe because the CSP already limits every fetch, image, font and worker to this origin (data:/blob: aside).
+  { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
 ];
 
 const config: NextConfig = {
