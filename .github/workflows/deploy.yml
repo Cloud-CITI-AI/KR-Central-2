@@ -82,6 +82,7 @@ jobs:
         with:
           target: ${{ vars.STAGING_URL }}
           rules_file_name: infra/zap/rules.tsv
+          cmd_options: "-c infra/zap/rules.tsv"
           fail_action: true
           allow_issue_writing: false
       - name: Roll back staging on failure or cancellation (a step timeout is a failure, a job timeout a cancellation)
