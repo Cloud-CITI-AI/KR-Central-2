@@ -133,7 +133,7 @@ jobs:
         run: node infra/railway/scripts/deploy-images.mjs --environment production --services "$SERVICES" --record previous-production.json
       - name: Post-deploy smoke watch (10 min; health, headers and a latency probe against budgets — no metrics backend yet)
         env: { BASE_URL: "${{ vars.PRODUCTION_URL }}" }
-                run: node infra/railway/scripts/smoke.mjs --base-url "$BASE_URL" --watch-minutes 10 --p95-ms 2000 --p99-ms 3000
+        run: node infra/railway/scripts/smoke.mjs --base-url "$BASE_URL" --watch-minutes 10 --p95-ms 2000 --p99-ms 3000
       - name: Automatic rollback on failure or cancellation (previous image digests; no down-migrations, expand/contract only)
         if: failure() || cancelled()
         timeout-minutes: 75
