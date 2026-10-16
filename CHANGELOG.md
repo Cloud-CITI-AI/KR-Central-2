@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.0.8](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.7...v1.0.8) (2026-10-16)
+
+
+### Bug Fixes
+
+* **zap:** cover the public brand images for 10049 ([431fe73](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/431fe73b9b35592504878e8f0ffa6a51136b2936))
+* **zap:** cover the public brand images for 10049 ([42fa243](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/42fa2431550eea260477aca1dbb62c13e36a94fa))
+
 ## [1.0.7](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.6...v1.0.7) (2026-10-16)
 
 
