@@ -31,6 +31,8 @@ export class RailwayApiError extends Error {
 }
 
 const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+/** Railway's generic server-side failure, answered as HTTP 200 with an `errors` array (seen on staging, 2026-10-15). */
+const TRANSIENT_GRAPHQL = /^Problem processing request$/i;
 const edges = (connection) => connection.edges.map((edge) => edge.node);
 
 export function createRailwayClient({
@@ -42,7 +44,10 @@ export function createRailwayClient({
 }) {
   if (!token) throw new RailwayApiError("RAILWAY_TOKEN is not set");
 
-  /** Mutations are sent once (a repeated deploy trigger would deploy twice); queries retry transient failures. */
+  /**
+   * Queries and the idempotent settings update retry transient failures; the deploy trigger is sent once (a repeated
+   * trigger would deploy twice).
+   */
   async function request(query, variables, retries) {
     for (let attempt = 0; ; attempt++) {
       let response;
@@ -68,6 +73,10 @@ export function createRailwayClient({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new RailwayApiError(`Railway API answered HTTP ${response.status}`);
       if (Array.isArray(body.errors) && body.errors.length > 0) {
+        if (attempt < retries && body.errors.every((e) => TRANSIENT_GRAPHQL.test(e.message ?? ""))) {
+          await sleep(1000 * (attempt + 1));
+          continue;
+        }
         throw new RailwayApiError(`Railway API error: ${body.errors.map((e) => e.message).join("; ")}`);
       }
       if (body.data === undefined || body.data === null) throw new RailwayApiError("Railway API returned no data");
@@ -92,8 +101,9 @@ export function createRailwayClient({
     async deployment(id) {
       return (await query(QUERIES.deployment, { id })).deployment;
     },
+    /** Sets the whole wanted state, so a retry after an unclear failure is safe; the caller verifies the result. */
     async updateServiceInstance(serviceId, environmentId, input) {
-      await request(QUERIES.update, { serviceId, environmentId, input }, 0);
+      await request(QUERIES.update, { serviceId, environmentId, input }, queryRetries);
     },
     /** Triggers a deployment of the service's current configuration; returns the new deployment id. */
     async deployServiceInstance(serviceId, environmentId) {

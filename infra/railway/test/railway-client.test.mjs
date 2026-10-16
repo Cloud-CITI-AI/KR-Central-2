@@ -76,9 +76,50 @@ test("queries give up after the retry budget and report the HTTP status", async 
   assert.equal(calls.length, 3);
 });
 
-test("mutations are sent exactly once, even when the request fails", async () => {
+test("queries retry Railway's generic 'Problem processing request' error", async () => {
+  const { fetch, calls } = fakeFetch(
+    json({ errors: [{ message: "Problem processing request" }] }),
+    json({ data: { deployment: { id: "d", status: "SUCCESS" } } }),
+  );
+  assert.deepEqual(await client(fetch).deployment("d"), { id: "d", status: "SUCCESS" });
+  assert.equal(calls.length, 2);
+});
+
+test("other GraphQL errors are not retried", async () => {
+  const { fetch, calls } = fakeFetch(json({ errors: [{ message: "Not Authorized" }] }), json({ data: {} }));
+  await assert.rejects(client(fetch).deployment("d"), /Not Authorized/);
+  assert.equal(calls.length, 1);
+});
+
+test("the settings update retries transient failures, since it sets the whole state", async () => {
+  const { fetch, calls } = fakeFetch(
+    json({ errors: [{ message: "Problem processing request" }] }),
+    json({}, 503),
+    json({ data: { serviceInstanceUpdate: true } }),
+  );
+  await client(fetch).updateServiceInstance("s", "e", { source: { image: "x" } });
+  assert.equal(calls.length, 3);
+});
+
+test("the settings update gives up after the retry budget with Railway's message", async () => {
+  const problem = () => json({ errors: [{ message: "Problem processing request" }] });
+  const { fetch, calls } = fakeFetch(problem(), problem(), problem());
+  await assert.rejects(client(fetch).updateServiceInstance("s", "e", {}), /Problem processing request/);
+  assert.equal(calls.length, 3);
+});
+
+test("the deploy trigger is sent exactly once, even when the request fails", async () => {
   const { fetch, calls } = fakeFetch(json({}, 503), json({ data: { serviceInstanceDeployV2: "d1" } }));
   await assert.rejects(client(fetch).deployServiceInstance("s", "e"), /HTTP 503/);
+  assert.equal(calls.length, 1);
+});
+
+test("the deploy trigger does not retry 'Problem processing request' either", async () => {
+  const { fetch, calls } = fakeFetch(
+    json({ errors: [{ message: "Problem processing request" }] }),
+    json({ data: { serviceInstanceDeployV2: "d1" } }),
+  );
+  await assert.rejects(client(fetch).deployServiceInstance("s", "e"), /Problem processing request/);
   assert.equal(calls.length, 1);
 });
 
