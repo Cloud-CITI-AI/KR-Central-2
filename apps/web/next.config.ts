@@ -14,6 +14,8 @@ const securityHeaders = [
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   // Safe because the CSP already limits every fetch, image, font and worker to this origin (data:/blob: aside).
   { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+  // Only this origin may embed our responses (ZAP 90004 asks for it alongside COEP).
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
 ];
 
 const config: NextConfig = {

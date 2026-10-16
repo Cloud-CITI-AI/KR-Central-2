@@ -22,13 +22,22 @@ alerts; here no alert at all). This page records how the overrides were derived 
 | 4    | 10109 Modern Web Application          | `/robots.txt`, `/sitemap.xml`                                            | Informational: ZAP recognised a JavaScript application, a hint for choosing a scan type, not a weakness.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | 5    | 10112 Session Management Response     | `/api/v1/auth/login` only                                                | Informational: ZAP saw the login set the session cookie, which is that endpoint's job. The cookie's flags are checked by 10010, 10011 and 10054, which stay active everywhere.                                                                                                                                                                                                                                                                                                                                    |
 | 6    | 10049 Non-Storable Content            | `/`, `/robots.txt`, `/sitemap.xml`, `/sign-in` (with or without a query) | Informational: these answers are `no-store` (`proxy.ts` sets it on the sign-in redirect) or otherwise not cached. Not caching sign-in and redirect answers is the intent.                                                                                                                                                                                                                                                                                                                                         |
-| 7    | 10049 Non-Storable Content            | `/_next/static/media/*.woff2`                                            | Informational: public, content-hashed font files carry no user data, so a cache miss costs only bandwidth. Why staging serves them as non-storable (Next.js normally marks `/_next/static` immutable) is not yet known; worth checking the edge's caching, not a security issue.                                                                                                                                                                                                                                  |
+| 7    | 10049 Non-Storable Content            | `/_next/static/media/*.woff2`, `/_next/static/chunks/*.css`              | Informational: public, content-hashed font and stylesheet files carry no user data, so a cache miss costs only bandwidth. Why staging serves them as non-storable (Next.js normally marks `/_next/static` immutable) is not yet known; worth checking the edge's caching, not a security issue.                                                                                                                                                                                                                   |
 
 Every line is an anchored regex (`^https?://[^/]+...$`), so a new page that triggers the same rule is not covered. Rows 3 to 7
 were added after the first HTTPS staging run (deploy of v1.0.4, 2026-10-15), which reported them as WARN-NEW. The same run
 reported 90004 (Cross-Origin-Embedder-Policy missing); that was fixed in the product, not overridden:
-`apps/web/next.config.ts` sends `Cross-Origin-Embedder-Policy: require-corp`, which the CSP already makes safe (every
+`apps/web/next.config.ts` sends `Cross-Origin-Embedder-Policy: require-corp` and, since the v1.0.6 run reported 90004 again as
+"Cross-Origin-Resource-Policy Header Missing", `Cross-Origin-Resource-Policy: same-origin`, which the CSP already makes safe (every
 fetch, image, font and worker is same-origin, `data:` or `blob:`).
+
+## Loading the rules file
+
+`zaproxy/action-baseline` v0.14.0 adds `-c <rules_file_name>` to the scan only when the rules file contains at least one
+`IGNORE` line (its `processLineByLine` collects IGNORE ids and the `-c` is skipped when that list is empty). This file has
+only `OUTOFSCOPE` lines, so `rules_file_name` alone loads nothing: the v1.0.5 and v1.0.6 staging runs reported alerts that
+lines 2 to 7 cover. The workflow therefore passes the file itself with `cmd_options: "-c infra/zap/rules.tsv"`
+(`zap-baseline.py` reads it from `/zap/wrk/`, the mounted workspace). Do not add a dummy `IGNORE` line to work around it.
 
 ## How the overrides were derived (local baseline run, 2026-10-09)
 
