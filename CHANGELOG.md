@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.0.6](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.5...v1.0.6) (2026-10-16)
+
+
+### Bug Fixes
+
+* **railway:** retry the settings update on Railway's transient errors ([0ca5bc3](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/0ca5bc30623eacfd0e208a6caa7999166db4c6f1))
+* **railway:** retry the settings update on Railway's transient errors ([d34d63c](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/d34d63c2a55f8588c0f2459924570066929451d4))
+* **web:** send Cross-Origin-Embedder-Policy: require-corp ([17bad36](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/17bad360cbfc11f89caf9b368ac5aaba8dbf3812))
+* **web:** send Cross-Origin-Embedder-Policy: require-corp ([58c5a76](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/58c5a7689febbd292107c86e37bd3b18a7611f84))
+
 ## [1.0.5](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.4...v1.0.5) (2026-10-15)
 
 
