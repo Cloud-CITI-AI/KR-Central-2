@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.0.9](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.8...v1.0.9) (2026-10-16)
+
+
+### Bug Fixes
+
+* **zap:** report 10049 as INFO instead of filtering it per URL ([f9ed69b](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/f9ed69bf2e33d58343fc44df89eaca8469fb873f))
+* **zap:** report 10049 as INFO instead of filtering it per URL ([1870dcf](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/1870dcf471100ad5fcddad9c5c1338753881a54c))
+
 ## [1.0.8](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.7...v1.0.8) (2026-10-16)
 
 
