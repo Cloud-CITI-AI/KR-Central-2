@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.0.7](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.6...v1.0.7) (2026-10-16)
+
+
+### Bug Fixes
+
+* **zap:** send CORP, cover stylesheet chunks, document how the rules load ([d87a858](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/d87a858d86860623b9a0b18702dd32f5ed69933e))
+* **zap:** send CORP, cover stylesheet chunks, document how the rules load ([adef596](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/adef5969181110c973676b6f9d4170af9d597ba7))
+
 ## [1.0.6](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.5...v1.0.6) (2026-10-16)
 
 
