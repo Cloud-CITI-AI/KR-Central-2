@@ -171,10 +171,14 @@ describe("CSRF: every state-changing route answers 403 without the session's tok
 
   it("a rejected write changes nothing (the check runs before the handler)", async () => {
     const job = await w.f.makeJob();
-    const before = await w.t.db
-      .selectFrom("audit_events")
-      .select(w.t.db.fn.countAll().as("n"))
-      .executeTakeFirstOrThrow();
+    // Only this request's and this job's rows: other files write to the same database while this one runs.
+    const trail = (requestId: string) =>
+      w.t.db
+        .selectFrom("audit_events")
+        .select("action")
+        .where((eb) => eb.or([eb("request_id", "=", requestId), eb("job_id", "=", job.id)]))
+        .execute();
+    const before = await trail("");
     const res = await apiRequest(w.t, {
       method: "DELETE",
       url: `/v1/jobs/${job.id}`,
@@ -183,11 +187,9 @@ describe("CSRF: every state-changing route answers 403 without the session's tok
       headers: { "if-match": '"1"' },
     });
     expect(res.statusCode).toBe(403);
-    const after = await w.t.db
-      .selectFrom("audit_events")
-      .select(w.t.db.fn.countAll().as("n"))
-      .executeTakeFirstOrThrow();
-    expect(after.n).toBe(before.n);
+    const requestId = res.headers["x-request-id"];
+    expect(typeof requestId).toBe("string");
+    expect(await trail(String(requestId))).toEqual(before);
     expect(
       (await w.t.db.selectFrom("jobs").select("deleted_at").where("id", "=", job.id).executeTakeFirstOrThrow())
         .deleted_at,
