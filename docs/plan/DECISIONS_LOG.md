@@ -180,5 +180,5 @@ reason. Evidence and numbers are in `docs/release/GO_LIVE_REPORT.md`.
   channel's files sit at its library root, so PR 25-i uploads to `<job>` at that root. V3 yes for Teams on the
   web: the channel link (host `teams.cloud.microsoft`) carries the channel id, `groupId` and `tenantId`, and its
   name matches the channel folder. Still open before the STOP gate clears: V3 on the desktop app and after a
-  channel rename, V4 (private/shared job channels), and the manual check that a team member outside Fee Proposals
-  cannot see it. V2, V7 and V8 are inputs for phases 2 and 3.
+  channel rename, V4 (private/shared job channels). V6 privacy confirmed: a team member outside Fee Proposals cannot see the
+  channel, find its files in search or open its site. V2, V7 and V8 are inputs for phases 2 and 3.
