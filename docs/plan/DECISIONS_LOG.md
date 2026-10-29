@@ -180,5 +180,7 @@ reason. Evidence and numbers are in `docs/release/GO_LIVE_REPORT.md`.
   channel's files sit at its library root, so PR 25-i uploads to `<job>` at that root. V3 yes for Teams on the
   web: the channel link (host `teams.cloud.microsoft`) carries the channel id, `groupId` and `tenantId`, and its
   name matches the channel folder. A channel rename renames its folder and keeps the channel id, so the
-  tracker must keep using the stored drive item ids after linking, never the name. Still open before the STOP gate clears: V3 on the desktop app, V4 (private/shared job channels). V6 privacy confirmed: a team member outside Fee Proposals cannot see the
+  tracker must keep using the stored drive item ids after linking, never the name. V3 on the desktop app is not needed (KR staff copy links from the web), and V4 is skipped by decision
+  (Andrew Thurlow, 29 Oct) because job channels are standard, so the STOP gate is cleared: V1, V3, V5 and V6 are
+  yes. V6 privacy confirmed: a team member outside Fee Proposals cannot see the
   channel, find its files in search or open its site. V2, V7 and V8 are inputs for phases 2 and 3.
