@@ -177,6 +177,8 @@ reason. Evidence and numbers are in `docs/release/GO_LIVE_REPORT.md`.
 - Spike results (29 Oct 2026, KR Tracker test team, run by Andrew Thurlow, PR 25-a): V1 yes; V5 yes for the names
   and upload rules tested (path length not tested); V6 yes for upload into the private Fee Proposals channel's site.
   The tenant root site refuses the app, so `Sites.Selected` stays the only file permission. The Fee Proposals
-  channel's files sit at its library root, so PR 25-i uploads to `<job>` at that root. Still open before the STOP
-  gate clears: V3 (channel links) and V4 (private/shared job channels), and the manual check that a team member
-  outside Fee Proposals cannot see it. V2, V7 and V8 are inputs for phases 2 and 3.
+  channel's files sit at its library root, so PR 25-i uploads to `<job>` at that root. V3 yes for Teams on the
+  web: the channel link (host `teams.cloud.microsoft`) carries the channel id, `groupId` and `tenantId`, and its
+  name matches the channel folder. Still open before the STOP gate clears: V3 on the desktop app and after a
+  channel rename, V4 (private/shared job channels), and the manual check that a team member outside Fee Proposals
+  cannot see it. V2, V7 and V8 are inputs for phases 2 and 3.
