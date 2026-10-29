@@ -173,3 +173,10 @@ reason. Evidence and numbers are in `docs/release/GO_LIVE_REPORT.md`.
   staging/production.
 - PR count: WP-25 is 9 PRs (25-a spike/spec, 25-b schema/contracts, 25-c Graph client and fake, 25-d provisioning, 25-e
   push, 25-f api, 25-g web, 25-h ops docs, 25-i Fee Proposals channel), each High tier and ≤ 400 changed lines (A1).
+
+- Spike results (29 Oct 2026, KR Tracker test team, run by Andrew Thurlow, PR 25-a): V1 yes; V5 yes for the names
+  and upload rules tested (path length not tested); V6 yes for upload into the private Fee Proposals channel's site.
+  The tenant root site refuses the app, so `Sites.Selected` stays the only file permission. The Fee Proposals
+  channel's files sit at its library root, so PR 25-i uploads to `<job>` at that root. Still open before the STOP
+  gate clears: V3 (channel links) and V4 (private/shared job channels), and the manual check that a team member
+  outside Fee Proposals cannot see it. V2, V7 and V8 are inputs for phases 2 and 3.
