@@ -52,6 +52,22 @@ describe("useNearViewport", () => {
     for (const observer of observers) expect(observer.disconnected).toBe(true);
   });
 
+  it("does not throw when IntersectionObserver goes away between render and effect", () => {
+    // test teardown removes stubbed globals before cleanup() unmounts, so a page still mounting saw the API and then lost it
+    function RemoveApi() {
+      vi.stubGlobal("IntersectionObserver", undefined);
+      return null;
+    }
+    expect(() =>
+      render(
+        <>
+          <Probe />
+          <RemoveApi />
+        </>,
+      ),
+    ).not.toThrow();
+  });
+
   it("is always true when the browser has no IntersectionObserver", () => {
     vi.stubGlobal("IntersectionObserver", undefined);
     render(<Probe />);
