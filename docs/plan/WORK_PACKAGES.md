@@ -1634,7 +1634,7 @@ E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filt
 
 - External hosts (X7): this brief approves graph.microsoft.com and login.microsoftonline.com for the worker, for the endpoints in the plan of record only. Anything else (other Microsoft hosts, SharePoint REST on *.sharepoint.com) is a new host: STOP and ask.
 - Commit scopes per PR follow the package (db, contracts, worker, api, web, docs); `teams` is not in commitlint's scope-enum.
-- Every PR is High: two approvals including the domain CODEOWNER, approver ≠ launcher, security checklist section B (SC-B7 outbound hosts, SC-B10 data leaving the app).
+- Every PR is High: no approval needed (DECISIONS_LOG, 30 Oct 2026), the launching human merges once CI is green; security checklist section B still applies (SC-B7 outbound hosts, SC-B10 data leaving the app).
 - 25-c to 25-f only need 25-b merged; they may be reordered to keep each PR ≤ 400 changed lines, but never merged before 25-a's STOP gate is cleared.
 - If V3 shows the channel name in the link does not reliably name the folder, switch the paste field to the channel's 'Open in SharePoint' folder link (same Sites.Selected resolve by path); that needs approval of the plan of record but no new permission.
 
