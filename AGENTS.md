@@ -3,7 +3,7 @@
 # AGENTS.md
 
 Repository: kr-central-2 — KR Surveys Subdivision Tracker: a web app where KR Surveys staff, clients and architects track WA subdivision jobs through 46 checkpoints (Next.js web, Fastify API, worker, Postgres, on Railway).
-Humans merge everything you produce; no approval is required (docs/plan/DECISIONS_LOG.md, 30 Oct 2026).
+Humans merge everything you produce; no approval is required (docs/plan/DECISIONS_LOG.md, 30 Oct 2026). These rules are mandatory. If a rule conflicts with your task brief, STOP and ask; never pick one silently.
 
 ## Commands (repo root)
 
