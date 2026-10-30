@@ -29,7 +29,7 @@
     "@kr/design-tokens": "workspace:*",
     "@kr/workflow": "workspace:*",
     "@tanstack/react-query": "5.104.1",
-    "next": "16.4.0",
+    "next": "16.4.2",
     "pdfjs-dist": "6.4.299",
     "react": "19.3.0",
     "react-dom": "19.3.0",
