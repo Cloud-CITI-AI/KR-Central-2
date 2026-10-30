@@ -47,6 +47,16 @@ Legend: **A** accepted · **A\*** accepted with a different fix · **R** rejecte
 | 8b  | `format:check` not in CI                                | A        | New `format` CI job (also runs the plan checker); required by `ci / verify`.                                                                                                                                                                                                                                                                        |
 | 8c  | Unpinned tools                                          | A        | diff-cover 10.5.1, zizmor 1.29.0, gitleaks as a digest-pinned image (no unauthenticated tarball), oasdiff and hadolint pinned by digest. zizmor run locally: no findings.                                                                                                                                                                           |
 
+## Review rule change (2026-10-30)
+
+- No approvals (Andrew Thurlow, launching human, 30 Oct 2026): PRs no longer need any approval, at any risk tier. The
+  launching human merges once CI is green. This supersedes the approval part of 1d (two approvals including the domain
+  CODEOWNER, approver ≠ launcher) and the Medium/Low single approval; the High-tier plan of record and the security
+  checklist section B stay. Accepted risk: threat-model row S "Unreviewed change reaches production" now rests on CI
+  and the launching human's merge alone. `main` has no ruleset, so nothing on GitHub changes. AGENTS.md ("Humans
+  review and merge everything") and the PR template's reviewer checklist are protected (X1); their wording change is a
+  rule proposal in the PR that made this entry.
+
 ## P1 — spec conflicts and coverage gaps
 
 | Finding                                                      | Decision | What changed / reason                                                                                                                                                                                                         |

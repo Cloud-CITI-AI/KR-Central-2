@@ -90,9 +90,9 @@ flowchart LR
 
 ## 2. Risk tiers and approvals
 
-- Risk tier High (docs/05 §5.2): the plan of record below is the plan the launching human approved before launch. Write your own ≤ 10-bullet plan in the first PR; if it departs from the plan of record in files, scope or approach, STOP and ask. PRs need two approvals including the domain CODEOWNER (approver ≠ launcher) and the security checklist section B (`docs/security-checklist.md`).
-- Medium: one approval from the CODEOWNER of the touched area; behaviour behind a flag where applicable; rollback stated.
-- Low: one approval.
+- Risk tier High (docs/05 §5.2): the plan of record below is the plan the launching human approved before launch. Write your own ≤ 10-bullet plan in the first PR; if it departs from the plan of record in files, scope or approach, STOP and ask. PRs need no approval (Andrew Thurlow, 30 Oct 2026; DECISIONS_LOG): the launching human merges once CI is green. The security checklist section B (`docs/security-checklist.md`) still applies.
+- Medium: no approval; the launching human merges once CI is green; behaviour behind a flag where applicable; rollback stated.
+- Low: no approval; the launching human merges once CI is green.
 - CODEOWNERS paths decide: touching a High path makes the PR High regardless of the WP's tier.
 
 ## 3. Work packages

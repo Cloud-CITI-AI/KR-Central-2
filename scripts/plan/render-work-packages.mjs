@@ -56,9 +56,9 @@ export function renderMarkdown(plan) {
   L.push("");
   L.push(`- ${plan.high_tier_note}`);
   L.push(
-    "- Medium: one approval from the CODEOWNER of the touched area; behaviour behind a flag where applicable; rollback stated.",
+    "- Medium: no approval; the launching human merges once CI is green; behaviour behind a flag where applicable; rollback stated.",
   );
-  L.push("- Low: one approval.");
+  L.push("- Low: no approval; the launching human merges once CI is green.");
   L.push("- CODEOWNERS paths decide: touching a High path makes the PR High regardless of the WP's tier.");
   L.push("");
   L.push("## 3. Work packages");
