@@ -9,7 +9,8 @@ import { card } from "../support/tracker";
 // Visual regression (PRODUCT_SPEC §12): the dashboard, the tracker and the document viewer in light and dark, at 1280 px and at 390 px.
 // A stack of its own, so the pages hold only the two jobs below and every snapshot is the same on every run; the only dates the
 // pages show are masked. Baselines live in e2e/visual/snapshots.spec.ts-snapshots and are reviewed in the pull request that changes
-// them (`playwright test e2e/visual --update-snapshots` rewrites them).
+// them (`playwright test e2e/visual --update-snapshots` rewrites them). Make them with the Chromium build this Playwright version
+// pins (the one CI installs), never with E2E_CHROMIUM_PATH pointing at another build: text antialiasing differs between builds.
 const test = isolatedStackTest({ label: "visual", seed: true });
 test.describe.configure({ mode: "serial" });
 
