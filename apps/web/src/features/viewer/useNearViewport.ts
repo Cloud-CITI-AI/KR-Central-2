@@ -17,7 +17,8 @@ export function useNearViewport(target: RefObject<Element | null>, scroller: Ref
 
   useEffect(() => {
     const element = target.current;
-    if (!supported || !element) return;
+    // Checked again here: the API can go away between render and effect (test teardown removes stubbed globals first).
+    if (!supported || typeof IntersectionObserver === "undefined" || !element) return;
     const root = scroller.current;
     const latest = (entries: IntersectionObserverEntry[]) => entries[entries.length - 1];
     const approach = new IntersectionObserver(
