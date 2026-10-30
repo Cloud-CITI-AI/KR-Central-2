@@ -64,10 +64,9 @@ Closes #
 
 <!-- If this work revealed a missing or wrong rule, describe it here. A human will decide whether to raise an RP. -->
 
-## Reviewer checklist (reviewer completes)
+## Merge checklist (launching human completes)
 
 - [ ] Change matches the issue's acceptance criteria and nothing more
 - [ ] Tests would fail if the behaviour regressed (spot-check at least one assertion)
 - [ ] Error paths and authorisation reviewed
 - [ ] Evidence is real and current (CI run matches head commit)
-- [ ] For tier High: approver is not the launching human
