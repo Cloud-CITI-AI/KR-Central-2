@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.0.10](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.9...v1.0.10) (2026-10-30)
+
+
+### Bug Fixes
+
+* **web:** guard the viewport observer against a vanished IntersectionObserver ([f5572f2](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/f5572f25b5287b9c459f7723cd2ac16ea9fa4003))
+* **web:** guard the viewport observer against a vanished IntersectionObserver ([53c1399](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/53c13991d40e10aa889f0b6aeb753ed3319b8a7a))
+
 ## [1.0.9](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.8...v1.0.9) (2026-10-16)
 
 
