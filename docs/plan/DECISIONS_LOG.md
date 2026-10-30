@@ -150,6 +150,8 @@ reason. Evidence and numbers are in `docs/release/GO_LIVE_REPORT.md`.
 
 ## Teams integration decisions (2026-10-27, updated 2026-10-29)
 
+- ADR-0015 accepted (30 Oct): Craig, its decider for KR Surveys, accepted it in the project Slack thread; Andrew Thurlow
+  asked for the status change. This is the business sign-off; the PRs still need their code reviews.
 - Phasing agreed by Andrew Thurlow and Craig (KR Surveys): phase 1 = Graph connector, hand link to an existing standard
   channel, the app's stage/checkpoint folders mirrored into the channel's `102. Subdivision Tracker` folder, and a
   one-way push of clean files (WP-25). Phase 2 = two-way sync. Phase 3 = the app creates the channel at job creation.

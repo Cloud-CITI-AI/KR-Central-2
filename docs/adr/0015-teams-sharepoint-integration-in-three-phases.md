@@ -1,8 +1,8 @@
 # ADR-0015: Teams/SharePoint integration in three phases
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-27 (updated 2026-10-29 with KR's answers)
-- Deciders: KR Surveys (Craig) — pending; drafted for review
+- Deciders: KR Surveys (Craig) — accepted 2026-10-30 (in the project Slack thread; recorded at Andrew Thurlow's request)
 - Drafted by: agent claude (orchestrator) for the launching human (Andrew Thurlow)
 - Related: supersedes the "SharePoint/Teams folder sync" paragraph of ADR-0012; ADR-0006, ADR-0011, ADR-0013,
   ADR-0014; docs/spec/PRODUCT_SPEC.md §5.8, §13 row 4, §16; work package WP-25 (phase 1)
