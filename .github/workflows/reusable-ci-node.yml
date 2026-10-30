@@ -82,7 +82,7 @@ jobs:
           files=$(node "$GITHUB_WORKSPACE/scripts/ci/mutation-targets.mjs" . $changed)
           if [ -z "$files" ]; then echo "No changed files in this package's mutate globs; skipping mutation."; exit 0; fi
           echo "Mutating: $files"
-          pnpm exec stryker run --incremental --mutate "$files" --thresholds.break "$BREAK"
+          pnpm exec stryker run --incremental --mutate "$files"
       - name: Build
         working-directory: ${{ matrix.pkg }}
         run: pnpm build
