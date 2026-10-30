@@ -175,3 +175,14 @@ reason. Evidence and numbers are in `docs/release/GO_LIVE_REPORT.md`.
   staging/production.
 - PR count: WP-25 is 9 PRs (25-a spike/spec, 25-b schema/contracts, 25-c Graph client and fake, 25-d provisioning, 25-e
   push, 25-f api, 25-g web, 25-h ops docs, 25-i Fee Proposals channel), each High tier and ≤ 400 changed lines (A1).
+
+- Spike results (29 Oct 2026, KR Tracker test team, run by Andrew Thurlow, PR 25-a): V1 yes; V5 yes for the names
+  and upload rules tested (path length not tested); V6 yes for upload into the private Fee Proposals channel's site.
+  The tenant root site refuses the app, so `Sites.Selected` stays the only file permission. The Fee Proposals
+  channel's files sit at its library root, so PR 25-i uploads to `<job>` at that root. V3 yes for Teams on the
+  web: the channel link (host `teams.cloud.microsoft`) carries the channel id, `groupId` and `tenantId`, and its
+  name matches the channel folder. A channel rename renames its folder and keeps the channel id, so the
+  tracker must keep using the stored drive item ids after linking, never the name. V3 on the desktop app is not needed (KR staff copy links from the web), and V4 is skipped by decision
+  (Andrew Thurlow, 29 Oct) because job channels are standard, so the STOP gate is cleared: V1, V3, V5 and V6 are
+  yes. V6 privacy confirmed: a team member outside Fee Proposals cannot see the
+  channel, find its files in search or open its site. V2, V7 and V8 are inputs for phases 2 and 3.

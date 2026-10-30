@@ -79,6 +79,7 @@ tenant membership + domain, not from a list that anyone could be added to).
 | Access manager (grant/revoke)                                                                               | ✓        | ✓        | ✓                         | —              | —                         |
 | User management (roles, disable)                                                                            | ✓        | —        | —                         | —              | —                         |
 | Audit trail                                                                                                 | ✓        | ✓        | —                         | —              | —                         |
+| Link, relink or unlink the job's Teams channel (`teams.link`, flag `teams-file-sync`)                       | ✓        | ✓        | —                         | —              | —                         |
 
 Rules: deny by default; every handler checks explicitly (BE-5); object-level checks on every job-scoped request
 (the job must be visible to the caller — externals only through an **active** grant); disabled users have no access;
@@ -312,6 +313,32 @@ with `fee_proposal.view`.
 
 "Developer notes (TEMPORARY)" is not built — the prototype says to remove it before going live; its five notes are
 requirements (§13). The offline-export banner and read-only export mode are not built.
+
+### 5.10 Teams channel (WP-25, flag `teams-file-sync`; ADR-0015)
+
+Shown only with the flag on, and only to users with `teams.link` (admin, kr_admin); everyone else sees nothing (the
+API answers 404). A "TEAMS CHANNEL" panel sits below Job files. States:
+
+- **Not linked** — "This job is not linked to a Teams channel yet." Button **LINK TEAMS CHANNEL**.
+- **Setting up** — "Setting up folders in <channel name>…" (while `teams.provision` runs).
+- **Linked** — "<channel name>" with **OPEN IN TEAMS** (opens the stored channel link in a new tab), "Last copied
+  <date-time>" (or "No files copied yet"), and counts "<n> copied · <n> waiting · <n> failed". Buttons **RELINK**
+  and **UNLINK**.
+- **Error** — "Teams sync stopped: <reason>." with **RELINK**. Reasons: "The channel folder was not found. The
+  channel may be private, shared or deleted." · "The app no longer has access to the team's files. Ask KR IT to check
+  the site permission." · "Microsoft Teams is not responding. The tracker will try again."
+
+Fee proposal note, always shown in the Linked state: "Fee proposal (1.0) files are not copied to this channel. They go
+to the private Fee Proposals channel." (Until PR 25-i ships: "Fee proposal (1.0) files are not copied to Teams.")
+
+Link dialog — title "Link Teams channel"; text "In Teams, open the job's channel, choose … › Get link to channel, and
+paste the link here."; field "Channel link"; buttons **LINK** and **CANCEL**. Errors: empty — "Paste the channel link
+first."; not a channel link — "That isn't a Teams channel link. Use Get link to channel."; other team — "That
+channel isn't in Team Survey."; other tenant — "That channel belongs to a different organisation."; already used —
+"That channel is already linked to job <job number>."
+
+Unlink confirm — "Unlink <channel name>? Files already copied stay in Teams. New files will not be copied." Buttons
+**UNLINK** and **CANCEL**. Linking, relinking and unlinking are audited (`job.teams_linked`, `job.teams_unlinked`).
 
 ## 6. Dashboard (`/`)
 
@@ -579,13 +606,13 @@ viruses."; infected → blocked message.
 
 ## 13. Requirements from the prototype's developer notes
 
-| #   | Note                                                                                                                                                                                                    | Disposition                                                                                                                                                                                                                                                                                                      |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | "Access Manager only shows up for KR email sign ins. Lets KR employees add clients, so that they can view and interact with their job."                                                                 | **In scope** — access manager for staff roles only; grants + guest sign-in (§3.4, §6).                                                                                                                                                                                                                           |
-| 2   | "KR Admin (Alex, Ivan, Accounts) and clients will be able to view and download the fee proposal section of the page but, general KR employees wont."                                                    | **In scope** — `kr_admin` role and `fee_proposal.view` (§2.1).                                                                                                                                                                                                                                                   |
-| 3   | "Build this into the KR website, as discussed."                                                                                                                                                         | **Future** — the app is served on its own subdomain (e.g. `tracker.krsurveys.com.au`) linked from the website. Embedding in an iframe would need `frame-ancestors` relaxation and third-party-cookie workarounds; recommend a link/button. ADR-0012.                                                             |
-| 4   | "This will link back to a sharepoint folder structure (the teams channel). All documents uploaded through this portal will automatically find their way to the relevant location in the teams channel." | **Future (phase 2)** — Microsoft Graph sync worker writing to the job's Teams/SharePoint folder using the zip folder layout (§5.8). Needs Sites.Selected consent, mapping job → channel. Designed for: storage keys and folder layout are deterministic; operations queue can carry `sharepoint.sync`. ADR-0012. |
-| 5   | "Create web hook to monitor e planning.com to see if there are any updates."                                                                                                                            | **Future** — WAPC ePlanning offers no public webhook; would need scraping or an official API. Out of scope; noted. ADR-0012.                                                                                                                                                                                     |
+| #   | Note                                                                                                                                                                                                    | Disposition                                                                                                                                                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | "Access Manager only shows up for KR email sign ins. Lets KR employees add clients, so that they can view and interact with their job."                                                                 | **In scope** — access manager for staff roles only; grants + guest sign-in (§3.4, §6).                                                                                                                                                                                                                                                                       |
+| 2   | "KR Admin (Alex, Ivan, Accounts) and clients will be able to view and download the fee proposal section of the page but, general KR employees wont."                                                    | **In scope** — `kr_admin` role and `fee_proposal.view` (§2.1).                                                                                                                                                                                                                                                                                               |
+| 3   | "Build this into the KR website, as discussed."                                                                                                                                                         | **Future** — the app is served on its own subdomain (e.g. `tracker.krsurveys.com.au`) linked from the website. Embedding in an iframe would need `frame-ancestors` relaxation and third-party-cookie workarounds; recommend a link/button. ADR-0012.                                                                                                         |
+| 4   | "This will link back to a sharepoint folder structure (the teams channel). All documents uploaded through this portal will automatically find their way to the relevant location in the teams channel." | **In progress, three phases (ADR-0015)** — phase 1 (WP-25): a KR admin links the job to its channel, the app mirrors the zip layout (§5.8) into `102. Subdivision Tracker` and copies clean files there (§5.10); fee proposals go to a private Fee Proposals channel. Phase 2: files added in Teams come into the app. Phase 3: the app creates the channel. |
+| 5   | "Create web hook to monitor e planning.com to see if there are any updates."                                                                                                                            | **Future** — WAPC ePlanning offers no public webhook; would need scraping or an official API. Out of scope; noted. ADR-0012.                                                                                                                                                                                                                                 |
 
 ## 14. Non-functional requirements
 
@@ -620,7 +647,8 @@ viruses."; infected → blocked message.
 
 ## 16. Out of scope / future work
 
-SharePoint/Teams sync, ePlanning watcher, website embed (§13); email/Teams notifications to clients when an action
+Teams sync phases 2 (Teams → app) and 3 (app creates the channel) per ADR-0015, ePlanning watcher, website embed
+(§13); email/Teams notifications to clients when an action
 is theirs (recommended phase 2 — the "Waiting on client" data already exists); import/sync from KR's project tracker
 (the prototype's `source: "KR PROJECT TRACKER"` jobs) — jobs are created in the app for now; fee/invoice amounts and
 payments (the app records "paid" clicks only); e-signature of the consent letter; native mobile app; multi-tenant use
