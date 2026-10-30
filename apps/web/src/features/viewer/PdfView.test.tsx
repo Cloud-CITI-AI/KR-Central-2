@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoAxeViolations } from "@/test/axe";
 import type { PdfDocumentHandle, PdfPageHandle, PdfRenderer, PdfRenderTask } from "./pdf-renderer";
 import { PdfRendererContext } from "./pdf-context";
-import { installFakeIntersectionObserver, moveTo } from "./test-intersection";
+import { installFakeIntersectionObserver, moveTo, untilObserved } from "./test-intersection";
 import { renderViewer } from "./test-utils";
 import { syntheticFile } from "./test-fixtures";
 import { PdfView } from "./PdfView";
@@ -88,6 +88,7 @@ describe("PdfView", () => {
     expect(document.page).not.toHaveBeenCalled();
     expect(document.renders.size).toBe(0);
 
+    await untilObserved(...boxes);
     moveTo(boxes[1]!, "near");
     await waitFor(() => {
       expect(document.renders.get(2)).toBe(1);
@@ -111,6 +112,7 @@ describe("PdfView", () => {
     const [first, second] = pageBoxes(container) as [HTMLElement, HTMLElement];
     const canvas = second.querySelector("canvas")!;
 
+    await untilObserved(first, second);
     moveTo(second, "near");
     await waitFor(() => {
       expect(canvas.width).toBe(1200);
@@ -156,6 +158,7 @@ describe("PdfView", () => {
     const { container } = renderWith({ open: () => Promise.resolve(document) });
     await screen.findByText("Page 1 of 1");
     const [box] = pageBoxes(container) as [HTMLElement];
+    await untilObserved(box);
     moveTo(box, "near");
     await waitFor(() => {
       expect(document.page).toHaveBeenCalledTimes(1);
@@ -203,6 +206,7 @@ describe("PdfView", () => {
   it("flags a page that cannot be drawn without losing the others", async () => {
     const { container } = renderWith({ open: () => Promise.resolve(fakeDocument(2, 2)) });
     await screen.findByText("Page 2 of 2");
+    await untilObserved(...pageBoxes(container));
     for (const box of pageBoxes(container)) moveTo(box, "near");
     expect(await screen.findByRole("alert")).toHaveTextContent("Page 2 couldn’t be drawn.");
     expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();

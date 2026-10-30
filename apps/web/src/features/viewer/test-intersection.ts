@@ -1,4 +1,4 @@
-import { act } from "@testing-library/react";
+import { act, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import { DRAW_MARGIN, RELEASE_MARGIN } from "./useNearViewport";
 
@@ -48,6 +48,20 @@ export class FakeIntersectionObserver {
 export function installFakeIntersectionObserver() {
   FakeIntersectionObserver.instances = [];
   vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
+}
+
+/**
+ * Wait until an observer watches each element. The observers are created in a passive effect, which React may run
+ * after the DOM `findBy*` waited for has been committed, so a test that moves a page straight after it can come too early.
+ */
+export async function untilObserved(...elements: Element[]) {
+  await waitFor(() => {
+    for (const element of elements) {
+      if (!FakeIntersectionObserver.instances.some((observer) => observer.observed.has(element))) {
+        throw new Error("untilObserved: no observer watches this element yet");
+      }
+    }
+  });
 }
 
 /** Tell every observer on `element` where it is, as the browser would while the user scrolls. */
