@@ -4,12 +4,12 @@
 # There is no pnpm/npm in the image, so Railway's start command is the `node` line, not `pnpm start:*`.
 # Build from the repository root:
 #   docker build -f services/ops/Dockerfile --build-arg RELEASE_VERSION=<tag> -t kr-ops .
-# Base: node:24-alpine pinned by digest (multi-arch index digest of 24.21.0 on Alpine 3.24; bump deliberately).
+# Base: node:24-alpine pinned by digest (multi-arch index digest of 24.22.2 on Alpine 3.24; bump deliberately).
 
 # --- pgclient: pg_dump 17 and its shared libraries, taken from the official image of the same major as the database ----
 # Copied instead of `apk add postgresql17-client` so the client is the exact,
 # digest-pinned build the tests run (postgres:17-alpine, Alpine 3.24). Bump this digest together with the base's.
-FROM postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24 AS pgclient
+FROM postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b AS pgclient
 SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 RUN mkdir -p /pgclient/bin /pgclient/lib \
     && cp /usr/local/bin/pg_dump /pgclient/bin/pg_dump \
@@ -17,7 +17,7 @@ RUN mkdir -p /pgclient/bin /pgclient/lib \
        | while read -r lib; do cp -L "$lib" "/pgclient/lib/$(basename "$lib")"; done
 
 # --- fetch: every dependency in the lockfile into the pnpm store (cached until the lockfile changes) ---------------
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS fetch
+FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS fetch
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     PNPM_HOME=/pnpm \
     npm_config_store_dir=/pnpm/store
@@ -33,7 +33,7 @@ RUN pnpm install --frozen-lockfile --offline \
     && pnpm --filter @kr/ops deploy --prod /out
 
 # --- runtime: production dependencies, compiled code and pg_dump only; no pnpm/npm/yarn/corepack, no dev tools -------
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS runtime
+FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS runtime
 ARG RELEASE_VERSION=dev
 # The release workflow passes the repository URL (github.server_url/github.repository), so forks and renames label correctly.
 ARG IMAGE_SOURCE=

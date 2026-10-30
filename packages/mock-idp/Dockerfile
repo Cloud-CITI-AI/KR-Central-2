@@ -4,7 +4,7 @@
 #   docker build -f packages/mock-idp/Dockerfile -t kr-mock-idp .
 # Base: node:24-alpine pinned by digest (the same as the service images; bump deliberately).
 
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS fetch
+FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS fetch
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     PNPM_HOME=/pnpm \
     npm_config_store_dir=/pnpm/store
@@ -18,7 +18,7 @@ RUN pnpm install --frozen-lockfile --offline \
     && pnpm --filter "@kr/mock-idp..." build \
     && pnpm --filter @kr/mock-idp deploy --prod /out
 
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS runtime
+FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS runtime
 LABEL org.opencontainers.image.title="kr-mock-idp" \
       org.opencontainers.image.description="Mock Microsoft Entra ID for the local compose stack (synthetic users, never deployed)" \
       org.opencontainers.image.vendor="KR Surveys"
