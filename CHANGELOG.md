@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.0.12](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.11...v1.0.12) (2026-10-30)
+
+
+### Bug Fixes
+
+* **clamav:** move the base image to Alpine 3.24.3 ([440fa8c](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/440fa8c5de8577be466511832489e6e4c32af8fc))
+* **clamav:** move the base image to Alpine 3.24.3 ([8e4cdc1](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/8e4cdc1cd1bcb1e04f3308a7b60c44ea8e4c89a4))
+
 ## [1.0.11](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.10...v1.0.11) (2026-10-30)
 
 
