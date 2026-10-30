@@ -147,3 +147,31 @@ reason. Evidence and numbers are in `docs/release/GO_LIVE_REPORT.md`.
   when the api, ops and worker integration suites shared four cores).
 - Versioning: the hand-written CHANGELOG moves under `## [1.0.0]` and the release commit carries `Release-As: 1.0.0`, so the
   release-please pull request proposes 1.0.0 rather than 0.1.0; `package.json` stays `0.0.0` until that pull request.
+
+## Teams integration decisions (2026-10-27, updated 2026-10-29)
+
+- ADR-0015 accepted (30 Oct): Craig, its decider for KR Surveys, accepted it in the project Slack thread; Andrew Thurlow
+  asked for the status change. This is the business sign-off; the PRs still need their code reviews.
+- Phasing agreed by Andrew Thurlow and Craig (KR Surveys): phase 1 = Graph connector, hand link to an existing standard
+  channel, the app's stage/checkpoint folders mirrored into the channel's `102. Subdivision Tracker` folder, and a
+  one-way push of clean files (WP-25). Phase 2 = two-way sync. Phase 3 = the app creates the channel at job creation.
+  ADR-0015 records the decision and supersedes ADR-0012's SharePoint/Teams paragraph. Phase 1 alone does not meet
+  "Teams → app" (objectives 2 and 3) or "creates the channel" (objective 1).
+- One team (29 Oct, Andrew for KR): job channels are standard channels in "Team Survey"; no other team is in scope. The
+  team is identified by its id in configuration, never by name; each link stores team id + channel id.
+- Only KR admins link a job to its channel (KR via Andrew, 29 Oct), so `teams.link` is kr_admin and admin only.
+- Fee proposal (1.0) (29 Oct, Andrew for KR): fee files go to one private `Fee Proposals` channel in "Team Survey", KR
+  admins only, with a subfolder per job. Teams enforces privacy; the app sets no permissions and needs one extra
+  `Sites.Selected` `write` grant on that channel's site. A locked subfolder per job channel and per-file permissions are
+  rejected. PR 25-i builds it; until then `TEAMS_FEE_PROPOSAL_POLICY=exclude`.
+- KR's project channels have three template folders: `100. Initial SURVEY`, `101. Subdivison Process` (KR's spelling)
+  and `102. Subdivision Tracker`, the folder the tracker's download zips. The sync root is `TEAMS_ROOT_FOLDER`, default
+  `102. Subdivision Tracker`, created if missing. The app never touches 100 or 101.
+- Channel names follow `S-<job number>_<ADDRESS, SUBURB IN CAPS> (<client>)` (synthetic example
+  `S-0042_1 EXAMPLE RD, SUBURB (CLIENT)`; real names are client data, TD-1). KR is to confirm it for phase 3.
+- KR has the full list of existing job names to set up; Andrew will send it later to seed and check the hand links.
+- External hosts (X7): `graph.microsoft.com` and `login.microsoftonline.com`, approved for the api's invitation call
+  (ADR-0014), are approved for the worker for the drive endpoints in WP-25 only. Base URLs are pinned in
+  staging/production.
+- PR count: WP-25 is 9 PRs (25-a spike/spec, 25-b schema/contracts, 25-c Graph client and fake, 25-d provisioning, 25-e
+  push, 25-f api, 25-g web, 25-h ops docs, 25-i Fee Proposals channel), each High tier and ≤ 400 changed lines (A1).
