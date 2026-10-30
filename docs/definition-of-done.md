@@ -26,7 +26,7 @@
 | D6  | Rollout and rollback described; flag or canary for Medium/High                     | Reviewer                        |
 | D7  | Migrations follow expand/contract and passed the migration linter                  | CI + reviewer                   |
 | D8  | PR template complete, AI disclosure accurate, `agent-authored` label if applicable | `playbook-guard`                |
-| D9  | Required human approvals present; for tier High, approver ≠ launching human        | Ruleset + reviewer              |
+| D9  | No approval required (DECISIONS_LOG, 30 Oct 2026); the launching human merges      | Launching human                 |
 | D10 | Any human correction during review recorded in `LESSONS.md`                        | Reviewer prompt in PR checklist |
 
 ## Done-done (after merge)

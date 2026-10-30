@@ -96,9 +96,9 @@ flowchart LR
 
 ## 2. Risk tiers and approvals
 
-- Risk tier High (docs/05 §5.2): the plan of record below is the plan the launching human approved before launch. Write your own ≤ 10-bullet plan in the first PR; if it departs from the plan of record in files, scope or approach, STOP and ask. PRs need two approvals including the domain CODEOWNER (approver ≠ launcher) and the security checklist section B (`docs/security-checklist.md`).
-- Medium: one approval from the CODEOWNER of the touched area; behaviour behind a flag where applicable; rollback stated.
-- Low: one approval.
+- Risk tier High (docs/05 §5.2): the plan of record below is the plan the launching human approved before launch. Write your own ≤ 10-bullet plan in the first PR; if it departs from the plan of record in files, scope or approach, STOP and ask. PRs need no approval (Andrew Thurlow, 30 Oct 2026; DECISIONS_LOG): the launching human merges once CI is green. The security checklist section B (`docs/security-checklist.md`) still applies.
+- Medium: no approval; the launching human merges once CI is green; behaviour behind a flag where applicable; rollback stated.
+- Low: no approval; the launching human merges once CI is green.
 - CODEOWNERS paths decide: touching a High path makes the PR High regardless of the WP's tier.
 
 ## 3. Work packages
@@ -1634,7 +1634,7 @@ E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filt
 
 - External hosts (X7): this brief approves graph.microsoft.com and login.microsoftonline.com for the worker, for the endpoints in the plan of record only. Anything else (other Microsoft hosts, SharePoint REST on *.sharepoint.com) is a new host: STOP and ask.
 - Commit scopes per PR follow the package (db, contracts, worker, api, web, docs); `teams` is not in commitlint's scope-enum.
-- Every PR is High: two approvals including the domain CODEOWNER, approver ≠ launcher, security checklist section B (SC-B7 outbound hosts, SC-B10 data leaving the app).
+- Every PR is High: no approval needed (DECISIONS_LOG, 30 Oct 2026), the launching human merges once CI is green; security checklist section B still applies (SC-B7 outbound hosts, SC-B10 data leaving the app).
 - 25-c to 25-f only need 25-b merged; they may be reordered to keep each PR ≤ 400 changed lines, but never merged before 25-a's STOP gate is cleared.
 - If V3 shows the channel name in the link does not reliably name the folder, switch the paste field to the channel's 'Open in SharePoint' folder link (same Sites.Selected resolve by path); that needs approval of the plan of record but no new permission.
 
