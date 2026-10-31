@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.0.14](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.13...v1.0.14) (2026-10-31)
+
+
+### Bug Fixes
+
+* **deps:** update zod to 4.6.7 ([7ad6b43](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/7ad6b43eeef93be44e2688d8c30346ef248598b9))
+* **deps:** update zod to 4.6.7 ([78cb660](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/78cb660ceb642e1dbd8d86b94592dcfe54e6efe3))
+
 ## [1.0.13](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.12...v1.0.13) (2026-10-31)
 
 
