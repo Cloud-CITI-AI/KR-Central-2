@@ -1,8 +1,8 @@
 # KR Subdivision Tracker API image (ADR-0008). Build from the repository root:
 #   docker build -f services/api/Dockerfile --build-arg RELEASE_VERSION=<tag> -t kr-api .
-# Base: node:24-alpine pinned by digest (multi-arch index digest of 24.21.0 on Alpine 3.24; bump deliberately).
+# Base: node:24-alpine pinned by digest (multi-arch index digest of 24.22.2 on Alpine 3.24; bump deliberately).
 # --- fetch: every dependency in the lockfile into the pnpm store (cached until the lockfile changes) ---------------
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS fetch
+FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS fetch
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     PNPM_HOME=/pnpm \
     npm_config_store_dir=/pnpm/store
@@ -18,7 +18,7 @@ RUN pnpm install --frozen-lockfile --offline \
     && pnpm --filter @kr/api deploy --prod /out
 
 # --- runtime: production dependencies and compiled code only; no pnpm/npm/yarn/corepack, no dev tools ---------------
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS runtime
+FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS runtime
 ARG RELEASE_VERSION=dev
 # The release workflow passes the repository URL (github.server_url/github.repository), so forks and renames label correctly.
 ARG IMAGE_SOURCE=
