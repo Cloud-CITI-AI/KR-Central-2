@@ -24,7 +24,7 @@
     "@kr/db": "workspace:*",
     "@kr/logger": "workspace:*",
     "@kr/storage": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "12.2.0",
