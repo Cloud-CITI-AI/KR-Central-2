@@ -32,7 +32,9 @@ At most 3 WPs run at once (playbook docs/10 §10.5: ≤ 3 concurrent agent PRs p
 | 7    | WP-19 End-to-end, accessibility, visual regression and prototype-parity suite; WP-20 Security hardening: threat model, authz completeness, login-CSRF and header tests, ZAP rules, mutation-runner check; WP-23 Railway delivery: service settings as code, deploy-images and smoke scripts, deploy guide | WP-19: Low, WP-20: High, WP-23: High      |
 | 8    | WP-21 Operations documentation: runbooks, backup/restore drill, incident response, user guides; WP-22 Performance budgets: per-route bundle budget, web-vitals checks, k6 API smoke                                                                                                                       | WP-21: Low, WP-22: Medium                 |
 | 9    | WP-24 Performance remediation: first-load JS, layout shift, LCP and Expand all responsiveness to the §14 budgets                                                                                                                                                                                          | WP-24: Medium                             |
-| 10   | WP-25 Teams integration phase 1: Graph connector, hand-linked channel, mirrored folder structure, one-way push of clean files and the private Fee Proposals channel                                                                                                                                       | WP-25: High                               |
+| 10   | WP-25 Teams integration phase 1: admin Teams settings, Graph connector, linked channel, mirrored folder structure, one-way push of clean files and the private Fee Proposals channel                                                                                                                      | WP-25: High                               |
+| 11   | WP-26 Teams integration phase 2: two-way sync                                                                                                                                                                                                                                                             | WP-26: High                               |
+| 12   | WP-27 Teams integration phase 3: the app creates the channel for new jobs, channel cache and picker, duplicate-name check                                                                                                                                                                                 | WP-27: High                               |
 
 ```mermaid
 flowchart LR
@@ -92,6 +94,8 @@ flowchart LR
   WP14[WP-14] --> WP25[WP-25]
   WP20[WP-20] --> WP25[WP-25]
   WP23[WP-23] --> WP25[WP-25]
+  WP25[WP-25] --> WP26[WP-26]
+  WP26[WP-26] --> WP27[WP-27]
 ```
 
 ## 2. Risk tiers and approvals
@@ -1555,16 +1559,17 @@ PERF_STRICT=1 E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chro
 E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filter @kr/web test:e2e
 ```
 
-### WP-25 — Teams integration phase 1: Graph connector, hand-linked channel, mirrored folder structure, one-way push of clean files and the private Fee Proposals channel
+### WP-25 — Teams integration phase 1: admin Teams settings, Graph connector, linked channel, mirrored folder structure, one-way push of clean files and the private Fee Proposals channel
 
-- Risk tier: **High** — migration, worker, permissions.ts, api/worker config and a new trust boundary: client documents leave the app for KR's Microsoft 365 (X7 host use approved in this brief)
+- Risk tier: **High** — migration, worker, permissions.ts, api/worker config and a new trust boundary: client documents leave the app for KR's Microsoft 365 (X7 host use approved in this brief); amended 2026-11-06 (ADR-0015 A2): the team and the sync switches are admin settings in the database, not Railway variables
 - Wave: 10 · Depends on: WP-09, WP-12, WP-14, WP-20, WP-23 · Target: services/worker, services/api, apps/web, packages/db, packages/contracts · Commit scope: `worker`
-- Owned paths: `packages/db/migrations/0005_teams_channel_links.sql`, `packages/db/src/schema.ts`, `packages/contracts/src/schemas.ts`, `packages/contracts/src/routes.ts`, `packages/contracts/src/permissions.ts`, `packages/contracts/openapi.yaml`, `packages/telemetry/src/metrics.ts`, `packages/telemetry/src/metrics.test.ts`, `services/worker/src/config.ts`, `services/worker/src/config.test.ts`, `services/worker/src/flags.ts`, `services/worker/src/flags.test.ts`, `services/worker/src/main.ts`, `services/worker/src/clients/graph-*.ts`, `services/worker/src/domain/teams-*.ts`, `services/worker/src/data/teams-*.ts`, `services/worker/src/handlers/teams-*.ts`, `services/worker/src/handlers/index.ts`, `services/worker/src/handlers/file-scan.ts`, `services/worker/src/handlers/file-scan.int.test.ts`, `services/worker/src/sweeps/index.ts`, `services/worker/test/fake-graph.ts`, `services/api/src/modules/teams/**`, `services/api/src/modules/index.ts`, `services/api/src/config.ts`, `services/api/src/config.test.ts`, `services/api/src/platform/flags.ts`, `services/api/test/security/authz-matrix.int.test.ts`, `apps/web/src/features/teams/**`, `apps/web/src/features/tracker/TrackerBody.tsx`, `.env.example`, `docker-compose.yml`, `docs/adr/0015-teams-sharepoint-integration-in-three-phases.md`, `docs/spec/PRODUCT_SPEC.md`, `docs/spec/DATA_MODEL.md`, `docs/flags.md`, `docs/deploy/railway.md`, `docs/runbooks/teams-sync-failures.md`, `docs/runbooks/README.md`, `docs/runbooks/deploy-and-rollback.md`, `docs/observability/alerts.md`, `docs/security/threat-model.md`, `docs/user-guide/staff-guide.md`
+- Owned paths: `packages/db/src/schema.ts`, `packages/contracts/src/schemas.ts`, `packages/contracts/src/routes.ts`, `packages/contracts/src/permissions.ts`, `packages/contracts/openapi.yaml`, `packages/telemetry/src/metrics.ts`, `packages/telemetry/src/metrics.test.ts`, `services/worker/src/config.ts`, `services/worker/src/config.test.ts`, `services/worker/src/flags.ts`, `services/worker/src/flags.test.ts`, `services/worker/src/main.ts`, `services/worker/src/clients/graph-*.ts`, `services/worker/src/domain/teams-*.ts`, `services/worker/src/data/teams-*.ts`, `services/worker/src/handlers/teams-*.ts`, `services/worker/src/handlers/index.ts`, `services/worker/src/handlers/file-scan.ts`, `services/worker/src/handlers/file-scan.int.test.ts`, `services/worker/src/sweeps/index.ts`, `services/worker/test/fake-graph.ts`, `services/api/src/modules/teams/**`, `services/api/src/modules/index.ts`, `services/api/src/config.ts`, `services/api/src/config.test.ts`, `services/api/src/platform/flags.ts`, `services/api/test/security/authz-matrix.int.test.ts`, `apps/web/src/features/teams/**`, `apps/web/src/features/tracker/TrackerBody.tsx`, `.env.example`, `docker-compose.yml`, `docs/adr/0015-teams-sharepoint-integration-in-three-phases.md`, `docs/spec/PRODUCT_SPEC.md`, `docs/spec/DATA_MODEL.md`, `docs/flags.md`, `docs/deploy/railway.md`, `docs/runbooks/teams-sync-failures.md`, `docs/runbooks/README.md`, `docs/runbooks/deploy-and-rollback.md`, `docs/observability/alerts.md`, `docs/security/threat-model.md`, `docs/user-guide/staff-guide.md`, `packages/db/migrations/0005_teams_settings_links_and_pushes.sql`, `services/api/src/modules/teams-settings/**`, `apps/web/src/app/(app)/admin/teams/**`, `apps/web/src/app/(app)/admin/LazyAdminPages.tsx`, `apps/web/src/features/teams-settings/**`, `services/worker/src/handlers/teams-check.ts`, `services/worker/src/handlers/teams-check.int.test.ts`
 
-**Goal.** With the `teams-file-sync` flag on, a KR admin links a job to its existing standard channel in "Team Survey" (identified by its id, never by name). The app mirrors its stage/checkpoint folder layout into the channel's `102. Subdivision Tracker` folder (TEAMS_ROOT_FOLDER; created if missing; `100. Initial SURVEY` and `101. Subdivison Process` are never touched) and copies every clean tracker file into the right folder. Fee proposal (1.0) files go only to the job's subfolder in the private "Fee Proposals" channel (KR admins only; PR 25-i), never into a job channel. The job page shows the link, the sync status and Open in Teams. This meets the phase 1 rows of ADR-0015; Teams → app sync (phase 2) and app-created channels (phase 3) are not part of it.
+**Goal.** With the `teams-file-sync` flag on, an admin enters the Teams team (id and site URL), the Fee Proposals channel and the sync switches under Admin → Teams and runs Test connection. A KR admin links a job to its existing standard channel in that team (by id, never by name). The app mirrors its stage/checkpoint folder layout into the channel's root folder (`teams_settings.root_folder`, default `102. Subdivision Tracker`; created if missing; `100. Initial SURVEY` and `101. Subdivison Process` are never touched) and copies every clean tracker file into the right folder. Fee proposal (1.0) files go only to the job's subfolder in the private "Fee Proposals" channel (PR 25-j), never into a job channel. The job page shows the link, the sync status and Open in Teams. This meets the phase 1 rows of ADR-0015 as amended on 2026-11-06; phase 2 is WP-26 and phase 3 is WP-27.
 
 **Read first**
 
+- ADR-0015 amendment of 2026-11-06 (A1–A6): the team is a database setting, the sync switch is on the admin page, phases 2 and 3 follow in WP-26/WP-27; PRODUCT_SPEC §5.10 (panel texts) and §9.3 (settings page); DATA_MODEL rows `teams_settings`, `job_teams_links`, `teams_folders`, `teams_file_pushes`
 - ADR-0015 (all of it: phases, decisions 1-13, verification items V1-V8, open questions) and the edited ADR-0012
 - ADR-0006 (operations queue), ADR-0011 (scan gating: only `clean` content leaves the bucket), ADR-0013 (worker-only sealed secret), ADR-0014 (the Graph invite pattern)
 - services/api/src/modules/access/data/graph-inviter.ts and graph-inviter.int.test.ts (plain fetch, token cache, timeout, typed errors without bodies, local node:http fake): reuse the pattern, do not refactor that module
@@ -1574,53 +1579,57 @@ E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filt
 - services/worker/src/handlers/file-scan.ts (`pass()` queues follow-ups in the scan's transaction), handlers/index.ts, sweeps/index.ts, clients/circuit-breaker.ts, test/fake-clamd.ts and fake-anthropic.ts; services/worker/AGENTS.md BE-10
 - services/api/AGENTS.md; services/api/src/platform/flags.ts; services/api/test/security/authz-matrix.int.test.ts
 - docs/deploy/railway.md (variable tables, Entra checklist E1-E12, go-live checks), docs/flags.md, docs/runbooks/deploy-and-rollback.md flag table, docs/security/zap.md
+- apps/web/src/app/(app)/admin/users/page.tsx and services/api/src/modules/users (MFA step-up, If-Match, audit of field changes): the settings page and `teams-settings` module copy that pattern
 
 **Plan of record**
 
-1. Spike first (PR 25-a, docs only). Answer ADR-0015 V1-V8 against a test tenant or a KR test team, never production data. The launching human or KR IT holds the test registration's secret and runs the calls; an agent may write the throwaway script outside the repo and reads only its output (X2, X3). Record each result in the ADR's Verification table and a DECISIONS_LOG entry. Any "no" on V1, V3, V4, V5 or V6 → STOP: the orchestrator revises this plan of record and the launching human approves it again. The same PR writes the spec: PRODUCT_SPEC §2.1 row for `teams.link` (kr_admin, admin; staff and externals none), a new job-page section with the exact UI texts (panel states, link dialog errors, the fee-proposal note), §13 row 4 and §16 updated to the three phases; DATA_MODEL rows for the three new tables.
-2. Migration `0005_teams_channel_links.sql` (expand only, the 0004 header). `job_teams_links` (job_id PK → jobs ON DELETE CASCADE; team_id uuid; channel_id text CHECK `^19:[^/]+@thread\.(tacv2|skype)$`; channel_name ≤ 50; status provisioning|ready|error; drive_id, channel_folder_item_id, root_folder_item_id, sharepoint_url, teams_url; error_code ≤ 80; linked_by → users; linked_at, provisioned_at, last_push_at; version; UNIQUE (team_id, channel_id)). `teams_folders` (job_id, folder_path, drive_item_id; PK (job_id, folder_path)). `teams_file_pushes` (file_id PK → files ON DELETE CASCADE; job_id; status pending|uploading|pushed|excluded|failed; remote_name, remote_path, drive_item_id, etag, size_bytes, attempts, error_code ≤ 80, pushed_at; partial index on job_id WHERE status IN ('pending','failed')). Replace the operations type CHECK to add `teams.provision` and `teams.push` (ADD CONSTRAINT … NOT VALID, then VALIDATE). Mirror it in packages/db/src/schema.ts and the contracts OperationType.
-3. Contracts: `TeamsLink` (status, channelName, teamsUrl, sharePointUrl, linkedBy UserRef, linkedAt, lastPushAt, counts {pushed, pending, failed, excluded}, errorCode, operationId, feeProposalPolicy). Routes `getJobTeamsLink` GET, `linkJobTeamsChannel` PUT `{channelLink}` → 202 with TeamsLink + operationId (CSRF; optional If-Match on relink) and `unlinkJobTeamsChannel` DELETE → 204, all under /v1/jobs/{jobId}/teams-link. Problem types for invalid link, wrong team or tenant, and channel already linked to another job (409). Job capability `teams.link` for kr_admin and admin only. Regenerate openapi.yaml with `pnpm openapi:generate`.
-4. Worker Graph client (`clients/graph-token.ts`, `clients/graph-drive.ts`). Plain fetch: client-credentials token (cached until 60 s before expiry, cleared on 401), site by path, default drive, item by path, children, create folder (conflictBehavior fail), simple upload ≤ 4 MiB, upload session with 10 MiB chunks streamed from the bucket. No Authorization header to the session URL, which is never logged. Retry-After honoured on 429/503/504, bounded retries with jitter, timeouts (TEAMS_GRAPH_TIMEOUT_MS, default 30 s), circuit breaker, User-Agent `NONISV|KRSurveys|KRTracker/<RELEASE_VERSION>`. Typed `GraphError` with status and Graph error code only. Config: FEATURE_TEAMS_FILE_SYNC, TEAMS_TENANT_ID, TEAMS_CLIENT_ID, TEAMS_CLIENT_SECRET (sealed, worker only), TEAMS_TEAM_ID, TEAMS_SITE_URL, TEAMS_ROOT_FOLDER (default `102. Subdivision Tracker`), TEAMS_FEE_PROPOSAL_POLICY (exclude|restricted; `restricted` refused until 25-i), TEAMS_FEE_CHANNEL_SITE_URL (25-i), TEAMS_GRAPH_TIMEOUT_MS. Flag on ⇒ all set; Graph and authority base URLs pinned to Microsoft in staging/production. Metrics kr.teams.pushes{result} and kr.teams.graph_requests{status_class}.
-5. Test fake `services/worker/test/fake-graph.ts` (node:http, the fake-clamd/fake-anthropic pattern): token endpoint and the drive subset above, in-memory folders and items with ids, eTags and createdBy.application.id, 409 nameAlreadyExists, injectable 429/503 with Retry-After, 401 token expiry and a crash after upload before reply. It records every request. No test calls a Microsoft host.
-6. Provisioning. Pure `domain/teams-layout.ts`: the folder plan for a job (TEAMS_ROOT_FOLDER at the channel's Files root, then every stage and checkpoint folder from the @kr/workflow helpers except 1.0; Query emails subfolders; condition evidence folders on demand), SharePoint name checks (V5), the duplicate-suffix rule. Pure `domain/teams-policy.ts`: `syncPolicyFor(checkpoint, config)` → sync|exclude|restricted. Handler `handlers/teams-provision.ts`: resolve the channel folder, store drive and item ids, create the root folder and missing layout folders idempotently (never rename or delete; never touch any other folder in the channel), store `teams_folders`, set status ready or error, mark existing clean files `pending` or `excluded`, queue `teams.push`. Audit `teams.folders_provisioned` (system).
-7. Push. Pure `domain/teams-push.ts`: which files are pushable (clean, not deleted, job not archived, link ready, policy sync) and their target folder and remote name. Handler `handlers/teams-push.ts`: drain pending and failed rows, upload, record drive item id, eTag and remote path, adopt an item left by a crash (status uploading, same size, createdBy.application.id = TEAMS_CLIENT_ID) or take the next suffix; never overwrite an item whose eTag differs. Audit `file.teams_pushed` (system). In file-scan `pass()`, when clean, flag on and link ready, insert the push row and queue `teams.push` in the same transaction. Sweep `teams_push_retry`. Flag off ⇒ queued operations complete as no-ops.
-8. API module `services/api/src/modules/teams/` (index, http/teams-routes.ts, data/, pure domain/channel-link.ts). Parse the pasted link without fetching it: https only, host teams.microsoft.com or teams.cloud.microsoft, path /l/channel/{id}/{name}, groupId = TEAMS_TEAM_ID, tenantId = ENTRA_TENANT_ID; teams_url rebuilt from the parsed parts. PUT stores the link and queues teams.provision in one transaction (409 if linked to another job); DELETE stops future pushes and leaves Teams content alone; GET returns the link and counts. Every route requires `teams.link`; flag off ⇒ 404. Audit `job.teams_linked`, `job.teams_unlinked`. Authz matrix rows for the three routes × every role.
-9. Web `apps/web/src/features/teams/`: a Teams panel on the tracker page (mounted from TrackerBody.tsx; hidden when GET answers 404) with the states not linked, setting up folders, linked (channel name, Open in Teams with rel="noopener noreferrer", last copied time, counts) and error with Relink; a link dialog with paste field, client-side shape check and server problem texts; unlink confirm; the fee-proposal note. Texts exactly as the spec section from 25-a. Unit tests, axe, and one e2e journey or component tests with a mocked API.
-10. Ops and docs (25-h) and the Fee Proposals channel (25-i). docs/flags.md row (`teams-file-sync`, off, owner KR Surveys (Craig), review 2027-06-30); railway.md E13 registration per environment, E14 Sites.Selected + admin consent, E15 `write` grants on the "Team Survey" site and the Fee Proposals channel's site, E16 one secret ≤ 90 days sealed on worker only; worker and api variable rows; staging go-live row; runbook teams-sync-failures.md; deploy-and-rollback flag row; threat-model trust boundary worker → Microsoft 365; staff-guide section. 25-i: under `restricted`, 1.0 files upload to `<job folder>` in the Fee Proposals channel's library (resolved by TEAMS_FEE_CHANNEL_SITE_URL, created on first use), never to a job channel; the job page links to that subfolder only for users with `fee_proposal.view`.
+1. Spike (PR 25-a) is done: ADR-0015 V1-V8 record "verified 29 Oct per Slack, 23/23" and the spec/DATA_MODEL text is in (docs PRs of 6 Nov). No STOP gate remains; Craig approved the amended plan on 6 Nov 2026.
+2. Migration `0005_teams_settings_links_and_pushes.sql` (expand only, the 0004 header). `teams_settings` singleton as in DATA_MODEL (row inserted by the migration with all switches false, policy `exclude`, root folder `102. Subdivision Tracker`, poll 300 s). `job_teams_links` (job_id PK → jobs ON DELETE CASCADE; team_id uuid; channel_id text CHECK `^19:[^/]+@thread\.(tacv2|skype)$`; channel_name ≤ 50; status provisioning|ready|error; drive_id, channel_folder_item_id, root_folder_item_id, sharepoint_url, teams_url; error_code ≤ 80; linked_by → users; linked_at, provisioned_at, last_push_at; version; UNIQUE (team_id, channel_id)). `teams_folders` (job_id, folder_path, drive_item_id; PK (job_id, folder_path)). `teams_file_pushes` (file_id PK → files ON DELETE CASCADE; job_id; status pending|uploading|pushed|excluded|failed; remote_name, remote_path, drive_item_id, etag, size_bytes, attempts, error_code ≤ 80, pushed_at; partial index on job_id WHERE status IN ('pending','failed')). Replace the operations type CHECK to add `teams.provision`, `teams.push` and `teams.check` (ADD CONSTRAINT … NOT VALID, then VALIDATE). Grants: tracker_app reads/writes the four tables (no DELETE on teams_settings). Mirror in packages/db/src/schema.ts and the contracts OperationType.
+3. Contracts: `TeamsSettings` schema (teamId, teamSiteUrl, teamName, feeChannelLink, feeSiteUrl, rootFolder, feeProposalPolicy, syncEnabled, inboundSyncEnabled, createChannelsEnabled, inboundPollSeconds, updatedBy UserRef, updatedAt, version, lastCheck {operationId, startedAt, results[]}); routes `getTeamsSettings` GET, `updateTeamsSettings` PUT (If-Match, CSRF, MFA step-up) → 200, `checkTeamsConnection` POST → 202 {operationId}, all under /v1/admin/teams-settings; global capabilities `teams.settings.manage` (admin) and `teams.settings.read` (admin, kr_admin). `TeamsLink` (status, channelName, teamsUrl, sharePointUrl, linkedBy UserRef, linkedAt, lastPushAt, counts {pushed, pending, failed, excluded}, errorCode, operationId, feeProposalPolicy, feeProposalFolderUrl). Routes `getJobTeamsLink` GET, `linkJobTeamsChannel` PUT `{channelLink}` → 202 with TeamsLink + operationId (CSRF; optional If-Match on relink) and `unlinkJobTeamsChannel` DELETE → 204, under /v1/jobs/{jobId}/teams-link. Problem types `invalid_channel_link`, `wrong_team`, `wrong_tenant` (400) and `channel_already_linked` (409, with the other job's number). Job capability `teams.link` (kr_admin, admin) and `teams.view` (kr_admin, admin, staff). Regenerate openapi.yaml with `pnpm openapi:generate`.
+4. Worker Graph client (`clients/graph-token.ts`, `clients/graph-drive.ts`). Plain fetch: client-credentials token (cached until 60 s before expiry, cleared on 401), site by URL, default drive, item by path, children, create folder (conflictBehavior fail), delete item (by id + if-match eTag; used by teams.check's probe and WP-26), simple upload ≤ 4 MiB, upload session with 10 MiB chunks streamed from the bucket. No Authorization header to the session URL, which is never logged. Retry-After honoured on 429/503/504, bounded retries with jitter, timeouts (TEAMS_GRAPH_TIMEOUT_MS, default 30 s), circuit breaker, User-Agent `NONISV|KRSurveys|KRTracker/<RELEASE_VERSION>`. Typed `GraphError` with status and Graph error code only. Worker config: FEATURE_TEAMS_FILE_SYNC, TEAMS_TENANT_ID, TEAMS_CLIENT_ID, TEAMS_CLIENT_SECRET (sealed, worker only), TEAMS_GRAPH_TIMEOUT_MS; flag on ⇒ all set; Graph and authority base URLs pinned to Microsoft in staging/production. Everything else comes from `teams_settings`, read by `data/teams-settings.ts` at the start of every teams.* operation. Metrics kr.teams.pushes{result} and kr.teams.graph_requests{status_class}.
+5. Test fake `services/worker/test/fake-graph.ts` (node:http, the fake-clamd/fake-anthropic pattern): token endpoint and the drive subset above, in-memory sites, drives, folders and items with ids, eTags and createdBy.application.id, 409 nameAlreadyExists, 403 accessDenied for sites without a grant, injectable 429/503 with Retry-After, 401 token expiry and a crash after upload before reply. It records every request. No test calls a Microsoft host.
+6. Admin settings: api module `services/api/src/modules/teams-settings/` (GET/PUT/POST check; PUT validates the fee channel link against the team id, enforces the switch ordering CHECK at the boundary, bumps version, audits `settings.teams_updated` with field changes, queues nothing; POST queues `teams.check` with the current settings snapshot in the payload). Worker handler `handlers/teams-check.ts` runs the checks of spec §9.3 in order, stops at the first failure of a prerequisite, writes `{item, ok, errorCode}[]` to the operation result, creates and deletes the probe folder `.kr-tracker-check-{operationId}` under the root folder. Web page `apps/web/src/app/(app)/admin/teams/page.tsx` (lazy, like users): the form of §9.3, If-Match, MFA step-up redirect, Test connection polling the operation, the texts of §9.3. Admin link in the shell gains "Teams" for `teams.settings.read`.
+7. Provisioning. Pure `domain/teams-layout.ts`: the folder plan for a job (root folder at the channel's Files root, then every stage and checkpoint folder from the @kr/workflow helpers except 1.0; Query emails subfolders; condition evidence folders on demand), SharePoint name checks (V5), the duplicate-suffix rule. Pure `domain/teams-policy.ts`: `syncPolicyFor(checkpoint, settings)` → sync|exclude|restricted. Handler `handlers/teams-provision.ts`: read settings; if `sync_enabled` is false complete as a no-op; resolve the channel folder in the link's team site (the link's team_id, not the current setting's), store drive and item ids, create the root folder and missing layout folders idempotently (never rename or delete; never touch any other folder in the channel), store `teams_folders`, set status ready or error (`channel_folder_missing`, `permission_denied`, `graph_unavailable`), mark existing clean files `pending` or `excluded`, queue `teams.push`. Audit `teams.folders_provisioned` (system).
+8. Push. Pure `domain/teams-push.ts`: which files are pushable (clean, not deleted, job not archived, link ready, policy sync, sync_enabled) and their target folder and remote name. Handler `handlers/teams-push.ts`: drain pending and failed rows, upload, record drive item id, eTag and remote path, adopt an item left by a crash (status uploading, same size, createdBy.application.id = TEAMS_CLIENT_ID) or take the next suffix; never overwrite an item whose eTag differs. Audit `file.teams_pushed` (system). In file-scan `pass()`, when clean, flag on, sync_enabled and link ready, insert the push row and queue `teams.push` in the same transaction. Sweep `teams_push_retry`. Flag off or sync_enabled off ⇒ queued operations complete as no-ops.
+9. API module `services/api/src/modules/teams/` (index, http/teams-routes.ts, data/, pure domain/channel-link.ts). Parse the pasted link without fetching it: https only, host teams.microsoft.com or teams.cloud.microsoft, path /l/channel/{id}/{name}, groupId = `teams_settings.team_id`, tenantId = ENTRA_TENANT_ID; teams_url rebuilt from the parsed parts. PUT stores the link (team_id from the settings at that moment) and queues teams.provision in one transaction (409 if linked to another job); DELETE stops future pushes and leaves Teams content alone; GET returns the link, counts and the panel state (`sync_off` when sync_enabled is false). Every route requires `teams.view` (GET) or `teams.link` (PUT/DELETE); flag off ⇒ 404. Audit `job.teams_linked`, `job.teams_unlinked`. Authz matrix rows for the three job routes and the three settings routes × every role.
+10. Web `apps/web/src/features/teams/`: the Teams panel on the tracker page (mounted from TrackerBody.tsx; hidden when GET answers 404) with the states of spec §5.10 (sync off, not linked, setting up, linked, error with Relink), the link dialog with paste field, client-side shape check and server problem texts, the unlink confirm, the fee-proposal note and the per-file badges. Texts exactly as §5.10. Unit tests, axe, and one e2e journey or component tests with a mocked API.
+11. Ops and docs (25-i) and the Fee Proposals channel (25-j). docs/flags.md row (`teams-file-sync`, off, owner KR Surveys (Craig), review 2027-06-30); railway.md E13 registration per environment, E14 Sites.Selected + admin consent, E15 `write` grants on the team site and the Fee Proposals channel's site (repeated for every team the settings page is pointed at), E16 one secret ≤ 90 days sealed on worker only; worker and api variable rows (the five dropped variables are listed as removed); staging go-live row; runbook teams-sync-failures.md; deploy-and-rollback flag row; threat-model trust boundary worker → Microsoft 365; staff-guide section; .env.example. 25-j: under `restricted`, 1.0 files upload to `<job folder>` in the Fee Proposals channel's library (resolved by `teams_settings.fee_site_url`, created on first use), never to a job channel; the job page links to that subfolder only for users with `fee_proposal.view`.
 
 **PR stack** (in order, each ≤ 400 changed lines)
 
-1. 25-a spike results in ADR-0015 V1-V8 + spec and DATA_MODEL text (docs only; STOP gate)
-2. 25-b migration 0005, db schema types, contracts, `teams.link` capability, openapi regenerate
-3. 25-c worker Graph token and drive client, config + flag + .env.example, metrics, fake-graph and its integration tests
-4. 25-d provisioning: teams-layout and teams-policy domain, teams.provision handler
-5. 25-e push: teams-push domain, teams.push handler, file-scan hook, retry sweep
-6. 25-f api teams module: link parser, routes, audit, api config/flag, authz matrix rows
-7. 25-g web Teams panel and link dialog
-8. 25-h ops docs: flags.md, railway.md E13-E16, runbook, alerts, threat model, staff guide
-9. 25-i fee proposals: 1.0 files to the job's subfolder in the private Fee Proposals channel (needs V6 = yes)
+1. 25-a (done 6 Nov, docs only): ADR-0015 amendment, spec §2.1/§4/§5.10/§9.3/§13/§16, DATA_MODEL rows, DECISIONS_LOG; this plan of record
+2. 25-b migration 0005 (settings, links, folders, pushes, three operation types), db schema types, contracts (settings + link schemas, six routes, three capabilities), openapi regenerate
+3. 25-c worker Graph token and drive client, worker config + flag + .env.example, metrics, fake-graph and its integration tests
+4. 25-d admin settings: api `teams-settings` module, `teams.check` handler, authz rows for the settings routes
+5. 25-e admin settings page `/admin/teams` (web), shell link, tests and axe
+6. 25-f provisioning: teams-layout and teams-policy domain, teams.provision handler
+7. 25-g push: teams-push domain, teams.push handler, file-scan hook, retry sweep
+8. 25-h api teams module: link parser, job routes, audit, api flag, authz matrix rows
+9. 25-i web Teams panel, link dialog, file badges
+10. 25-j ops docs: flags.md, railway.md E13-E16, runbook, alerts, threat model, staff guide; then fee proposals: 1.0 files to the job's subfolder in the private Fee Proposals channel (split into two PRs if over 400 lines)
 
 **Acceptance criteria**
 
-1. ADR-0015 V1-V8 each have a recorded result (25-a) before any code PR opens, and the plan of record still holds or was approved again.
-2. With the flag off nothing changes: the three routes answer 404, file.scan queues no teams.push, the panel is hidden, and queued teams.* operations complete as no-ops (api and worker integration tests).
-3. Linking validates the pasted link (wrong host, team, tenant or path → 400 problem; a channel already linked to another job → 409), stores it and queues teams.provision in one transaction; only kr_admin and admin may read or change it (authz matrix; externals 404, disabled 401); link and unlink are audited.
-4. Provisioning against the Graph fake creates `102. Subdivision Tracker` if missing and every stage/checkpoint folder inside it (except 1.0), with names equal to planPackage's paths minus the top folder; a second run creates nothing new; `100. Initial SURVEY`, `101. Subdivison Process` and every item outside 102 get no Graph call; a missing channel folder sets status error with a code shown on the page.
-5. Every clean file of a linked job is pushed exactly once to its checkpoint or condition-evidence folder (including files that existed before linking); infected, error, pending and skipped files are never pushed; duplicate names get " (2)"; a crash between upload and DB write does not create a second copy; an item changed in Teams (eTag differs) is never overwritten.
-6. No 1.0 file is ever pushed into a job channel. Under `exclude` (default) no 1.0 file is pushed; under `restricted` (25-i) each goes only to the job's subfolder in the Fee Proposals channel (unit, mutation-tested domain, fake-graph integration test).
-7. Graph 429/503 with Retry-After are honoured and retried within the bound, then the operation fails and the sweep requeues it; files over 4 MiB use an upload session in 10 MiB chunks with no Authorization header on the session URL; tokens, secrets and upload URLs never appear in logs (log-capture test).
-8. The job page shows the four panel states with the spec texts, Open in Teams opens the rebuilt teams.microsoft.com URL with rel=noopener noreferrer, and axe reports no violations on the panel and dialog.
-9. Mutation score ≥ 60 % on `services/worker/src/domain/teams-*.ts` and `services/api/src/modules/teams/domain/**`; diff coverage ≥ 80 %; ZAP baseline on staging shows no new alert.
-10. railway.md E13-E16 and the staging go-live row are completed and recorded in staging by KR IT and the launching human before the flag is turned on in production; worker, api, web, db and contracts checks green; `node scripts/plan/check-work-packages.mjs` passes.
+1. ADR-0015 V1-V8 each have a recorded result and the amended plan of record was approved by Craig on 6 Nov 2026 (docs PRs merged before 25-b opens).
+2. With the flag off nothing changes: the six routes answer 404, `/admin/teams` is not reachable, file.scan queues no teams.push, the panel is hidden, and queued teams.* operations complete as no-ops (api and worker integration tests). With the flag on and `sync_enabled` false: the settings page works, the job panel shows the sync-off text to admins and nothing to staff, nothing is queued, queued work completes as a no-op.
+3. Settings: only admin may change them (kr_admin reads; others 403; externals 404 on the page), PUT needs MFA step-up and If-Match, the switch ordering is enforced (400), every change is audited with field names, and Test connection reports each check of §9.3 with pass/fail and a Graph error code against the fake (including a site without a grant → `permission_denied`). The probe folder is removed afterwards.
+4. Linking validates the pasted link against the team in the settings (wrong host, team, tenant or path → 400 problem; a channel already linked to another job → 409), stores the link with the team id of that moment and queues teams.provision in one transaction; only kr_admin and admin may change it, staff may read it (authz matrix; externals 404, disabled 401); link and unlink are audited. Changing the team setting afterwards leaves the link unchanged and provisioning uses the link's team site.
+5. Provisioning against the Graph fake creates the root folder if missing and every stage/checkpoint folder inside it (except 1.0), with names equal to planPackage's paths minus the top folder; a second run creates nothing new; `100. Initial SURVEY`, `101. Subdivison Process` and every item outside the root folder get no Graph call; a missing channel folder sets status error with a code shown on the page.
+6. Every clean file of a linked job is pushed exactly once to its checkpoint or condition-evidence folder (including files that existed before linking); infected, error, pending and skipped files are never pushed; duplicate names get " (2)"; a crash between upload and DB write does not create a second copy; an item changed in Teams (eTag differs) is never overwritten.
+7. No 1.0 file is ever pushed into a job channel. Under `exclude` (default) no 1.0 file is pushed; under `restricted` (25-j) each goes only to the job's subfolder in the Fee Proposals channel (unit, mutation-tested domain, fake-graph integration test).
+8. Graph 429/503 with Retry-After are honoured and retried within the bound, then the operation fails and the sweep requeues it; files over 4 MiB use an upload session in 10 MiB chunks with no Authorization header on the session URL; tokens, secrets and upload URLs never appear in logs (log-capture test).
+9. The job page shows the panel states with the §5.10 texts, Open in Teams opens the rebuilt teams.microsoft.com URL with rel=noopener noreferrer, the settings page shows the §9.3 texts, and axe reports no violations on the panel, the dialog and the settings page.
+10. Mutation score ≥ 60 % on `services/worker/src/domain/teams-*.ts`, `services/api/src/modules/teams/domain/**` and `services/api/src/modules/teams-settings/domain/**`; diff coverage ≥ 80 %; ZAP baseline on staging shows no new alert.
+11. railway.md E13-E16 and the staging go-live row are completed and recorded in staging by KR IT and Craig before `sync_enabled` is turned on in production; worker, api, web, db and contracts checks green; `node scripts/plan/check-work-packages.mjs` passes.
 
 **Out of scope / must not change**
 
-- Teams → app sync, delta polling, the Unfiled list, delete and conflict rules, and files added in Teams in the package download (phase 2).
-- Creating channels and their template folders, the duplicate channel-name warning, channel naming rules, Channel.* permissions (phase 3).
-- Propagating app deletes, replacements or job renames to Teams; Job summary.txt in the channel; touching any channel content other than the folders and files the app created.
+- Teams → app sync, delta polling, the Unfiled list, delete and conflict rules, and files added in Teams in the package download (WP-26).
+- Creating channels and their template folders, the channel cache, the picker, the duplicate channel-name warning, channel naming rules, Channel.* permissions (WP-27).
+- Propagating app deletes, replacements or job renames to Teams (deletes: WP-26); Job summary.txt in the channel; touching any channel content other than the folders and files the app created.
 - Graph change notifications or any public route; channel or team membership management (KR IT creates the Fee Proposals channel and manages its members); notifications to Teams.
 - Changing the sign-in app registration, ENTRA_CLIENT_SECRET placement, graph-inviter.ts or ADR-0011's scan gating; private or shared job channels.
-- Real Microsoft hosts in tests; production tenant data in the spike.
+- Real Microsoft hosts in tests; production tenant data in the spike or in tests.
 
 **Permissions**
 
@@ -1628,15 +1637,162 @@ E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filt
 - May change the public API contract: yes
 - May add a database migration: yes
 - May create/update visual snapshots: yes
-- Note: API contract additive only (3 routes, 1 schema, 2 operation types, 1 capability). New snapshots for the Teams panel only; existing snapshots must not change. A certificate credential (ADR-0015 option C) would need openid-client in the worker: ask first.
+- Note: API contract additive only (6 routes, 2 schemas, 3 operation types, 3 capabilities). New snapshots for the Teams panel and the settings page only; existing snapshots must not change. A certificate credential (ADR-0015 option C) would need openid-client in the worker: ask first.
 
 **Hints**
 
 - External hosts (X7): this brief approves graph.microsoft.com and login.microsoftonline.com for the worker, for the endpoints in the plan of record only. Anything else (other Microsoft hosts, SharePoint REST on *.sharepoint.com) is a new host: STOP and ask.
 - Commit scopes per PR follow the package (db, contracts, worker, api, web, docs); `teams` is not in commitlint's scope-enum.
 - Every PR is High: no approval needed (DECISIONS_LOG, 30 Oct 2026), the launching human merges once CI is green; security checklist section B still applies (SC-B7 outbound hosts, SC-B10 data leaving the app).
-- 25-c to 25-f only need 25-b merged; they may be reordered to keep each PR ≤ 400 changed lines, but never merged before 25-a's STOP gate is cleared.
+- 25-c to 25-h only need 25-b merged; they may be reordered to keep each PR ≤ 400 changed lines, but 25-a's STOP gate was cleared on 6 Nov 2026.
 - If V3 shows the channel name in the link does not reliably name the folder, switch the paste field to the channel's 'Open in SharePoint' folder link (same Sites.Selected resolve by path); that needs approval of the plan of record but no new permission.
+- One developer (Craig) merges every PR on green CI; there is no second approver. The ADR amendment of 6 Nov is the approved plan of record for all three Teams work packages.
+
+**Verify**
+
+```sh
+pnpm --filter @kr/db lint && pnpm --filter @kr/db test:integration
+pnpm --filter @kr/contracts lint && pnpm --filter @kr/contracts test:unit && pnpm openapi:generate && git diff --exit-code packages/contracts/openapi.yaml
+pnpm --filter @kr/worker lint && pnpm --filter @kr/worker typecheck && pnpm --filter @kr/worker test:unit && pnpm --filter @kr/worker test:integration && pnpm --filter @kr/worker test:mutation
+pnpm --filter @kr/api lint && pnpm --filter @kr/api typecheck && pnpm --filter @kr/api test:unit && pnpm --filter @kr/api test:integration && pnpm --filter @kr/api test:contract && pnpm --filter @kr/api test:mutation
+pnpm --filter @kr/web lint && pnpm --filter @kr/web typecheck && pnpm --filter @kr/web test:unit && E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filter @kr/web test:e2e
+node scripts/plan/check-work-packages.mjs && pnpm format:check
+pnpm verify
+```
+
+### WP-26 — Teams integration phase 2: two-way sync (Teams → app) with delta polling, the Unfiled list and delete propagation
+
+- Risk tier: **High** — content enters the app from Microsoft 365 without a signed-in user (new inbound trust boundary), the worker deletes items in Teams, migration 0006, files columns, worker and api changes
+- Wave: 11 · Depends on: WP-25 · Target: services/worker, services/api, apps/web, packages/db, packages/contracts · Commit scope: `worker`
+- Owned paths: `packages/db/migrations/0006_teams_inbound_and_file_source.sql`, `packages/db/src/schema.ts`, `packages/contracts/src/schemas.ts`, `packages/contracts/src/routes.ts`, `packages/contracts/src/permissions.ts`, `packages/contracts/openapi.yaml`, `packages/telemetry/src/metrics.ts`, `packages/telemetry/src/metrics.test.ts`, `services/worker/src/clients/graph-drive.ts`, `services/worker/src/domain/teams-inbound.ts`, `services/worker/src/domain/teams-inbound.test.ts`, `services/worker/src/domain/teams-push.ts`, `services/worker/src/domain/teams-push.test.ts`, `services/worker/src/handlers/teams-poll.ts`, `services/worker/src/handlers/teams-poll.int.test.ts`, `services/worker/src/handlers/teams-push.ts`, `services/worker/src/handlers/teams-push.int.test.ts`, `services/worker/src/handlers/file-scan.ts`, `services/worker/src/handlers/file-scan.int.test.ts`, `services/worker/src/handlers/index.ts`, `services/worker/src/sweeps/index.ts`, `services/worker/test/fake-graph.ts`, `services/api/src/modules/teams/**`, `services/api/src/modules/files/**`, `services/api/test/security/authz-matrix.int.test.ts`, `apps/web/src/features/teams/**`, `apps/web/src/features/files/**`, `docs/spec/PRODUCT_SPEC.md`, `docs/spec/DATA_MODEL.md`, `docs/runbooks/teams-sync-failures.md`, `docs/security/threat-model.md`, `docs/user-guide/staff-guide.md`, `docs/user-guide/client-and-architect-guide.md`
+
+**Goal.** With `inbound_sync_enabled` on, files that KR staff add to a linked job's root folder in Teams appear in the tracker: the worker polls each linked job with Graph delta, downloads new or changed items into the bucket, runs them through the normal scan and parsing pipeline and attaches them to the checkpoint or condition whose folder they sit in, or puts them on an Unfiled list for staff to file or dismiss. Items edited in Teams replace the app's copy (old copy kept, soft-deleted as `teams_replaced`); items deleted in Teams are kept and marked "Removed in Teams"; a file deleted or replaced in the app is removed from Teams when its eTag still matches. Rules as in ADR-0015 A4.
+
+**Read first**
+
+- ADR-0015 A4 (every rule), PRODUCT_SPEC §5.10 (Unfiled list, badges), DATA_MODEL `teams_inbound_items` and the `files` columns of 0006
+- WP-25's merged code: graph-drive.ts, teams-push.ts, teams-provision.ts, fake-graph.ts, the `teams` api module and the web panel
+- services/api/src/modules/files (upload pipeline, kind sniffing, size limits, slots per checkpoint, soft delete, purge) and services/worker/src/handlers/file-scan.ts: inbound files reuse these exactly
+- ADR-0011 (only clean content is served) and ADR-0006 (one operation at a time per job)
+- Microsoft Graph delta on drive items: `@odata.deltaLink`, `deleted` facet, 410 Gone (token expired → full resync); V7 note in ADR-0015
+
+**Plan of record**
+
+1. Migration 0006 (expand only, the 0004 header): `teams_inbound_items` and `teams_channels` as in DATA_MODEL; `files.source` (CHECK upload|teams, default upload), `files.teams_removed_at`, `files.deleted_reason`; `job_teams_links.last_poll_at`, `delta_token`; `teams_file_pushes.status` gains deleting|deleted; operations type CHECK gains `teams.poll`, `teams.create_channel`, `teams.list_channels` (the last two are used by WP-27; one CHECK replacement for both packages). Schema types and contracts OperationType. (`teams_channels` is created here so WP-27 needs no migration; WP-27 owns its use.)
+2. Graph client additions: `delta` (by folder, falling back to the drive root with path filtering if the fake or the real tenant refuses folder delta; the choice is recorded in the runbook), `download` (streamed to the bucket), `deleteItem` with `if-match`.
+3. Pure `domain/teams-inbound.ts`: classify a delta page into import / unfiled / ignore (app's own pushed items by drive item id; folders; items outside the root folder) / removed / replaced; map a folder path to a checkpoint slot or condition using the @kr/workflow helpers (first slot that accepts the kind; evidence by condition number); the size and kind refusals with reasons.
+4. Handler `handlers/teams-poll.ts`: per job, read settings, no-op when `inbound_sync_enabled` is false, run delta from the stored token (full listing on 410 or no token), apply the classification in one transaction per item: download → `files` row with `source='teams'`, `uploaded_by` NULL → queue `file.scan` (parsing follows as for uploads) → audit `file.teams_imported`; replaced → new row + old row soft-deleted `teams_replaced` + push row moved; removed → `teams_removed_at` + audit `file.teams_removed`; unfiled → `teams_inbound_items` row. Store the new delta token last. Sweep `teams_poll_schedule` queues `teams.poll` for every ready link every `inbound_poll_seconds`.
+5. Delete propagation: `teams.push` gains action `delete` (and `replace` = push new + delete old); the files module queues it on soft delete and on replace when the link is ready; the worker deletes only when the stored eTag matches, else records `etag_changed` and leaves the item. Audit `file.teams_deleted` (system).
+6. Api: `GET /v1/jobs/{jobId}/teams-unfiled` (list), `POST /v1/jobs/{jobId}/teams-unfiled/{itemId}/file` `{checkpointKey, slot | conditionId}` → 202 (queues `teams.poll` with an import instruction for that item), `POST …/dismiss` → 204; capability `teams.view` to read, `files.upload` of the target slot to file; `TeamsLink.counts` gains `unfiled`; file DTOs gain `source`, `teamsRemovedAt`, `teamsState`. Authz rows.
+7. Web: Unfiled list under the panel and the file badges of §5.10; the Filing `<select>` offers only slots the user may upload to; mocked-API component tests and axe.
+8. Docs: spec and DATA_MODEL already describe phase 2; update the runbook (delta 410, poll backlog, quarantine), threat model (inbound boundary: files from Teams are treated as untrusted uploads), staff guide (how filing works, what "Removed in Teams" means), client guide (files added by KR in Teams show up like any other file), alerts row for poll failures, metrics kr.teams.inbound{result}.
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 26-a migration 0006, schema types, contracts (inbound routes, file DTO fields, operation types), openapi regenerate
+2. 26-b Graph client additions (delta, download, delete) and fake-graph support
+3. 26-c inbound domain + teams.poll handler + schedule sweep
+4. 26-d delete/replace propagation (teams.push actions, files module hooks)
+5. 26-e api unfiled routes, authz rows; web Unfiled list and badges (split if over 400 lines)
+6. 26-f docs: runbook, threat model, guides, alerts
+
+**Acceptance criteria**
+
+1. With `inbound_sync_enabled` false nothing is polled, imported or deleted in Teams (integration tests); with the flag off the routes answer 404.
+2. Against the fake, a file added to a checkpoint folder in Teams becomes a `files` row with `source='teams'`, is scanned, parsed where 4.2/4.3/5.0 apply, and shows on the tracker only once clean; a file at the root or in an unknown folder appears on the Unfiled list; filing it attaches it; dismissing hides it until it changes.
+3. An item edited in Teams produces a new file row and the old row is soft-deleted with `deleted_reason='teams_replaced'`; an item deleted in Teams sets `teams_removed_at` and the badge; an infected inbound file is quarantined, flagged and left in Teams; the app's own pushed items are never re-imported; 410 Gone triggers a full resync without duplicates.
+4. Deleting or replacing a file in the app removes or replaces the drive item only when the stored eTag matches; a differing eTag leaves the item and shows "Changed in Teams; not removed there".
+5. Externals never see the Unfiled list or any inbound route (404); staff can file into slots they may upload to only (authz matrix).
+6. Mutation score ≥ 60 % on teams-inbound.ts and teams-push.ts; diff coverage ≥ 80 %; no secret, token or item URL in logs; `node scripts/plan/check-work-packages.mjs` passes.
+
+**Out of scope / must not change**
+
+- Channel creation, the picker and the channel cache refresh (WP-27; the table is created here only).
+- Graph change notifications; syncing 100 or 101; moving or renaming items in Teams; version history beyond one previous copy.
+- Changing ADR-0011 scan gating or the upload size and kind rules: inbound files obey the same limits.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: yes
+- May add a database migration: yes
+- May create/update visual snapshots: yes
+- Note: Additive routes and fields only. New snapshots for the Unfiled list only.
+
+**Hints**
+
+- Delta returns folders too: ignore them unless they are missing layout folders (then store their ids in teams_folders).
+- One `teams.poll` per job at a time (the lease), and never while a `teams.provision` or `teams.push` for the same job is running: use the queue's per-job ordering from ADR-0006.
+- Treat every name, path and `lastModifiedBy` from Graph as untrusted text (A11): length-cap, strip control characters, never interpolate into log messages.
+
+**Verify**
+
+```sh
+pnpm --filter @kr/db lint && pnpm --filter @kr/db test:integration
+pnpm --filter @kr/contracts lint && pnpm --filter @kr/contracts test:unit && pnpm openapi:generate && git diff --exit-code packages/contracts/openapi.yaml
+pnpm --filter @kr/worker lint && pnpm --filter @kr/worker typecheck && pnpm --filter @kr/worker test:unit && pnpm --filter @kr/worker test:integration && pnpm --filter @kr/worker test:mutation
+pnpm --filter @kr/api lint && pnpm --filter @kr/api typecheck && pnpm --filter @kr/api test:unit && pnpm --filter @kr/api test:integration && pnpm --filter @kr/api test:contract && pnpm --filter @kr/api test:mutation
+pnpm --filter @kr/web lint && pnpm --filter @kr/web typecheck && pnpm --filter @kr/web test:unit && E2E_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm --filter @kr/web test:e2e
+node scripts/plan/check-work-packages.mjs && pnpm format:check
+pnpm verify
+```
+
+### WP-27 — Teams integration phase 3: the app creates the channel for new jobs, channel cache and picker, duplicate-name check
+
+- Risk tier: **High** — new application permissions (Channel.Create, Channel.ReadBasic.All), the app creates objects in KR's Microsoft 365, create-job flow changes
+- Wave: 12 · Depends on: WP-26 · Target: services/worker, services/api, apps/web, packages/workflow, packages/contracts · Commit scope: `worker`
+- Owned paths: `packages/workflow/src/presentation.ts`, `packages/workflow/src/presentation.test.ts`, `packages/contracts/src/schemas.ts`, `packages/contracts/src/routes.ts`, `packages/contracts/openapi.yaml`, `services/worker/src/clients/graph-teams.ts`, `services/worker/src/clients/graph-teams.int.test.ts`, `services/worker/src/domain/teams-channel.ts`, `services/worker/src/domain/teams-channel.test.ts`, `services/worker/src/handlers/teams-create-channel.ts`, `services/worker/src/handlers/teams-create-channel.int.test.ts`, `services/worker/src/handlers/teams-list-channels.ts`, `services/worker/src/handlers/teams-check.ts`, `services/worker/src/handlers/index.ts`, `services/worker/src/sweeps/index.ts`, `services/worker/test/fake-graph.ts`, `services/api/src/modules/teams/**`, `services/api/src/modules/jobs/**`, `services/api/test/security/authz-matrix.int.test.ts`, `apps/web/src/features/teams/**`, `apps/web/src/features/jobs/**`, `docs/spec/PRODUCT_SPEC.md`, `docs/deploy/railway.md`, `docs/runbooks/teams-sync-failures.md`, `docs/user-guide/staff-guide.md`
+
+**Goal.** With `create_channels_enabled` on, creating a job creates its standard channel in the configured team with the three template folders, links it and provisions it, after a duplicate-name check against a worker-refreshed channel cache; the link dialog offers a picker of the team's standard channels; Test connection reports the two new permissions. Naming and rules as in ADR-0015 A5.
+
+**Read first**
+
+- ADR-0015 A5 (naming rules, cache, race handling, no rename/archive propagation), PRODUCT_SPEC §5.10 (Create job checkbox and texts) and §9.3 (the two phase 3 checks)
+- WP-25 and WP-26 merged code; `teams_channels` table (0006); the create-job route and form; @kr/workflow presentation.ts (`safeName`)
+- Microsoft Graph: `POST /teams/{id}/channels` (standard, application permission Channel.Create), `GET /teams/{id}/channels` (Channel.ReadBasic.All), channel `filesFolder` creation timing (the folder may not exist for some seconds after creation: retry with backoff); V8 in ADR-0015
+
+**Plan of record**
+
+1. Pure `channelNameFor(job)` in @kr/workflow presentation.ts implementing A5 (`/` → `-`, upper-cased address, forbidden characters dropped, 50-character cap shortening the client first with `…`, then the address) and `channelNameWithSuffix(name, n)`; exhaustive unit and mutation tests with synthetic data only (TD-1).
+2. Graph client `clients/graph-teams.ts`: list channels (paged), create standard channel, get channel filesFolder with bounded retry until it exists. Handler `teams-list-channels.ts` refreshes `teams_channels` for the configured team; sweep `teams_channels_refresh` every `inbound_poll_seconds` while `create_channels_enabled` is on. `teams.check` gains the two phase 3 items.
+3. Handler `teams-create-channel.ts`: read settings; no-op when `create_channels_enabled` is false; create the channel (on 409 or a cache miss race: set the link to error `channel_name_taken`); wait for filesFolder; create `100. Initial SURVEY`, `101. Subdivison Process` and the root folder; write `job_teams_links` (status provisioning) and queue `teams.provision`. Audit `job.teams_channel_created`.
+4. Api: create job accepts `createTeamsChannel` (default true when enabled); the handler computes the name, checks `teams_channels` (case-insensitive) and returns 409 `channel_name_exists` with the §5.10 text before creating the job; when the cache is empty or older than one hour the job is created and the link gets status `not_created` (new value) so the panel offers Create channel. `POST /v1/jobs/{jobId}/teams-link/create` → 202 (`teams.link`) for the panel button. `GET /v1/teams/channels` (`teams.link`; standard channels from the cache, name and id) for the picker. Authz rows.
+5. Web: Create job checkbox with the name preview; the inline duplicate-name error; the panel's not-created state and Create channel button; the picker in the link dialog with the paste fallback; texts of §5.10; axe.
+6. Docs: railway.md E17 (Channel.Create and Channel.ReadBasic.All with admin consent, staging first), runbook section (channel creation failures, cache staleness), staff guide (how channels are named, that renames are not propagated).
+
+**PR stack** (in order, each ≤ 400 changed lines)
+
+1. 27-a channelNameFor + tests (workflow), contracts (create flag, new route, link status value), openapi regenerate
+2. 27-b graph-teams client, list-channels handler and sweep, teams.check additions, fake-graph
+3. 27-c teams.create_channel handler
+4. 27-d api: create-job integration, panel create route, channels route, authz rows
+5. 27-e web: create-job checkbox, panel state, picker; docs E17, runbook, staff guide (split if over 400 lines)
+
+**Acceptance criteria**
+
+1. With `create_channels_enabled` false, create job has no checkbox, no channel is created and the picker is absent (paste only); the flag off hides everything.
+2. `channelNameFor` matches the A5 rules for every edge case in its tests (slash, long client, long address, forbidden characters, empty client) and never exceeds 50 characters.
+3. Creating a job with the checkbox on creates exactly one standard channel in the fake with the three template folders, links and provisions it; a name already in the cache blocks creation with the §5.10 text; a race at creation (409 from the fake) sets the link to error `channel_name_taken` and the panel offers Relink; an empty or stale cache creates the job without a channel and the panel offers Create channel.
+4. Renaming or archiving a job makes no Graph call; the picker lists standard channels only and linking through it behaves exactly like pasting.
+5. Mutation score ≥ 60 % on teams-channel.ts and the presentation helper; diff coverage ≥ 80 %; E17 recorded in staging before production; `node scripts/plan/check-work-packages.mjs` passes.
+
+**Out of scope / must not change**
+
+- Renaming, archiving or deleting channels; private or shared job channels; membership management; propagating job edits to the channel name.
+- Any Teams permission beyond Channel.Create and Channel.ReadBasic.All; reading channel messages; posting to Teams.
+
+**Permissions**
+
+- May add a runtime dependency: no
+- May change the public API contract: yes
+- May add a database migration: no
+- May create/update visual snapshots: yes
+- Note: Additive only. The create-job form snapshot changes once (the checkbox); update it in 27-e.
+
+**Hints**
+
+- The channel's Files folder is created lazily by Teams; the fake should model a delay so the retry is tested.
+- Keep the 50-character cap in one place (the workflow helper); the api and web both call it, never reimplement it.
 
 **Verify**
 

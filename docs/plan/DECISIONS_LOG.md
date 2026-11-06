@@ -185,3 +185,30 @@ reason. Evidence and numbers are in `docs/release/GO_LIVE_REPORT.md`.
   staging/production.
 - PR count: WP-25 is 9 PRs (25-a spike/spec, 25-b schema/contracts, 25-c Graph client and fake, 25-d provisioning, 25-e
   push, 25-f api, 25-g web, 25-h ops docs, 25-i Fee Proposals channel), each High tier and ≤ 400 changed lines (A1).
+
+## Teams integration decisions (2026-11-06, Craig)
+
+Taken by Craig (KR Surveys, business decider) in the development chat on 6 Nov 2026 and recorded in ADR-0015's
+amendment of the same date. One developer is on the project; the 30 Oct no-approvals rule applies and Craig's
+approval of the revised plan is the High-tier plan approval (AGENTS.md workflow step 2).
+
+- Build all three phases now (WP-25 phase 1, WP-26 phase 2, WP-27 phase 3), in that order, each phase usable alone
+  and switchable off on its own. Option G's risk is accepted.
+- The team is an admin setting: `/admin/teams` (admin only) holds the team id, team site URL, Fee Proposals channel
+  and site, the sync switches and the fee-proposal policy, with a Test connection diagnostic. `TEAMS_TEAM_ID`,
+  `TEAMS_SITE_URL`, `TEAMS_FEE_CHANNEL_SITE_URL`, `TEAMS_ROOT_FOLDER` and `TEAMS_FEE_PROPOSAL_POLICY` are dropped from
+  the plan of record. The worker keeps the registration's tenant, client id and sealed secret only. Existing links
+  are not changed when the team changes, so a test team and the live team can be used in turn.
+- The sync on/off switch lives on the admin page (`sync_enabled`); `FEATURE_TEAMS_FILE_SYNC` stays as the deploy-time
+  kill switch.
+- Spike results: recorded as "verified 29 Oct per Slack, 23/23" in ADR-0015's table; not transcribed.
+- Existing clean files are copied when a job is linked (ADR-0015 open question 4, the default).
+- Phase 2 rules accepted as proposed: Teams edit = new file row, old one soft-deleted as `teams_replaced`; Teams
+  delete = kept in the app and marked "Removed in Teams"; app delete = drive item deleted when its eTag still
+  matches; inbound files that fail scanning are quarantined and flagged, never deleted in Teams; unrecognised items
+  go to an Unfiled list for staff to file or dismiss.
+- Phase 3 rules accepted as proposed: name `S-<job number>_<ADDRESS, SUBURB IN CAPS> (<client>)`, `/` → `-`, 50
+  characters total with the client shortened first; no rename/archive propagation; numeric suffix on a clash at
+  creation; name check and picker served from a worker-refreshed channel cache (the api never calls Graph).
+- PR count: WP-25 becomes 10 PRs (25-a settings schema and page join the stack), WP-26 and WP-27 about 5 each. Every
+  PR High tier, ≤ 400 changed lines, merged by Craig on green CI.

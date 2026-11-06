@@ -1,11 +1,12 @@
 # ADR-0015: Teams/SharePoint integration in three phases
 
-- Status: accepted
-- Date: 2026-10-27 (updated 2026-10-29 with KR's answers)
-- Deciders: KR Surveys (Craig) — accepted 2026-10-30 (in the project Slack thread; recorded at Andrew Thurlow's request)
+- Status: accepted (amended 2026-11-06: all three phases in scope, admin-held Teams settings)
+- Date: 2026-10-27 (updated 2026-10-29 with KR's answers; amended 2026-11-06 by Craig's decisions)
+- Deciders: KR Surveys (Craig) — accepted 2026-10-30 (in the project Slack thread; recorded at Andrew Thurlow's request);
+  amendment approved 2026-11-06 by Craig in the development chat
 - Drafted by: agent claude (orchestrator) for the launching human (Andrew Thurlow)
 - Related: supersedes the "SharePoint/Teams folder sync" paragraph of ADR-0012; ADR-0006, ADR-0011, ADR-0013,
-  ADR-0014; docs/spec/PRODUCT_SPEC.md §5.8, §13 row 4, §16; work package WP-25 (phase 1)
+  ADR-0014; docs/spec/PRODUCT_SPEC.md §2.1, §5.10, §9.3, §13 row 4, §16; work packages WP-25 (phase 1), WP-26 (phase 2), WP-27 (phase 3)
 
 ## Context
 
@@ -149,18 +150,22 @@ Run against a test tenant or a KR test team, never production data. KR IT or the
 registration's secret and runs the calls. Any "no" on V1, V3, V4, V5 or V6 stops WP-25 until the plan of record is
 revised and approved again.
 
-| #   | Question                                                                                                                                                                                                                         | Result |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| V1  | With only `Sites.Selected` and `write`, can an app-only token resolve the site by path, read its default drive, create folders, upload (simple and upload session) and read `createdBy.application.id`?                          |        |
-| V2  | Does `GET /teams/{team}/channels/{channel}/filesFolder` fail with `Sites.Selected` alone? Which least permission makes it work? (Phase 3 picker.)                                                                                |        |
-| V3  | Do channel links from current clients (new Teams desktop, web, `teams.cloud.microsoft`) carry the channel id, `groupId` and `tenantId`? Is the URL name the folder name? After a rename, does the folder keep its original name? |        |
-| V4  | Private and shared job channels: is the folder absent from the team site, so linking fails cleanly?                                                                                                                              |        |
-| V5  | Simple-upload size limit, upload-session chunk rules, path length, forbidden names and characters. Are `102. Subdivision Tracker` and the stage folder names (e.g. `02 WAPC Approval`) accepted as written?                      |        |
-| V6  | Does a `Sites.Selected` `write` grant on the private Fee Proposals channel's own site allow app-only folder creation and upload there, and does a KR staff member who is not a channel member get no access to it?               |        |
-| V7  | Is delta supported only at the drive root on SharePoint, and does it work with `Sites.Selected`? (Phase 2 input.)                                                                                                                |        |
-| V8  | Do `Channel.Create` and `Channel.ReadBasic.All` (application) allow app-only creation and listing of standard channels? Current per-team channel limit and deleted-name reservation? (Phase 3 input.)                            |        |
+Results: the spike (PR 25-a, 29 Oct 2026) passed 23/23 checks against the test team KRTrackerTest and its
+`-FeeProposals` site. The detailed per-check output lives in the project Slack thread (Teams decisions, 29–31 Oct);
+Craig directed on 6 Nov 2026 that it be recorded here as "verified 29 Oct per Slack, 23/23" rather than transcribed.
 
-## Open questions for KR
+| #   | Question                                                                                                                                                                                                                         | Result                                                                                                                                               |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V1  | With only `Sites.Selected` and `write`, can an app-only token resolve the site by path, read its default drive, create folders, upload (simple and upload session) and read `createdBy.application.id`?                          | Verified 29 Oct per Slack (23/23): one-site `Sites.Selected` grants work, the tenant root is refused, `createdBy.application.id` is set              |
+| V2  | Does `GET /teams/{team}/channels/{channel}/filesFolder` fail with `Sites.Selected` alone? Which least permission makes it work? (Phase 3 picker.)                                                                                | Verified 29 Oct per Slack (23/23); detail not transcribed. WP-27 adds `Channel.ReadBasic.All` for the picker as this ADR's phase 3 row planned       |
+| V3  | Do channel links from current clients (new Teams desktop, web, `teams.cloud.microsoft`) carry the channel id, `groupId` and `tenantId`? Is the URL name the folder name? After a rename, does the folder keep its original name? | Verified 29 Oct per Slack (23/23): a renamed channel keeps its id                                                                                    |
+| V4  | Private and shared job channels: is the folder absent from the team site, so linking fails cleanly?                                                                                                                              | Verified 29 Oct per Slack (23/23)                                                                                                                    |
+| V5  | Simple-upload size limit, upload-session chunk rules, path length, forbidden names and characters. Are `102. Subdivision Tracker` and the stage folder names (e.g. `02 WAPC Approval`) accepted as written?                      | Verified 29 Oct per Slack (23/23): names accepted; 409 on duplicate names                                                                            |
+| V6  | Does a `Sites.Selected` `write` grant on the private Fee Proposals channel's own site allow app-only folder creation and upload there, and does a KR staff member who is not a channel member get no access to it?               | Verified 29 Oct per Slack (23/23): Fee Proposals privacy confirmed                                                                                   |
+| V7  | Is delta supported only at the drive root on SharePoint, and does it work with `Sites.Selected`? (Phase 2 input.)                                                                                                                | Verified 29 Oct per Slack (23/23); WP-26 re-confirms delta scope (102 folder vs drive root) in its first integration test against the real test team |
+| V8  | Do `Channel.Create` and `Channel.ReadBasic.All` (application) allow app-only creation and listing of standard channels? Current per-team channel limit and deleted-name reservation? (Phase 3 input.)                            | Verified 29 Oct per Slack (23/23); WP-27 re-confirms the per-team channel limit and deleted-name reservation before go-live                          |
+
+## Open questions for KR (answered 2026-11-06; see the amendment below)
 
 1. **Channel naming (phase 3):** is `S-<job number>_<ADDRESS, SUBURB IN CAPS> (<client>)` the format to generate, and
    who shortens the client? What happens when a job number contains `/` or the job is renamed or archived?
@@ -179,3 +184,129 @@ revised and approved again.
 - Config tests refuse `TEAMS_CLIENT_SECRET` outside the worker schema and non-Microsoft base URLs in staging and
   production.
 - railway.md E13–E16 and a staging go-live check are recorded before KR turns the flag on in production.
+
+## Amendment 2026-11-06: all three phases, admin-held Teams settings
+
+Decided by Craig (KR Surveys) on 6 Nov 2026 in the development chat, with one developer on the project. The 30 Oct
+rule applies: no PR approvals; Craig merges once CI is green. This amendment answers the open questions above and
+replaces the decisions below where they differ. Everything not mentioned stands as written.
+
+### A1. Scope: build phases 1, 2 and 3 now
+
+Option G ("all three phases at once") was rejected on 27 Oct for risk. Craig accepted that risk on 6 Nov: the three
+phases are built in sequence as three work packages, WP-25 (phase 1 plus settings), WP-26 (phase 2) and WP-27
+(phase 3), each still a stack of PRs ≤ 400 changed lines, each behaviour behind the same flag and the admin switch
+(A2), each phase usable on its own. Phase 2 and 3 no longer need "their own amendment"; this is it.
+
+### A2. The team is an admin setting, not an environment variable
+
+So that KR can test against a test team and then point the app at the live team without a redeploy:
+
+- A singleton table `teams_settings` holds: `team_id` (the Microsoft 365 group id), `team_site_url`, `team_name`
+  (display only), `fee_channel_id`, `fee_site_url`, `sync_enabled` (default false), `inbound_sync_enabled`
+  (phase 2, default false), `create_channels_enabled` (phase 3, default false), `fee_proposal_policy`
+  (`exclude` | `restricted`, default `exclude`), `root_folder` (default `102. Subdivision Tracker`),
+  `inbound_poll_seconds` (default 300, min 60), `updated_by/at`, `version`. One row, created by migration 0005.
+- A new page **Admin → Teams** (`/admin/teams`, admin only, MFA step-up like `/admin/users`) edits it. New global
+  capability `teams.settings.manage` (admin only; kr_admin reads via `teams.settings.read`). Saves are audited
+  (`settings.teams_updated`, field changes recorded) and use `If-Match`.
+- `TEAMS_TEAM_ID`, `TEAMS_SITE_URL`, `TEAMS_FEE_CHANNEL_SITE_URL`, `TEAMS_ROOT_FOLDER` and `TEAMS_FEE_PROPOSAL_POLICY`
+  are **removed from the plan of record**. The worker keeps only what identifies it to Microsoft: `TEAMS_TENANT_ID`,
+  `TEAMS_CLIENT_ID`, `TEAMS_CLIENT_SECRET` (sealed, worker only, decision 2 unchanged), `TEAMS_GRAPH_TIMEOUT_MS`, and
+  the pinned base URLs. The api reads `teams_settings` to validate links and to answer the panel; the worker reads
+  it at the start of every `teams.*` operation (never cached across operations).
+- `Sites.Selected` is granted per site, so changing the team only works after KR IT has granted the worker's
+  registration `write` on the new team's site (railway.md E15). **Test connection** on the settings page queues a
+  `teams.check` operation; the worker reports, per item, pass/fail with the Graph error code: token obtained, team
+  site resolvable, `write` on the team site (creates and deletes a probe folder under the root folder), fee channel
+  site resolvable and writable, channel listing allowed (phase 3), channel creation permission present (phase 3,
+  probe by listing only, no channel is created). Results are stored on the operation and shown on the page.
+- Existing links are keyed by `(team_id, channel_id)` and are **not** touched when the team setting changes: jobs
+  linked to channels in the test team keep syncing there until an admin relinks them. Phase 3 creates channels in
+  whichever team is set at the moment of creation.
+- The flag `teams-file-sync` (`FEATURE_TEAMS_FILE_SYNC`, api and worker, default off) stays as the deploy-time kill
+  switch that makes the feature exist at all (routes, panel, settings page, worker handlers). Operation is switched
+  by `sync_enabled` on the settings page, which is what KR uses day to day. "Flag off ⇒ nothing changes" in decision
+  12 becomes "flag off **or** `sync_enabled=false` ⇒ nothing changes": routes under `/v1/jobs/{jobId}/teams-link`
+  answer 404 and the panel is hidden when the flag is off; when only `sync_enabled` is off, the panel shows "Teams
+  sync is turned off" to admins, nothing is queued and queued work completes as a no-op. `/admin/teams` is reachable
+  whenever the flag is on.
+
+### A3. Phase 1 decisions confirmed
+
+- Existing files at link time: every existing clean file is copied (open question 4, the default).
+- Fee proposals: decision 10 unchanged; `fee_proposal_policy` moves to the settings page (A2).
+
+### A4. Phase 2 rules (Teams → app)
+
+- The worker polls each linked job's root folder with Graph delta (no webhooks, no public endpoint), every
+  `inbound_poll_seconds`, one job at a time, honouring `Retry-After`; operation `teams.poll`, scheduled by a sweep.
+  If delta proves usable only at the drive root (V7), one delta per drive is filtered by path; the table below is the
+  same either way.
+- A new item under a recognised stage/checkpoint or condition-evidence folder is downloaded into the bucket and
+  goes through the normal pipeline (type sniffing, ClamAV, parsing for 4.2/4.3/5.0 as if uploaded) and attaches to
+  that checkpoint slot (the slot of the folder; where a checkpoint has several slots, the first slot that accepts
+  the file's kind) or condition. `files.uploaded_by` is NULL and `files.source = 'teams'`; the audit entry is
+  `file.teams_imported` (system) with the Teams `lastModifiedBy` display name as text.
+- An item in a folder the app does not recognise (anything inside the root folder that is not a layout folder, or a
+  file at the root itself) goes on the job's **Unfiled** list (`teams_inbound_items.status = 'unfiled'`). Staff
+  choose a checkpoint or condition for it (then it is imported as above) or dismiss it (stays in Teams, hidden
+  from the list, re-shown if it changes). Externals never see the Unfiled list.
+- **Edited in Teams** (same item id, new `eTag`): the app stores the new content as a new file row; the previous
+  row is soft-deleted with `deleted_reason = 'teams_replaced'` and keeps its storage until the 30-day purge. The
+  push row moves to the new file.
+- **Deleted in Teams** (delta `deleted` facet): the app keeps the file and sets `files.teams_removed_at`; the
+  tracker shows "Removed in Teams" on the file. Nothing is deleted in the app automatically.
+- **Deleted in the app** (new in phase 2, reversing the additive stance of decision 7): the worker deletes the
+  pushed drive item (`teams.push` with action `delete`), only when the stored `eTag` still matches; otherwise the
+  item is left alone and the file shows "Changed in Teams; not removed there". Replacing a file in the app pushes
+  the new file and deletes the old item by the same rule.
+- An inbound file that fails scanning is quarantined exactly like an upload (`scan_status = 'infected'`, never
+  served) and flagged "Blocked: malware found in a file added in Teams" on the job page and in the audit trail; the
+  Teams item is not deleted. Files larger than the upload limit, or of a kind the app refuses, stay in Teams and
+  appear on the Unfiled list with the reason.
+- The bucket remains the system of record. Items the app itself pushed are recognised by stored drive item id and
+  are not re-imported.
+
+### A5. Phase 3 rules (the app creates the channel)
+
+- Create job gains a **Create Teams channel** checkbox, shown when the flag, `sync_enabled` and
+  `create_channels_enabled` are on, checked by default, available to anyone with `jobs.create` (the link that
+  results is the same as a hand link by an admin; the audit records the creator).
+- Channel name: `S-<job number>_<ADDRESS, SUBURB IN CAPS> (<client>)` with these rules (open question 1):
+  `/` in the job number becomes `-`; the address is upper-cased; characters Teams refuses in channel names are
+  dropped; if the result is longer than 50 characters (the Teams limit; V8 re-check), the client part is shortened
+  first to keep the total at 50 with `…`, then the address. A pure function `channelNameFor(job)` in
+  `@kr/workflow` presentation helpers is the only place that builds it.
+- The api never calls Graph (decision 1) and the worker takes no inbound requests, so the name check and the picker
+  read a **channel cache**: table `teams_channels` (`team_id`, `channel_id`, `display_name`, `folder_name`,
+  `membership_type`, `seen_at`), refreshed by the worker (`teams.list_channels`, `Channel.ReadBasic.All`) every
+  `inbound_poll_seconds` while `create_channels_enabled` is on, and on demand when the settings page's Test
+  connection runs. Before the job is created the api checks the generated name against the cache; a match shows "A
+  channel with this name already exists — choose a different job name" and the job is not created. The cache can be
+  up to one poll old, so the race is also handled at creation time (below). If the cache is empty or older than one
+  hour (the worker cannot reach Graph), the job is created without a channel and the panel shows "Channel not
+  created: Teams did not answer. Create it from the panel." with a **Create channel** button.
+- The worker creates a standard channel in the configured team (`teams.create_channel`), creates the three template
+  folders `100. Initial SURVEY`, `101. Subdivison Process` (KR's spelling, kept deliberately), and the root folder,
+  links the job and runs phase 1 provisioning. A name clash discovered at creation time (race) sets the link to
+  `error` with code `channel_name_taken` and the panel offers Relink.
+- Renaming or archiving a job does **not** rename, archive or delete the channel; the panel notes "Channel name is
+  not updated when the job changes". A reused job number whose generated name clashes gets a numeric suffix
+  ` (2)` at creation.
+- The link dialog gains a **channel picker** listing the cache's standard channels by name (private and shared
+  channels are not offered), with the paste field kept as the fallback; a stale cache cannot link a wrong channel
+  because the stored id is validated by provisioning as in phase 1.
+- New application permissions for the worker's registration: `Channel.Create` and `Channel.ReadBasic.All`
+  (railway.md E17), consented by a KR Global Administrator in staging before production.
+
+### A6. Consequences of the amendment
+
+- Three work packages instead of one; WP-26 and WP-27 reuse WP-25's link, folder and push tables.
+- New tables `teams_settings` (0005) and `teams_inbound_items` (0006); new columns on `files` (`source`,
+  `teams_removed_at`, `deleted_reason`) in 0006; operation types `teams.check` (0005), `teams.poll`,
+  `teams.create_channel`, `teams.list_channels` (0006); table `teams_channels` (0006). All expand-only.
+- The settings page and `teams.check` add an admin-facing diagnostic the plan did not have; KR IT's checklist
+  (E13–E17) is unchanged except that the team id and site URLs are entered on the page, not in Railway.
+- Risk accepted by Craig: inbound sync and channel creation ship before phase 1 has run in production for long.
+  Mitigation: each phase has its own admin switch and can be turned off without affecting the earlier one.

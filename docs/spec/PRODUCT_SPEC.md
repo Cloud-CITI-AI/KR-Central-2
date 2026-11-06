@@ -79,6 +79,10 @@ tenant membership + domain, not from a list that anyone could be added to).
 | Access manager (grant/revoke)                                                                               | ✓        | ✓        | ✓                         | —              | —                         |
 | User management (roles, disable)                                                                            | ✓        | —        | —                         | —              | —                         |
 | Audit trail                                                                                                 | ✓        | ✓        | —                         | —              | —                         |
+| Teams panel on the tracker (link, sync status, counts, Open in Teams, Unfiled list) (§5.10)                 | ✓        | ✓        | ✓ (read-only)             | —              | —                         |
+| Link / relink / unlink the job's Teams channel; create the channel from the panel (§5.10)                   | ✓        | ✓        | —                         | —              | —                         |
+| File or dismiss an Unfiled Teams item (§5.10, phase 2)                                                      | ✓        | ✓        | ✓                         | —              | —                         |
+| Teams settings (`/admin/teams`, §9.3)                                                                       | ✓        | read     | —                         | —              | —                         |
 
 Rules: deny by default; every handler checks explicitly (BE-5); object-level checks on every job-scoped request
 (the job must be visible to the caller — externals only through an **active** grant); disabled users have no access;
@@ -170,17 +174,18 @@ Railway one-off shell (audited). The API refuses to demote or disable the last a
 
 ## 4. Pages and navigation
 
-| Route                | Page                                                                                                                         | Who             |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| `/sign-in`           | Branded sign-in (hero header, "Sign in with Microsoft").                                                                     | Public          |
-| `/sign-in-error`     | Friendly error + "Try again".                                                                                                | Public          |
-| `/signed-out`        | "You have signed out" + sign-in link.                                                                                        | Public          |
-| `/`                  | **Dashboard** — first page after sign-in (§6).                                                                               | Signed in       |
-| `/jobs/{jobId}`      | **Tracker** for one job (§5). Query `?stage=<stageKey>` opens and scrolls to a stage; `#checkpoint-<key>` scrolls to a card. | Job visible     |
-| `/admin/users`       | User management: list, search, change role, disable/enable (§9.1).                                                           | admin           |
-| `/admin/audit`       | Audit trail with filters (job, user, action) (§9.2).                                                                         | admin, kr_admin |
-| Document viewer      | Modal dialog over the tracker (§11.1).                                                                                       | Job visible     |
-| `not-found`, `error` | Branded 404/500 with request id.                                                                                             | —               |
+| Route                | Page                                                                                                                         | Who                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| `/sign-in`           | Branded sign-in (hero header, "Sign in with Microsoft").                                                                     | Public                |
+| `/sign-in-error`     | Friendly error + "Try again".                                                                                                | Public                |
+| `/signed-out`        | "You have signed out" + sign-in link.                                                                                        | Public                |
+| `/`                  | **Dashboard** — first page after sign-in (§6).                                                                               | Signed in             |
+| `/jobs/{jobId}`      | **Tracker** for one job (§5). Query `?stage=<stageKey>` opens and scrolls to a stage; `#checkpoint-<key>` scrolls to a card. | Job visible           |
+| `/admin/users`       | User management: list, search, change role, disable/enable (§9.1).                                                           | admin                 |
+| `/admin/audit`       | Audit trail with filters (job, user, action) (§9.2).                                                                         | admin, kr_admin       |
+| `/admin/teams`       | Teams settings: team, Fee Proposals channel, switches, Test connection (§9.3). Only when `teams-file-sync` is on.            | admin (kr_admin read) |
+| Document viewer      | Modal dialog over the tracker (§11.1).                                                                                       | Job visible           |
+| `not-found`, `error` | Branded 404/500 with request id.                                                                                             | —                     |
 
 Shell (every signed-in page): the prototype hero header (KR logo, "SUBDIVISION TRACKER" tag, H1 "KR SURVEYS
 SUBDIVISION TRACKER", orange rule, "Keeping you up to date with your subdivision"). **Additions** in the hero bar's right
@@ -312,6 +317,48 @@ with `fee_proposal.view`.
 
 "Developer notes (TEMPORARY)" is not built — the prototype says to remove it before going live; its five notes are
 requirements (§13). The offline-export banner and read-only export mode are not built.
+
+### 5.10 Teams panel (ADR-0015; flag `teams-file-sync`)
+
+Section "TEAMS CHANNEL" below Job files, shown to admin, kr_admin and staff only (staff read-only; externals never see
+it; hidden when the flag is off or `GET /v1/jobs/{jobId}/teams-link` answers 404). Capability `teams.link` (admin,
+kr_admin) enables the buttons. States and exact texts:
+
+| State               | Text and controls                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sync off            | "Teams sync is turned off. An admin can turn it on under Admin → Teams." (admins only; staff see nothing)                                                                                                                                                                                                                                                                                                                                     |
+| Not linked          | "This job is not linked to a Teams channel." Buttons **LINK CHANNEL** and, when channel creation is on (phase 3), **CREATE CHANNEL**.                                                                                                                                                                                                                                                                                                         |
+| Setting up          | "Setting up folders in Teams…" with the operation spinner; refreshes with the page's 15-second poll.                                                                                                                                                                                                                                                                                                                                          |
+| Linked              | Channel name as a link **OPEN IN TEAMS** (the rebuilt `https://teams.microsoft.com/l/channel/…` URL, `rel="noopener noreferrer"`, new tab); "Files copied to Teams: {pushed} · waiting: {pending} · failed: {failed} · not copied: {excluded}"; "Last copied {relative time}" or "Nothing copied yet"; button **UNLINK**.                                                                                                                     |
+| Error               | "Teams link needs attention: {reason}" with reason by `errorCode`: `channel_folder_missing` → "the channel's folder was not found (private, shared or deleted channel?)", `permission_denied` → "the app is not allowed to write to this team's site (ask KR IT to check the site grant)", `channel_name_taken` → "a channel with this name already exists", `graph_unavailable` → "Teams did not answer". Buttons **RELINK** and **UNLINK**. |
+| Channel not created | (phase 3) "Channel not created: Teams did not answer. Create it from the panel." Button **CREATE CHANNEL**.                                                                                                                                                                                                                                                                                                                                   |
+
+Notes under the panel: "Fee proposal files are never copied to the job channel." plus, when the fee policy is
+`restricted` and the viewer has `fee_proposal.view`, a link **OPEN FEE PROPOSAL FOLDER** to the job's subfolder in the
+Fee Proposals channel; (phase 3) "Channel name is not updated when the job changes." Per file (§5.8 file rows): a
+badge "In Teams" when pushed, "Waiting to copy" when pending, "Not copied" when failed (with the code on hover),
+"Removed in Teams" (phase 2) when `teams_removed_at` is set, and "Changed in Teams; not removed there" after an app
+delete that found a different eTag.
+
+**Link dialog** (LINK CHANNEL / RELINK): title "Link Teams channel"; (phase 3) a **Channel** picker listing the
+configured team's standard channels by name from the channel cache, with "Paste a channel link instead" revealing the
+paste field; the paste field "Channel link" with help "In Teams, open the channel, choose Get link to channel, and
+paste it here."; client-side check of the link shape; server problems shown inline: 400 `invalid_channel_link` → "That
+is not a Teams channel link.", 400 `wrong_team` → "That channel is not in the configured team.", 400 `wrong_tenant` →
+"That channel belongs to another organisation.", 409 `channel_already_linked` → "That channel is already linked to
+job {jobNumber}." Buttons **LINK** / **CANCEL**. Relink with a different channel keeps the old channel's content.
+
+**Unlink confirm**: "Unlink this job from its Teams channel? Files already copied stay in Teams. New files will not be
+copied." Buttons **UNLINK** / **CANCEL**.
+
+**Unfiled list** (phase 2): under the panel, "Files added in Teams that need filing ({n})"; each row: name, size,
+who added it in Teams, when; a checkpoint/condition `<select>` and **FILE** button, and **DISMISS**. Empty state:
+nothing shown. Items that the app cannot import show the reason instead of FILE: "Too large (limit {size})",
+"File type not accepted", "Blocked: malware found in a file added in Teams".
+
+**Create job** (phase 3, §6): checkbox **Create Teams channel** (checked by default) when the flag, sync and channel
+creation are on; the generated channel name is previewed below the address field; on submit the name is checked against
+the channel cache and "A channel with this name already exists — choose a different job name" blocks creation.
 
 ## 6. Dashboard (`/`)
 
@@ -479,6 +526,27 @@ active admin (409 "There must be at least one active admin."); changes revoke th
 Newest first, filter by job, user, action; columns: time, user, action, job, entity, changes (field: from → to).
 Every state change is audited in the same transaction as the change (§11.3 of DATA_MODEL). Read-only, append-only.
 
+### 9.3 Teams settings (`/admin/teams`, admin only; kr_admin read-only) — ADR-0015 amendment A2
+
+Shown only when `teams-file-sync` is on. One form over the singleton `teams_settings` row (`If-Match` on save, MFA
+step-up like §9.1, audited `settings.teams_updated` with field changes):
+
+- **Team id** (Microsoft 365 group id, uuid) and **Team site URL** (`https://{tenant}.sharepoint.com/sites/{name}`);
+  **Team name** (display only, filled by Test connection when Graph allows it, else blank).
+- **Fee Proposals channel link** (parsed like a job link, must be in the team) and **Fee Proposals site URL**.
+- **Root folder** (default `102. Subdivision Tracker`), **Fee proposal policy** (`Do not copy fee proposals` /
+  `Copy to the private Fee Proposals channel`), **Check Teams every** (minutes, min 1, default 5).
+- Switches: **Copy files to Teams** (`sync_enabled`), **Bring files added in Teams into the tracker**
+  (`inbound_sync_enabled`, phase 2), **Create channels for new jobs** (`create_channels_enabled`, phase 3). Each
+  lower switch needs the one above it.
+- **TEST CONNECTION**: queues `teams.check`; the page shows each check as it completes: "Signed in to Microsoft",
+  "Team site found", "Can write to the team site", "Fee Proposals site found", "Can write to the Fee Proposals site",
+  "Can list channels" (phase 3), "Can create channels" (phase 3); each pass/fail with the Graph error code on failure.
+  Last run time and result are kept on the page. The probe folder it creates and deletes is named
+  `.kr-tracker-check-{operationId}` under the root folder.
+- Texts: saving "Settings saved."; changing the team shows "Jobs already linked keep their current channel. Relink
+  them to move them." Switching **Copy files to Teams** off: "Copying stops now. Files already in Teams stay there."
+
 ## 10. Document processing (worker, asynchronous — ADR-0006)
 
 All parsing of uploaded documents runs in `services/worker`, never in the browser or the API process, with page and
@@ -579,13 +647,13 @@ viruses."; infected → blocked message.
 
 ## 13. Requirements from the prototype's developer notes
 
-| #   | Note                                                                                                                                                                                                    | Disposition                                                                                                                                                                                                                                                                                                      |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | "Access Manager only shows up for KR email sign ins. Lets KR employees add clients, so that they can view and interact with their job."                                                                 | **In scope** — access manager for staff roles only; grants + guest sign-in (§3.4, §6).                                                                                                                                                                                                                           |
-| 2   | "KR Admin (Alex, Ivan, Accounts) and clients will be able to view and download the fee proposal section of the page but, general KR employees wont."                                                    | **In scope** — `kr_admin` role and `fee_proposal.view` (§2.1).                                                                                                                                                                                                                                                   |
-| 3   | "Build this into the KR website, as discussed."                                                                                                                                                         | **Future** — the app is served on its own subdomain (e.g. `tracker.krsurveys.com.au`) linked from the website. Embedding in an iframe would need `frame-ancestors` relaxation and third-party-cookie workarounds; recommend a link/button. ADR-0012.                                                             |
-| 4   | "This will link back to a sharepoint folder structure (the teams channel). All documents uploaded through this portal will automatically find their way to the relevant location in the teams channel." | **Future (phase 2)** — Microsoft Graph sync worker writing to the job's Teams/SharePoint folder using the zip folder layout (§5.8). Needs Sites.Selected consent, mapping job → channel. Designed for: storage keys and folder layout are deterministic; operations queue can carry `sharepoint.sync`. ADR-0012. |
-| 5   | "Create web hook to monitor e planning.com to see if there are any updates."                                                                                                                            | **Future** — WAPC ePlanning offers no public webhook; would need scraping or an official API. Out of scope; noted. ADR-0012.                                                                                                                                                                                     |
+| #   | Note                                                                                                                                                                                                    | Disposition                                                                                                                                                                                                                                                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | "Access Manager only shows up for KR email sign ins. Lets KR employees add clients, so that they can view and interact with their job."                                                                 | **In scope** — access manager for staff roles only; grants + guest sign-in (§3.4, §6).                                                                                                                                                                                                                                                 |
+| 2   | "KR Admin (Alex, Ivan, Accounts) and clients will be able to view and download the fee proposal section of the page but, general KR employees wont."                                                    | **In scope** — `kr_admin` role and `fee_proposal.view` (§2.1).                                                                                                                                                                                                                                                                         |
+| 3   | "Build this into the KR website, as discussed."                                                                                                                                                         | **Future** — the app is served on its own subdomain (e.g. `tracker.krsurveys.com.au`) linked from the website. Embedding in an iframe would need `frame-ancestors` relaxation and third-party-cookie workarounds; recommend a link/button. ADR-0012.                                                                                   |
+| 4   | "This will link back to a sharepoint folder structure (the teams channel). All documents uploaded through this portal will automatically find their way to the relevant location in the teams channel." | **In scope** (ADR-0015, three phases): a Teams panel links each job to its channel in the admin-configured team; clean files are copied into the channel's `102. Subdivision Tracker` folder (§5.10); files added in Teams come back into the tracker (phase 2); the app creates the channel for new jobs (phase 3). Settings in §9.3. |
+| 5   | "Create web hook to monitor e planning.com to see if there are any updates."                                                                                                                            | **Future** — WAPC ePlanning offers no public webhook; would need scraping or an official API. Out of scope; noted. ADR-0012.                                                                                                                                                                                                           |
 
 ## 14. Non-functional requirements
 
@@ -620,7 +688,7 @@ viruses."; infected → blocked message.
 
 ## 16. Out of scope / future work
 
-SharePoint/Teams sync, ePlanning watcher, website embed (§13); email/Teams notifications to clients when an action
+ePlanning watcher, website embed (§13; Teams/SharePoint sync is now in scope, §5.10 and ADR-0015); email/Teams notifications to clients when an action
 is theirs (recommended phase 2 — the "Waiting on client" data already exists); import/sync from KR's project tracker
 (the prototype's `source: "KR PROJECT TRACKER"` jobs) — jobs are created in the app for now; fee/invoice amounts and
 payments (the app records "paid" clicks only); e-signature of the consent letter; native mobile app; multi-tenant use
