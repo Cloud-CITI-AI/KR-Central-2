@@ -122,6 +122,16 @@ export const PROBLEM_TYPES = {
   rateLimited: "urn:kr:problem:rate-limited",
   featureDisabled: "urn:kr:problem:feature-disabled",
   storageUnavailable: "urn:kr:problem:storage-unavailable",
+  /** Teams (ADR-0015): the pasted text is not a Teams channel link. */
+  invalidChannelLink: "urn:kr:problem:invalid-channel-link",
+  /** The channel is not in the team configured under Admin → Teams. */
+  wrongTeam: "urn:kr:problem:wrong-team",
+  /** The channel belongs to another organisation (tenant). */
+  wrongTenant: "urn:kr:problem:wrong-tenant",
+  /** The channel is already linked to another job (409). */
+  channelAlreadyLinked: "urn:kr:problem:channel-already-linked",
+  /** Phase 3: the team already has a channel with the name a new job would get (409). */
+  channelNameExists: "urn:kr:problem:channel-name-exists",
   internal: "about:blank",
 } as const;
 export type ProblemType = (typeof PROBLEM_TYPES)[keyof typeof PROBLEM_TYPES];

@@ -6,20 +6,26 @@ import { useSession } from "@/lib/session";
 import styles from "./Admin.module.css";
 
 export interface AdminHeaderProps {
-  readonly current: "users" | "audit";
+  readonly current: "users" | "audit" | "teams";
 }
 
 /** Title bar of an admin page (prototype `.dash-head`) with a link to each admin page the person may open and DASHBOARD back out, as in the tracker's jobbar (§4). */
 export function AdminHeader({ current }: AdminHeaderProps) {
-  const { capabilities } = useSession();
+  const { capabilities, features } = useSession();
   const pages = [
     { key: "users", href: "/admin/users", label: "Users", allowed: hasCapability(capabilities, "users.manage") },
     { key: "audit", href: "/admin/audit", label: "Audit trail", allowed: hasCapability(capabilities, "audit.read") },
+    {
+      key: "teams",
+      href: "/admin/teams",
+      label: "Teams",
+      allowed: features.teamsFileSync && hasCapability(capabilities, "teams.settings.read"),
+    },
   ] as const;
   const open = pages.filter((page) => page.allowed);
   return (
     <div className={styles.head}>
-      <h2 className={styles.title}>{current === "users" ? "Users" : "Audit trail"}</h2>
+      <h2 className={styles.title}>{current === "users" ? "Users" : current === "teams" ? "Teams" : "Audit trail"}</h2>
       {open.length > 1 && (
         <nav aria-label="Administration" className={styles.nav}>
           {open.map((page) => (

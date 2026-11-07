@@ -59,3 +59,48 @@ export function checkpointFolderName(stageKey: string, number: string, title: st
 export function conditionEvidenceFolderName(stageKey: string, conditionNumber: number | string): string {
   return `${stageFolderName(stageKey)}/WAPC conditions/Condition ${safeName(String(conditionNumber))} evidence`;
 }
+
+/** Teams channel names are at most this long (ADR-0015 A5). */
+export const CHANNEL_NAME_MAX = 50;
+/** Characters Teams refuses in channel names, plus control characters. */
+const CHANNEL_FORBIDDEN = /[~#%&*{}+/\\:<>?|'"\p{Cc}]+/gu;
+
+function trimTo(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+}
+
+/**
+ * The channel name the app creates for a job (ADR-0015 A5): `S-<job number>_<ADDRESS IN CAPS> (<client>)`.
+ * `/` in the job number becomes `-`; the address is upper-cased; forbidden characters are dropped; the whole thing is
+ * kept within 50 characters by shortening the client first (with `…`), then the address. Pure and the only place
+ * this rule lives: the api previews and checks it, the worker creates with it.
+ */
+export function channelNameFor(job: {
+  readonly jobNumber: string;
+  readonly address: string;
+  readonly clientName?: string | null;
+}): string {
+  const clean = (s: string) => s.replace(CHANNEL_FORBIDDEN, " ").replace(/\s+/g, " ").trim();
+  const number = clean(job.jobNumber.replaceAll("/", "-"));
+  const address = clean(job.address).toUpperCase();
+  const client = clean(job.clientName ?? "");
+  if (!number && !address && !client) return "S-job";
+  const head = `S-${number}_`;
+  const build = (addr: string, cl: string) => `${head}${addr}${cl ? ` (${cl})` : ""}`;
+  let name = build(address, client);
+  if (name.length <= CHANNEL_NAME_MAX) return name.replace(/[. ]+$/, "") || "S-job";
+  // shorten the client first, down to nothing
+  const roomForClient = CHANNEL_NAME_MAX - head.length - address.length - 3; // " (" + ")"
+  if (client && roomForClient >= 2) name = build(address, trimTo(client, roomForClient));
+  else name = build(address, "");
+  if (name.length > CHANNEL_NAME_MAX) name = build(trimTo(address, CHANNEL_NAME_MAX - head.length), "");
+  return name.slice(0, CHANNEL_NAME_MAX).replace(/[. ]+$/, "") || "S-job";
+}
+
+/** "name" → "name (2)", kept within the limit, for a reused job number whose generated name is taken (A5). */
+export function channelNameWithSuffix(name: string, n: number): string {
+  const suffix = ` (${n})`;
+  return `${trimTo(name, CHANNEL_NAME_MAX - suffix.length)
+    .replace(/…$/, "")
+    .trimEnd()}${suffix}`;
+}

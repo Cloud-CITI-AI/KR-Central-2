@@ -57,6 +57,12 @@ cards. Anything you add can be removed by you, and KR Surveys staff can remove a
 - **Conditions.** Under 5.0 you can read each WAPC condition, add your own comment, and drop evidence (photos, a statutory
   declaration, approvals) into **Drop clearance evidence here**. Comments save by themselves.
 
+## Files and Microsoft Teams
+
+KR Surveys may also keep a copy of this job's files in their own Microsoft Teams. That is between you and KR Surveys:
+nothing changes for you in the tracker, you do not see the Teams channel, and files you upload here are only ever shared
+with people KR Surveys has given access to.
+
 ## Your information
 
 The tracker holds the job details KR Surveys needs: names, email addresses, site addresses and the documents on the job.

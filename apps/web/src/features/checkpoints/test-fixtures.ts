@@ -24,6 +24,8 @@ export function syntheticFile(jobId: string, overrides: Partial<FileMeta> = {}):
     uploadedBy: null,
     canDelete: true,
     email: null,
+    teamsState: null,
+    source: "upload",
     ...overrides,
   });
 }

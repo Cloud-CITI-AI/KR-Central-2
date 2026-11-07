@@ -33,6 +33,21 @@ describe("AdminHeader", () => {
     expect(users.className).toContain("tab");
   });
 
+  it("adds the Teams tab only when the integration exists in this deployment, for admin and kr_admin (§9.3)", () => {
+    const features = { aiStampReading: false, guestInvites: false, malwareScanning: true, teamsFileSync: true };
+    const { unmount } = renderWithProviders(<AdminHeader current="teams" />, {
+      me: syntheticMe("admin", { features }),
+    });
+    expect(screen.getByRole("heading", { level: 2, name: "Teams" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Teams" })).toHaveAttribute("aria-current", "page");
+    unmount();
+    const kr = renderWithProviders(<AdminHeader current="audit" />, { me: syntheticMe("kr_admin", { features }) });
+    expect(screen.getByRole("link", { name: "Teams" })).toHaveAttribute("href", "/admin/teams");
+    kr.unmount();
+    renderWithProviders(<AdminHeader current="users" />, { me: syntheticMe("admin") });
+    expect(screen.queryByRole("link", { name: "Teams" })).toBeNull();
+  });
+
   it("has no links for a KR admin, who can open only the audit trail", () => {
     renderWithProviders(<AdminHeader current="audit" />, { me: syntheticMe("kr_admin") });
     expect(screen.getByRole("heading", { level: 2, name: "Audit trail" })).toBeInTheDocument();

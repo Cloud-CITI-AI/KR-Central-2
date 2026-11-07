@@ -15,6 +15,7 @@ import type { Handlers } from "./handlers/types.js";
 import { Poller } from "./poller.js";
 import { createSweeper } from "./sweeps/runner.js";
 import { buildSweepTasks } from "./sweeps/index.js";
+import { startTeamsPollScheduler } from "./sweeps/teams-poll-schedule.js";
 import { startHealthServer, type HealthServer } from "./runtime/health.js";
 
 export interface WorkerDeps {
@@ -36,6 +37,8 @@ export interface WorkerDeps {
   readonly handlers: Handlers;
   /** Test seam: when the first sweep runs and how often (default: after 60 s, then hourly). */
   readonly sweepTiming?: { readonly firstDelayMs: number; readonly intervalMs: number };
+  /** The `teams-file-sync` flag: adds the Teams retry sweep (ADR-0015). */
+  readonly teamsEnabled?: boolean;
 }
 
 export interface RunningWorker {
@@ -63,7 +66,13 @@ export async function startWorker(deps: WorkerDeps): Promise<RunningWorker> {
     db,
     log,
     clock: deps.clock,
-    tasks: buildSweepTasks({ db, storage, log, maxScanRetries: config.SCAN_ERROR_MAX_RETRIES }),
+    tasks: buildSweepTasks({
+      db,
+      storage,
+      log,
+      maxScanRetries: config.SCAN_ERROR_MAX_RETRIES,
+      teamsEnabled: deps.teamsEnabled ?? false,
+    }),
     ...deps.sweepTiming,
   });
   const health: HealthServer = await startHealthServer({
@@ -76,6 +85,15 @@ export async function startWorker(deps: WorkerDeps): Promise<RunningWorker> {
     metrics.observeQueueDepth(async () => (await readQueue(db)).depth),
     metrics.observeQueueAge(async () => (await readQueue(db)).age),
   ];
+  // Phase 2: the inbound check runs at the interval set under Admin → Teams, apart from the hourly sweeps.
+  const pollScheduler = deps.teamsEnabled
+    ? startTeamsPollScheduler({
+        db,
+        log,
+        clock: deps.clock,
+        ...(deps.sweepTiming ? { tickMs: deps.sweepTiming.intervalMs } : {}),
+      })
+    : null;
   poller.start();
   sweeper.start();
   log.info(
@@ -91,6 +109,7 @@ export async function startWorker(deps: WorkerDeps): Promise<RunningWorker> {
       return polled && sweeping;
     },
     close: async () => {
+      pollScheduler?.stop();
       for (const stop of unobserve) stop();
       await health.close();
     },

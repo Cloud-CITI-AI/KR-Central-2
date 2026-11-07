@@ -1,7 +1,8 @@
 "use client";
 import { CreateJobRequest } from "@kr/contracts";
 import { SUBDIVISION_TYPES } from "@kr/workflow";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { channelNameFor } from "@kr/workflow";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import type { z } from "zod";
@@ -33,8 +34,28 @@ export function NewJobForm({ onCancel }: NewJobFormProps) {
 
   // What was typed is kept when the session ends (an idle form is found out by the dashboard's refresh) and is put back after
   // sign-in (§3.1, §15). The fields are uncontrolled, so they are read from and written to the form itself.
-  const { user } = useSession();
+  const { user, features } = useSession();
   const banners = useBanners();
+  // Phase 3 (ADR-0015 A5): whether the Teams channel option is offered, and a preview of the name it would get.
+  const teamsChannels = useQuery({
+    queryKey: queryKeys.teamsChannels,
+    queryFn: ({ signal }) => api("listTeamsChannels", { signal }),
+    enabled: features.teamsFileSync,
+    retry: false,
+  });
+  const offerChannel = teamsChannels.data?.createEnabled === true;
+  const [preview, setPreview] = useState<{ jobNumber: string; address: string; clientName: string }>({
+    jobNumber: "",
+    address: "",
+    clientName: "",
+  });
+  const channelPreview =
+    offerChannel && (preview.jobNumber || preview.address)
+      ? channelNameFor({ ...preview, clientName: preview.clientName || null })
+      : null;
+  const previewTaken =
+    channelPreview !== null &&
+    (teamsChannels.data?.channels.some((c) => c.displayName.toLowerCase() === channelPreview.toLowerCase()) ?? false);
   useDraft(
     newJobDraftKey(user.id),
     () => {
@@ -68,7 +89,14 @@ export function NewJobForm({ onCancel }: NewJobFormProps) {
       router.push(`/jobs/${job.id}`);
     },
     onError: (problem, body) => {
-      if (problem instanceof ApiProblem && problem.status === 409) {
+      if (
+        problem instanceof ApiProblem &&
+        problem.status === 409 &&
+        problem.type === "urn:kr:problem:channel-name-exists"
+      ) {
+        setError(NEW_JOB_MESSAGES.channelNameExists);
+        focus("jobNumber");
+      } else if (problem instanceof ApiProblem && problem.status === 409) {
         setError(duplicateJobText(body.jobNumber));
         focus("jobNumber");
       } else setError(saveFailedMessage(problem, saveFailedJobText));
@@ -98,6 +126,7 @@ export function NewJobForm({ onCancel }: NewJobFormProps) {
       address: text("address"),
       subdivisionType: text("subdivisionType"),
       ...(text("clientName") ? { clientName: text("clientName") } : {}),
+      ...(offerChannel ? { createTeamsChannel: data.get("createTeamsChannel") === "on" } : {}),
     };
     const parsed = CreateJobRequest.safeParse(body);
     if (!parsed.success) {
@@ -110,7 +139,17 @@ export function NewJobForm({ onCancel }: NewJobFormProps) {
   };
 
   return (
-    <form ref={form} className={styles.form} onSubmit={submit} noValidate>
+    <form
+      ref={form}
+      className={styles.form}
+      onSubmit={submit}
+      noValidate
+      onChange={() => {
+        if (!offerChannel || !form.current) return;
+        const fields = formFields(form.current, TYPED_FIELDS);
+        setPreview({ jobNumber: fields.jobNumber, address: fields.address, clientName: fields.clientName });
+      }}
+    >
       <Input
         name="jobNumber"
         aria-label="Job number"
@@ -143,6 +182,17 @@ export function NewJobForm({ onCancel }: NewJobFormProps) {
           </option>
         ))}
       </Select>
+      {offerChannel && (
+        <label className={styles.channel}>
+          <input type="checkbox" name="createTeamsChannel" defaultChecked />
+          {NEW_JOB_MESSAGES.createChannel}
+          {channelPreview && (
+            <span className={previewTaken ? styles.channelTaken : styles.channelPreview}>
+              {previewTaken ? NEW_JOB_MESSAGES.channelNameExists : channelPreview}
+            </span>
+          )}
+        </label>
+      )}
       <Button type="submit" variant="primary" disabled={create.isPending}>
         Create job
       </Button>

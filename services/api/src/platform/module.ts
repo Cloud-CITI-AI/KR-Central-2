@@ -20,7 +20,7 @@ export interface Clock {
 }
 
 /** Feature flags (CF-4, OpenFeature-backed in WP-01). Owners/removal dates: docs/flags.md. */
-export type FeatureFlag = "ai-stamp-reading" | "entra-guest-invites";
+export type FeatureFlag = "ai-stamp-reading" | "entra-guest-invites" | "teams-file-sync";
 
 export interface FeatureFlags {
   isEnabled(flag: FeatureFlag): boolean;

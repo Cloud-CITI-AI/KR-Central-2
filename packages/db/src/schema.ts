@@ -16,7 +16,24 @@ export type ResponsibilityValue = "kr" | "client" | "architect";
 export type ConformedMethodValue = "manual" | "file_name" | "stamp_annotation" | "stamp_image" | "text";
 export type FileKindValue = "pdf" | "image" | "video" | "text" | "dwg" | "email";
 export type ScanStatusValue = "pending" | "clean" | "infected" | "error" | "skipped";
-export type OperationTypeValue = "conditions.extract" | "conformance.read" | "email.parse" | "file.scan";
+export type OperationTypeValue =
+  | "conditions.extract"
+  | "conformance.read"
+  | "email.parse"
+  | "file.scan"
+  | "teams.provision"
+  | "teams.push"
+  | "teams.check"
+  | "teams.poll"
+  | "teams.create_channel"
+  | "teams.list_channels";
+export type TeamsLinkStatusValue = "provisioning" | "ready" | "error";
+export type TeamsPushStatusValue = "pending" | "uploading" | "pushed" | "excluded" | "failed" | "deleting" | "deleted";
+export type TeamsInboundStatusValue =
+  "seen" | "importing" | "imported" | "unfiled" | "dismissed" | "failed" | "removed";
+export type FileSourceValue = "upload" | "teams";
+export type ChannelMembershipValue = "standard" | "private" | "shared" | "unknown";
+export type FeeProposalPolicyValue = "exclude" | "restricted";
 export type OperationStatusValue = "queued" | "running" | "succeeded" | "failed";
 
 export interface UsersTable {
@@ -163,6 +180,11 @@ export interface FilesTable {
   deleted_at: Timestamp | null;
   deleted_by: string | null;
   purged_at: Timestamp | null;
+  /** `teams` for a file that came from a linked channel (migration 0007); uploader is null then. */
+  source: ColumnType<FileSourceValue, FileSourceValue | undefined, FileSourceValue>;
+  /** Set when the item was deleted in Teams; the app keeps the file (ADR-0015 A4). */
+  teams_removed_at: Timestamp | null;
+  deleted_reason: "user" | "teams_replaced" | null;
 }
 
 export interface EmailMessagesTable {
@@ -224,7 +246,8 @@ export interface AccessGrantsTable {
 
 export interface OperationsTable {
   id: Generated<string>;
-  job_id: string;
+  /** null for global operations that belong to no job (`teams.check`, migration 0005). */
+  job_id: string | null;
   type: OperationTypeValue;
   status: ColumnType<OperationStatusValue, OperationStatusValue | undefined, OperationStatusValue>;
   payload: ColumnType<unknown, string | undefined, string>;
@@ -271,6 +294,103 @@ export interface AuditEventsTable {
   changes: Json | null;
 }
 
+/** One row (migration 0005): the Teams integration's admin settings (ADR-0015 A2, PRODUCT_SPEC §9.3). */
+export interface TeamsSettingsTable {
+  singleton: Generated<boolean>;
+  team_id: string | null;
+  team_site_url: string | null;
+  team_name: string | null;
+  fee_channel_id: string | null;
+  fee_site_url: string | null;
+  root_folder: ColumnType<string, string | undefined, string>;
+  fee_proposal_policy: ColumnType<FeeProposalPolicyValue, FeeProposalPolicyValue | undefined, FeeProposalPolicyValue>;
+  sync_enabled: ColumnType<boolean, boolean | undefined, boolean>;
+  inbound_sync_enabled: ColumnType<boolean, boolean | undefined, boolean>;
+  create_channels_enabled: ColumnType<boolean, boolean | undefined, boolean>;
+  inbound_poll_seconds: ColumnType<number, number | undefined, number>;
+  updated_by: string | null;
+  updated_at: GeneratedTimestamp;
+  version: Generated<number>;
+}
+
+/** One Teams channel per job (migration 0005). Keyed by (team_id, channel_id); unchanged when the settings' team changes. */
+export interface JobTeamsLinksTable {
+  job_id: string;
+  team_id: string;
+  /** The team's SharePoint site at link time (migration 0006); null only for links made before it. */
+  team_site_url: string | null;
+  channel_id: string;
+  channel_name: string;
+  status: ColumnType<TeamsLinkStatusValue, TeamsLinkStatusValue | undefined, TeamsLinkStatusValue>;
+  drive_id: string | null;
+  channel_folder_item_id: string | null;
+  root_folder_item_id: string | null;
+  sharepoint_url: string | null;
+  teams_url: string;
+  error_code: string | null;
+  linked_by: string | null;
+  linked_at: GeneratedTimestamp;
+  provisioned_at: Timestamp | null;
+  last_push_at: Timestamp | null;
+  last_poll_at: Timestamp | null;
+  /** Graph delta token of the last poll (migration 0007); null = full listing next time. */
+  delta_token: string | null;
+  version: Generated<number>;
+}
+
+/** Drive item ids of the layout folders the app created under a job's root folder (migration 0005). */
+export interface TeamsFoldersTable {
+  job_id: string;
+  /** Relative to the root folder; equals the package layout's path minus the top folder. */
+  folder_path: string;
+  drive_item_id: string;
+  created_at: GeneratedTimestamp;
+}
+
+/** The app → Teams copy of one file (migration 0005). */
+export interface TeamsFilePushesTable {
+  file_id: string;
+  job_id: string;
+  status: ColumnType<TeamsPushStatusValue, TeamsPushStatusValue | undefined, TeamsPushStatusValue>;
+  remote_name: string | null;
+  remote_path: string | null;
+  drive_item_id: string | null;
+  etag: string | null;
+  size_bytes: ColumnType<string | null, number | bigint | string | null | undefined, number | bigint | string | null>;
+  attempts: ColumnType<number, number | undefined, number>;
+  error_code: string | null;
+  pushed_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+/** Items seen in a linked job's root folder that the app did not put there (migration 0007, ADR-0015 A4). */
+export interface TeamsInboundItemsTable {
+  job_id: string;
+  drive_item_id: string;
+  remote_path: string;
+  name: string;
+  size_bytes: ColumnType<string | null, number | bigint | string | null | undefined, number | bigint | string | null>;
+  etag: string | null;
+  modified_by_name: string | null;
+  modified_at: Timestamp | null;
+  status: ColumnType<TeamsInboundStatusValue, TeamsInboundStatusValue | undefined, TeamsInboundStatusValue>;
+  file_id: string | null;
+  error_code: string | null;
+  seen_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+/** The worker's cache of the configured team's channels (migration 0007, phase 3). */
+export interface TeamsChannelsTable {
+  team_id: string;
+  channel_id: string;
+  display_name: string;
+  folder_name: string | null;
+  membership_type: ChannelMembershipValue;
+  seen_at: GeneratedTimestamp;
+}
+
 export interface Database {
   users: UsersTable;
   system_bootstrap: SystemBootstrapTable;
@@ -288,6 +408,12 @@ export interface Database {
   idempotency_keys: IdempotencyKeysTable;
   rate_limits: RateLimitsTable;
   audit_events: AuditEventsTable;
+  teams_settings: TeamsSettingsTable;
+  job_teams_links: JobTeamsLinksTable;
+  teams_folders: TeamsFoldersTable;
+  teams_file_pushes: TeamsFilePushesTable;
+  teams_inbound_items: TeamsInboundItemsTable;
+  teams_channels: TeamsChannelsTable;
 }
 
 export type UserRow = Selectable<UsersTable>;
@@ -305,3 +431,13 @@ export type OperationRow = Selectable<OperationsTable>;
 export type SessionRow = Selectable<SessionsTable>;
 export type AuditEventRow = Selectable<AuditEventsTable>;
 export type NewAuditEvent = Insertable<AuditEventsTable>;
+export type TeamsSettingsRow = Selectable<TeamsSettingsTable>;
+export type TeamsSettingsUpdate = Updateable<TeamsSettingsTable>;
+export type JobTeamsLinkRow = Selectable<JobTeamsLinksTable>;
+export type NewJobTeamsLink = Insertable<JobTeamsLinksTable>;
+export type TeamsFolderRow = Selectable<TeamsFoldersTable>;
+export type TeamsFilePushRow = Selectable<TeamsFilePushesTable>;
+export type NewTeamsFilePush = Insertable<TeamsFilePushesTable>;
+export type TeamsInboundItemRow = Selectable<TeamsInboundItemsTable>;
+export type NewTeamsInboundItem = Insertable<TeamsInboundItemsTable>;
+export type TeamsChannelRow = Selectable<TeamsChannelsTable>;

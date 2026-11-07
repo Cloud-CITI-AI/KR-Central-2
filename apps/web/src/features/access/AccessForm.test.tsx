@@ -102,7 +102,9 @@ describe("AccessForm", () => {
         HttpResponse.json(syntheticGrant({ email: "a@example.com", invitationStatus: "sent" }), { status: 201 }),
       ),
     );
-    const me = syntheticMe("staff", { features: { aiStampReading: false, guestInvites: true, malwareScanning: true } });
+    const me = syntheticMe("staff", {
+      features: { aiStampReading: false, guestInvites: true, malwareScanning: true, teamsFileSync: false },
+    });
     renderWithProviders(<AccessForm />, { me });
     await ready();
     await userEvent.type(email(), "a@example.com");

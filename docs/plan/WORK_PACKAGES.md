@@ -1662,15 +1662,15 @@ pnpm verify
 
 ### WP-26 — Teams integration phase 2: two-way sync (Teams → app) with delta polling, the Unfiled list and delete propagation
 
-- Risk tier: **High** — content enters the app from Microsoft 365 without a signed-in user (new inbound trust boundary), the worker deletes items in Teams, migration 0006, files columns, worker and api changes
+- Risk tier: **High** — content enters the app from Microsoft 365 without a signed-in user (new inbound trust boundary), the worker deletes items in Teams, migration 0007, files columns, worker and api changes
 - Wave: 11 · Depends on: WP-25 · Target: services/worker, services/api, apps/web, packages/db, packages/contracts · Commit scope: `worker`
-- Owned paths: `packages/db/migrations/0006_teams_inbound_and_file_source.sql`, `packages/db/src/schema.ts`, `packages/contracts/src/schemas.ts`, `packages/contracts/src/routes.ts`, `packages/contracts/src/permissions.ts`, `packages/contracts/openapi.yaml`, `packages/telemetry/src/metrics.ts`, `packages/telemetry/src/metrics.test.ts`, `services/worker/src/clients/graph-drive.ts`, `services/worker/src/domain/teams-inbound.ts`, `services/worker/src/domain/teams-inbound.test.ts`, `services/worker/src/domain/teams-push.ts`, `services/worker/src/domain/teams-push.test.ts`, `services/worker/src/handlers/teams-poll.ts`, `services/worker/src/handlers/teams-poll.int.test.ts`, `services/worker/src/handlers/teams-push.ts`, `services/worker/src/handlers/teams-push.int.test.ts`, `services/worker/src/handlers/file-scan.ts`, `services/worker/src/handlers/file-scan.int.test.ts`, `services/worker/src/handlers/index.ts`, `services/worker/src/sweeps/index.ts`, `services/worker/test/fake-graph.ts`, `services/api/src/modules/teams/**`, `services/api/src/modules/files/**`, `services/api/test/security/authz-matrix.int.test.ts`, `apps/web/src/features/teams/**`, `apps/web/src/features/files/**`, `docs/spec/PRODUCT_SPEC.md`, `docs/spec/DATA_MODEL.md`, `docs/runbooks/teams-sync-failures.md`, `docs/security/threat-model.md`, `docs/user-guide/staff-guide.md`, `docs/user-guide/client-and-architect-guide.md`
+- Owned paths: `packages/db/migrations/0007_teams_inbound_and_file_source.sql`, `packages/db/src/schema.ts`, `packages/contracts/src/schemas.ts`, `packages/contracts/src/routes.ts`, `packages/contracts/src/permissions.ts`, `packages/contracts/openapi.yaml`, `packages/telemetry/src/metrics.ts`, `packages/telemetry/src/metrics.test.ts`, `services/worker/src/clients/graph-drive.ts`, `services/worker/src/domain/teams-inbound.ts`, `services/worker/src/domain/teams-inbound.test.ts`, `services/worker/src/domain/teams-push.ts`, `services/worker/src/domain/teams-push.test.ts`, `services/worker/src/handlers/teams-poll.ts`, `services/worker/src/handlers/teams-poll.int.test.ts`, `services/worker/src/handlers/teams-push.ts`, `services/worker/src/handlers/teams-push.int.test.ts`, `services/worker/src/handlers/file-scan.ts`, `services/worker/src/handlers/file-scan.int.test.ts`, `services/worker/src/handlers/index.ts`, `services/worker/src/sweeps/index.ts`, `services/worker/test/fake-graph.ts`, `services/api/src/modules/teams/**`, `services/api/src/modules/files/**`, `services/api/test/security/authz-matrix.int.test.ts`, `apps/web/src/features/teams/**`, `apps/web/src/features/files/**`, `docs/spec/PRODUCT_SPEC.md`, `docs/spec/DATA_MODEL.md`, `docs/runbooks/teams-sync-failures.md`, `docs/security/threat-model.md`, `docs/user-guide/staff-guide.md`, `docs/user-guide/client-and-architect-guide.md`
 
 **Goal.** With `inbound_sync_enabled` on, files that KR staff add to a linked job's root folder in Teams appear in the tracker: the worker polls each linked job with Graph delta, downloads new or changed items into the bucket, runs them through the normal scan and parsing pipeline and attaches them to the checkpoint or condition whose folder they sit in, or puts them on an Unfiled list for staff to file or dismiss. Items edited in Teams replace the app's copy (old copy kept, soft-deleted as `teams_replaced`); items deleted in Teams are kept and marked "Removed in Teams"; a file deleted or replaced in the app is removed from Teams when its eTag still matches. Rules as in ADR-0015 A4.
 
 **Read first**
 
-- ADR-0015 A4 (every rule), PRODUCT_SPEC §5.10 (Unfiled list, badges), DATA_MODEL `teams_inbound_items` and the `files` columns of 0006
+- ADR-0015 A4 (every rule), PRODUCT_SPEC §5.10 (Unfiled list, badges), DATA_MODEL `teams_inbound_items` and the `files` columns of 0007
 - WP-25's merged code: graph-drive.ts, teams-push.ts, teams-provision.ts, fake-graph.ts, the `teams` api module and the web panel
 - services/api/src/modules/files (upload pipeline, kind sniffing, size limits, slots per checkpoint, soft delete, purge) and services/worker/src/handlers/file-scan.ts: inbound files reuse these exactly
 - ADR-0011 (only clean content is served) and ADR-0006 (one operation at a time per job)
@@ -1678,7 +1678,7 @@ pnpm verify
 
 **Plan of record**
 
-1. Migration 0006 (expand only, the 0004 header): `teams_inbound_items` and `teams_channels` as in DATA_MODEL; `files.source` (CHECK upload|teams, default upload), `files.teams_removed_at`, `files.deleted_reason`; `job_teams_links.last_poll_at`, `delta_token`; `teams_file_pushes.status` gains deleting|deleted; operations type CHECK gains `teams.poll`, `teams.create_channel`, `teams.list_channels` (the last two are used by WP-27; one CHECK replacement for both packages). Schema types and contracts OperationType. (`teams_channels` is created here so WP-27 needs no migration; WP-27 owns its use.)
+1. Migration 0007 (expand only, the 0004 header; 0006 added job_teams_links.team_site_url in WP-25): `teams_inbound_items` and `teams_channels` as in DATA_MODEL; `files.source` (CHECK upload|teams, default upload), `files.teams_removed_at`, `files.deleted_reason`; `job_teams_links.last_poll_at`, `delta_token`; `teams_file_pushes.status` gains deleting|deleted; operations type CHECK gains `teams.poll`, `teams.create_channel`, `teams.list_channels` (the last two are used by WP-27; one CHECK replacement for both packages). Schema types and contracts OperationType. (`teams_channels` is created here so WP-27 needs no migration; WP-27 owns its use.)
 2. Graph client additions: `delta` (by folder, falling back to the drive root with path filtering if the fake or the real tenant refuses folder delta; the choice is recorded in the runbook), `download` (streamed to the bucket), `deleteItem` with `if-match`.
 3. Pure `domain/teams-inbound.ts`: classify a delta page into import / unfiled / ignore (app's own pushed items by drive item id; folders; items outside the root folder) / removed / replaced; map a folder path to a checkpoint slot or condition using the @kr/workflow helpers (first slot that accepts the kind; evidence by condition number); the size and kind refusals with reasons.
 4. Handler `handlers/teams-poll.ts`: per job, read settings, no-op when `inbound_sync_enabled` is false, run delta from the stored token (full listing on 410 or no token), apply the classification in one transaction per item: download → `files` row with `source='teams'`, `uploaded_by` NULL → queue `file.scan` (parsing follows as for uploads) → audit `file.teams_imported`; replaced → new row + old row soft-deleted `teams_replaced` + push row moved; removed → `teams_removed_at` + audit `file.teams_removed`; unfiled → `teams_inbound_items` row. Store the new delta token last. Sweep `teams_poll_schedule` queues `teams.poll` for every ready link every `inbound_poll_seconds`.
@@ -1689,7 +1689,7 @@ pnpm verify
 
 **PR stack** (in order, each ≤ 400 changed lines)
 
-1. 26-a migration 0006, schema types, contracts (inbound routes, file DTO fields, operation types), openapi regenerate
+1. 26-a migration 0007, schema types, contracts (inbound routes, file DTO fields, operation types), openapi regenerate
 2. 26-b Graph client additions (delta, download, delete) and fake-graph support
 3. 26-c inbound domain + teams.poll handler + schedule sweep
 4. 26-d delete/replace propagation (teams.push actions, files module hooks)
@@ -1748,7 +1748,7 @@ pnpm verify
 **Read first**
 
 - ADR-0015 A5 (naming rules, cache, race handling, no rename/archive propagation), PRODUCT_SPEC §5.10 (Create job checkbox and texts) and §9.3 (the two phase 3 checks)
-- WP-25 and WP-26 merged code; `teams_channels` table (0006); the create-job route and form; @kr/workflow presentation.ts (`safeName`)
+- WP-25 and WP-26 merged code; `teams_channels` table (0007); the create-job route and form; @kr/workflow presentation.ts (`safeName`)
 - Microsoft Graph: `POST /teams/{id}/channels` (standard, application permission Channel.Create), `GET /teams/{id}/channels` (Channel.ReadBasic.All), channel `filesFolder` creation timing (the folder may not exist for some seconds after creation: retry with backoff); V8 in ADR-0015
 
 **Plan of record**

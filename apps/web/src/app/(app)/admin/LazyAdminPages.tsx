@@ -6,12 +6,24 @@ import { lazy, Suspense } from "react";
 // inside a client boundary without next/dynamic's runtime.
 const UsersPage = lazy(() => import("@/features/admin/UsersPage").then((module) => ({ default: module.UsersPage })));
 const AuditPage = lazy(() => import("@/features/admin/AuditPage").then((module) => ({ default: module.AuditPage })));
+const TeamsSettingsPage = lazy(() =>
+  import("@/features/admin/TeamsSettingsPage").then((module) => ({ default: module.TeamsSettingsPage })),
+);
 
 /** `UsersPage` as its own chunk. */
 export function LazyUsersPage() {
   return (
     <Suspense fallback={null}>
       <UsersPage />
+    </Suspense>
+  );
+}
+
+/** `TeamsSettingsPage` as its own chunk. */
+export function LazyTeamsSettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <TeamsSettingsPage />
     </Suspense>
   );
 }

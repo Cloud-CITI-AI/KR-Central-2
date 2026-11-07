@@ -3,15 +3,25 @@ import { FLAG_KEYS, createFeatureFlags, fixedClock, staticFlags, systemClock } f
 
 describe("feature flags", () => {
   it("exposes exactly the documented keys (docs/flags.md)", () => {
-    expect([...FLAG_KEYS]).toEqual(["ai-stamp-reading", "entra-guest-invites"]);
+    expect([...FLAG_KEYS]).toEqual(["ai-stamp-reading", "entra-guest-invites", "teams-file-sync"]);
   });
   it("resolves configured values through OpenFeature", async () => {
-    const on = await createFeatureFlags({ FEATURE_AI_STAMP_READING: true, FEATURE_ENTRA_GUEST_INVITES: false });
+    const on = await createFeatureFlags({
+      FEATURE_AI_STAMP_READING: true,
+      FEATURE_ENTRA_GUEST_INVITES: false,
+      FEATURE_TEAMS_FILE_SYNC: true,
+    });
     expect(on.isEnabled("ai-stamp-reading")).toBe(true);
     expect(on.isEnabled("entra-guest-invites")).toBe(false);
-    const off = await createFeatureFlags({ FEATURE_AI_STAMP_READING: false, FEATURE_ENTRA_GUEST_INVITES: true });
+    expect(on.isEnabled("teams-file-sync")).toBe(true);
+    const off = await createFeatureFlags({
+      FEATURE_AI_STAMP_READING: false,
+      FEATURE_ENTRA_GUEST_INVITES: true,
+      FEATURE_TEAMS_FILE_SYNC: false,
+    });
     expect(off.isEnabled("ai-stamp-reading")).toBe(false);
     expect(off.isEnabled("entra-guest-invites")).toBe(true);
+    expect(off.isEnabled("teams-file-sync")).toBe(false);
   });
   it("staticFlags defaults every flag to off", () => {
     expect(staticFlags().isEnabled("ai-stamp-reading")).toBe(false);

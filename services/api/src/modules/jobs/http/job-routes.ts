@@ -1,10 +1,12 @@
 /** createJob (PRODUCT_SPEC §6) and getJob. */
-import { jobCapabilitiesFor } from "@kr/contracts";
+import { PROBLEM_TYPES, jobCapabilitiesFor } from "@kr/contracts";
 import type { FastifyInstance } from "fastify";
 import { requireCapability, resolveJobAccess } from "../../../platform/authz.js";
 import { audit, auditContext, withTransaction } from "../../../platform/audit.js";
 import { assertNoFieldConflict, assertVersion, setEtag } from "../../../platform/concurrency.js";
-import { NotFoundError } from "../../../platform/errors.js";
+import { ConflictError, NotFoundError } from "../../../platform/errors.js";
+import { readSettingsRow } from "../../teams-settings/index.js";
+import { nameTakenIn, planChannelForNewJob, queueCreateChannel, readChannelCache } from "../../teams/index.js";
 import { sendIdempotent, withIdempotency } from "../../../platform/idempotency.js";
 import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
@@ -19,6 +21,29 @@ const JOB_WRITE_ACTIONS = ["job.updated", "conformance.date_read", "conditions.e
 export function registerJobRoutes(app: FastifyInstance, deps: ModuleDeps): void {
   defineRoute(app, "createJob", async ({ auth, request, reply, body }) => {
     requireCapability(auth, "jobs.create");
+    // Phase 3 (ADR-0015 A5): the channel the job would get, checked against the worker's cache before the job exists.
+    const teamsOn = deps.flags.isEnabled("teams-file-sync");
+    const settings = teamsOn ? await readSettingsRow(deps.db) : null;
+    const cache = settings ? await readChannelCache(deps.db, settings.team_id) : { channels: [], cachedAt: null };
+    const plan = settings
+      ? planChannelForNewJob({
+          flagOn: teamsOn,
+          settings,
+          requested: body.createTeamsChannel,
+          job: { jobNumber: body.jobNumber, address: body.address, clientName: body.clientName ?? null },
+          cache: { cachedAt: cache.cachedAt, nameTaken: (name) => nameTakenIn(cache, name) },
+          now: deps.clock.now(),
+        })
+      : ({ kind: "none" } as const);
+    if (plan.kind === "refuse") {
+      throw new ConflictError({
+        type: PROBLEM_TYPES.channelNameExists,
+        detail: "A channel with this name already exists — choose a different job name",
+        errors: [
+          { path: "jobNumber", message: "A channel with this name already exists — choose a different job name" },
+        ],
+      });
+    }
     const result = await withIdempotency(
       deps.db,
       { request, userId: auth.user.id, operationId: "createJob", body, clock: deps.clock },
@@ -29,6 +54,9 @@ export function registerJobRoutes(app: FastifyInstance, deps: ModuleDeps): void 
           clientName: body.clientName ?? null,
           subdivisionType: body.subdivisionType,
         });
+        if (plan.kind === "create" || plan.kind === "create_unchecked") {
+          await queueCreateChannel(trx, job.id, plan.name, auth.user.id);
+        }
         await audit(trx, auditContext(request), {
           action: "job.created",
           entityType: "job",

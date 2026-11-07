@@ -33,7 +33,15 @@ export async function createWorld(
   /** Factory seed: a file that builds two worlds must give them different seeds (users are unique per seed). */
   seed?: number,
 ): Promise<World> {
-  const t = await createTestApp({ config: testConfig({ ...NO_LIMITS, ...overrides }) });
+  // Flags are resolved from the same overrides, as createFeatureFlags does from the real environment (CF-4).
+  const t = await createTestApp({
+    config: testConfig({ ...NO_LIMITS, ...overrides }),
+    flags: {
+      "ai-stamp-reading": overrides.FEATURE_AI_STAMP_READING === "true",
+      "entra-guest-invites": overrides.FEATURE_ENTRA_GUEST_INVITES === "true",
+      "teams-file-sync": overrides.FEATURE_TEAMS_FILE_SYNC === "true",
+    },
+  });
   const f = createFactories(t.db, seed);
   const as = async (role: "admin" | "kr_admin" | "staff" | "external") =>
     signIn(t, await f.makeUser({ role }), { amr: ["pwd", "mfa"] });

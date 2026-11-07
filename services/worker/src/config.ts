@@ -12,6 +12,9 @@ import {
 } from "@kr/config";
 import { z } from "zod";
 
+export const GRAPH_PUBLIC_BASE_URL = "https://graph.microsoft.com";
+export const ENTRA_PUBLIC_AUTHORITY = "https://login.microsoftonline.com";
+
 export const WorkerConfigSchema = z
   .object({
     NODE_ENV: NodeEnv.default("production"),
@@ -56,6 +59,19 @@ export const WorkerConfigSchema = z
     ANTHROPIC_MODEL: z.string().default("claude-sonnet-5-5"),
     ANTHROPIC_TIMEOUT_MS: z.coerce.number().int().min(1000).default(30_000),
 
+    /**
+     * Teams/SharePoint integration (ADR-0015, railway.md E13–E16): the worker's own app registration. Only what
+     * identifies the app to Microsoft lives here; the team, sites and switches are settings in the database (A2).
+     */
+    FEATURE_TEAMS_FILE_SYNC: BooleanFromString.default(false),
+    TEAMS_TENANT_ID: OptionalVar(z.uuid()),
+    TEAMS_CLIENT_ID: OptionalVar(z.uuid()),
+    TEAMS_CLIENT_SECRET: OptionalVar(Secret(16)),
+    TEAMS_GRAPH_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300_000).default(30_000),
+    /** Override only for tests (local fake). Pinned to Microsoft's hosts in staging/production (refine below). */
+    TEAMS_GRAPH_BASE_URL: z.url().default(GRAPH_PUBLIC_BASE_URL),
+    TEAMS_AUTHORITY_HOST: z.url().default(ENTRA_PUBLIC_AUTHORITY),
+
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(2),
     WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(100).default(1000),
     WORKER_LEASE_SECONDS: z.coerce.number().int().min(30).default(300),
@@ -77,7 +93,32 @@ export const WorkerConfigSchema = z
     message: "MALWARE_SCAN_MODE=disabled is not allowed outside local",
     path: ["MALWARE_SCAN_MODE"],
   })
-  .superRefine(refineNoPlaceholders(["ANTHROPIC_API_KEY", "DATABASE_URL", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"]));
+  .refine(
+    (c) => !c.FEATURE_TEAMS_FILE_SYNC || Boolean(c.TEAMS_TENANT_ID && c.TEAMS_CLIENT_ID && c.TEAMS_CLIENT_SECRET),
+    {
+      message: "FEATURE_TEAMS_FILE_SYNC requires TEAMS_TENANT_ID, TEAMS_CLIENT_ID and TEAMS_CLIENT_SECRET",
+      path: ["TEAMS_CLIENT_SECRET"],
+    },
+  )
+  .refine(
+    (c) =>
+      !(c.APP_ENV === "staging" || c.APP_ENV === "production") ||
+      (c.TEAMS_GRAPH_BASE_URL.replace(/\/+$/, "") === GRAPH_PUBLIC_BASE_URL &&
+        c.TEAMS_AUTHORITY_HOST.replace(/\/+$/, "") === ENTRA_PUBLIC_AUTHORITY),
+    {
+      message: `TEAMS_GRAPH_BASE_URL and TEAMS_AUTHORITY_HOST must be ${GRAPH_PUBLIC_BASE_URL} and ${ENTRA_PUBLIC_AUTHORITY} in staging and production`,
+      path: ["TEAMS_GRAPH_BASE_URL"],
+    },
+  )
+  .superRefine(
+    refineNoPlaceholders([
+      "ANTHROPIC_API_KEY",
+      "DATABASE_URL",
+      "S3_ACCESS_KEY_ID",
+      "S3_SECRET_ACCESS_KEY",
+      "TEAMS_CLIENT_SECRET",
+    ]),
+  );
 
 export type WorkerConfig = z.infer<typeof WorkerConfigSchema>;
 

@@ -5,7 +5,16 @@
  * (PRODUCT_SPEC §5.4, developer note 2).
  */
 import type { CheckpointState, GrantRole, JobCapability, JobDetail } from "@kr/contracts";
-import type { CheckpointStateRow, ConditionRow, EmailMessageRow, FileRow, JobRow, OperationRow, UserRow } from "@kr/db";
+import type {
+  CheckpointStateRow,
+  ConditionRow,
+  EmailMessageRow,
+  FileRow,
+  JobRow,
+  OperationRow,
+  TeamsFilePushRow,
+  UserRow,
+} from "@kr/db";
 import {
   CHECKPOINTS,
   STAGES,
@@ -15,7 +24,7 @@ import {
   summariseStage,
   type JobRuleInput,
 } from "@kr/workflow";
-import { toCheckpointState, toCondition, toFileMeta } from "../../_shared/index.js";
+import { teamsStateOf, toCheckpointState, toCondition, toFileMeta } from "../../_shared/index.js";
 import { toSubdivisionType } from "./job-card.js";
 import { canViewFeeProposal, isRestrictedFor, toRuleInput } from "./rule-input.js";
 
@@ -30,6 +39,8 @@ export interface JobParts {
   readonly conditions: readonly ConditionRow[];
   readonly files: readonly FileRow[];
   readonly emails: readonly EmailMessageRow[];
+  /** The job's Teams copy rows (ADR-0015), for the file badges of viewers with `teams.view`. */
+  readonly pushes: readonly Pick<TeamsFilePushRow, "file_id" | "status" | "error_code">[];
   /** Conditions extractions and conformed-date readings still queued or running, oldest first. */
   readonly activeOperations: readonly Pick<OperationRow, "id" | "type" | "status">[];
   readonly users: readonly Named[];
@@ -49,6 +60,7 @@ interface View {
   readonly users: ReadonlyMap<string, Named>;
   readonly emails: ReadonlyMap<string, EmailMessageRow>;
   readonly visibleFiles: readonly FileRow[];
+  readonly pushes: ReadonlyMap<string, Pick<TeamsFilePushRow, "status" | "error_code">> | null;
 }
 
 function makeView(parts: JobParts, viewer: JobViewer): View {
@@ -58,6 +70,7 @@ function makeView(parts: JobParts, viewer: JobViewer): View {
     canSeeFee,
     users: new Map(parts.users.map((u) => [u.id, u])),
     emails: new Map(parts.emails.map((e) => [e.file_id, e])),
+    pushes: viewer.capabilities.includes("teams.view") ? new Map(parts.pushes.map((p) => [p.file_id, p])) : null,
     visibleFiles: parts.files.filter((f) => f.checkpoint_key === null || !isRestrictedFor(f.checkpoint_key, canSeeFee)),
   };
 }
@@ -69,6 +82,7 @@ function fileMeta(view: View, viewer: JobViewer, file: FileRow) {
     canDelete:
       viewer.capabilities.includes("files.delete.any") || (own && viewer.capabilities.includes("files.delete.own")),
     email: view.emails.get(file.id) ?? null,
+    ...(view.pushes ? { teamsState: teamsStateOf(view.pushes.get(file.id)) } : {}),
   });
 }
 

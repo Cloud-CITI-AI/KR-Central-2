@@ -16,7 +16,7 @@ export function syntheticMe(role: GlobalRole = "staff", overrides: Partial<Me> =
     },
     capabilities: globalCapabilitiesFor(role),
     csrfToken: faker.string.alphanumeric(32),
-    features: { aiStampReading: false, guestInvites: false, malwareScanning: true },
+    features: { aiStampReading: false, guestInvites: false, malwareScanning: true, teamsFileSync: false },
     uploadMaxBytes: 52_428_800,
     sessionExpiresAt: "2026-09-28T15:50:56.543Z",
     ...overrides,

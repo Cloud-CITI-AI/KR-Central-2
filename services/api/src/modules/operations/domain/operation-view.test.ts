@@ -54,6 +54,29 @@ describe("toOperation", () => {
     expect(unreadable).toHaveBeenCalledOnce();
   });
 
+  it("returns the Teams results by type and a null job for the global settings check (ADR-0015)", () => {
+    const done = { ...base, status: "succeeded" as const, completed_at: base.created_at };
+    const check = { results: [{ item: "token", ok: false, errorCode: "401 invalid_client" }], skipped: ["team_site"] };
+    expect(toOperation({ ...done, type: "teams.check", job_id: null, result: check })).toMatchObject({
+      jobId: null,
+      type: "teams.check",
+      result: check,
+    });
+    const provision = { status: "ready", foldersCreated: 12, filesQueued: 3, errorCode: null };
+    expect(toOperation({ ...done, type: "teams.provision", result: provision }).result).toEqual(provision);
+    const push = { pushed: 2, failed: 0, skipped: 1 };
+    expect(toOperation({ ...done, type: "teams.push", result: push }).result).toEqual({ ...push, deleted: 0 });
+    const poll = { imported: 1, unfiled: 2, replaced: 0, removed: 0, failed: 0, skipped: false };
+    expect(toOperation({ ...done, type: "teams.poll", result: poll }).result).toEqual(poll);
+    const unreadable = vi.fn();
+    expect(toOperation({ ...done, type: "teams.push", result: check }, unreadable).result).toBeNull();
+    expect(unreadable).toHaveBeenCalledOnce();
+    expect(safeFailure("permission_denied", "ignored")).toEqual({
+      code: "permission_denied",
+      message: "The app is not allowed to write to this team's site.",
+    });
+  });
+
   it("returns a file.scan result with the follow-up task, reading an older row without one as none", () => {
     const done = { ...base, type: "file.scan" as const, status: "succeeded" as const, completed_at: base.created_at };
     const followUpOperationId = "7d444840-9dc0-41b4-a5c2-3a8e7f1d2b9c";

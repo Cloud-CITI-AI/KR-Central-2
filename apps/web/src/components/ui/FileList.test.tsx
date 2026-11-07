@@ -22,6 +22,8 @@ const make = (id: string, name: string): FileMeta => ({
   uploadedBy: null,
   canDelete: true,
   email: null,
+  teamsState: null,
+  source: "upload",
 });
 
 describe("FileList", () => {

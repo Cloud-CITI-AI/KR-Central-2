@@ -18,4 +18,8 @@ export const queryKeys = {
   audit: (query: Query = {}) => ["audit", query] as const,
   users: (query: Query = {}) => ["users", query] as const,
   operation: (operationId: string) => ["operations", operationId] as const,
+  teamsSettings: ["teams", "settings"] as const,
+  teamsLink: (jobId: string) => ["teams", "link", jobId] as const,
+  teamsUnfiled: (jobId: string) => ["teams", "unfiled", jobId] as const,
+  teamsChannels: ["teams", "channels"] as const,
 };

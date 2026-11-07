@@ -26,7 +26,7 @@ import { TaskError, describeError } from "../errors.js";
 import type { FeatureFlags } from "../flags.js";
 import { readObject } from "../objects.js";
 import { isUnreadable, type Parser } from "../parsing/isolate.js";
-import type { Handler } from "./types.js";
+import { jobIdOf, type Handler } from "./types.js";
 
 const Payload = z.object({ fileId: z.uuid(), allowAi: z.boolean().default(false) });
 const CONFORMANCE_SLOT = slotsOf(getCheckpoint(CONFORMANCE_CHECKPOINT_KEY))[0]?.key;
@@ -117,7 +117,7 @@ export function conformanceReadHandler(deps: ConformanceReadDeps): Handler {
         if (found)
           await db
             .transaction()
-            .execute((trx) => applyConformedDate(trx, { jobId: ctx.operation.job_id, fileId, found }));
+            .execute((trx) => applyConformedDate(trx, { jobId: jobIdOf(ctx.operation), fileId, found }));
         result = found ? foundResult(found) : noStampResult(file.original_name);
       } catch (error) {
         if (ctx.signal.aborted || !isUnreadable(error)) throw error;

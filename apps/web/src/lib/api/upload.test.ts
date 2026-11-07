@@ -21,6 +21,8 @@ const RESULT = {
     uploadedBy: null,
     canDelete: true,
     email: null,
+    teamsState: null,
+    source: "upload",
   },
   operation: null,
 };

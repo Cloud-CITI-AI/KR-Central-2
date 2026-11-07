@@ -43,6 +43,11 @@ export async function loadJobParts(
     );
   }
   const files = await filesQuery.execute();
+  const pushes = await db
+    .selectFrom("teams_file_pushes")
+    .select(["file_id", "status", "error_code"])
+    .where("job_id", "=", jobId)
+    .execute();
   const emails = await db
     .selectFrom("email_messages")
     .selectAll("email_messages")
@@ -81,6 +86,7 @@ export async function loadJobParts(
     conditions,
     files,
     emails,
+    pushes,
     activeOperations,
     users,
     fileNames: new Map(names.map((n) => [n.id, n.original_name])),

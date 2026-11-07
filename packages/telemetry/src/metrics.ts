@@ -17,17 +17,24 @@ export const METRIC_NAMES = {
   signins: "kr.auth.signins",
   stampReading: "kr.ai.stamp_reading",
   backupRuns: "kr.backup.runs",
+  teamsPushes: "kr.teams.pushes",
+  teamsGraphRequests: "kr.teams.graph_requests",
 } as const;
 
 export const SCAN_RESULTS = ["clean", "infected", "error"] as const;
 export const SIGNIN_RESULTS = ["success", "failure"] as const;
 export const STAMP_READING_RESULTS = ["read", "disabled", "refused", "timeout", "unparseable", "error"] as const;
 export const BACKUP_RESULTS = ["success", "failure"] as const;
+export const TEAMS_PUSH_RESULTS = ["pushed", "failed", "excluded", "adopted"] as const;
+/** HTTP status class of a Microsoft Graph call made by the worker (ADR-0015 decision 12). */
+export const GRAPH_STATUS_CLASSES = ["2xx", "4xx", "429", "5xx", "network"] as const;
 
 export type ScanResult = (typeof SCAN_RESULTS)[number];
 export type SigninResult = (typeof SIGNIN_RESULTS)[number];
 export type StampReadingResult = (typeof STAMP_READING_RESULTS)[number];
 export type BackupResult = (typeof BACKUP_RESULTS)[number];
+export type TeamsPushResult = (typeof TEAMS_PUSH_RESULTS)[number];
+export type GraphStatusClass = (typeof GRAPH_STATUS_CLASSES)[number];
 
 export const OTHER = "other";
 
@@ -69,6 +76,10 @@ export interface KrMetrics<T extends string = string, S extends string = string>
   recordSignin(result: SigninResult): void;
   recordStampReading(result: StampReadingResult): void;
   recordBackupRun(result: BackupResult): void;
+  /** One file copied (or deliberately not copied) to Teams. */
+  recordTeamsPush(result: TeamsPushResult): void;
+  /** One HTTP call to Microsoft Graph, by status class only (never a path, id or name). */
+  recordTeamsGraphRequest(statusClass: GraphStatusClass): void;
 }
 
 const isValid = (n: number): boolean => Number.isFinite(n) && n >= 0;
@@ -127,6 +138,14 @@ export function createMetrics<const T extends string, const S extends string>(
     unit: "{reading}",
   });
   const backups = meter.createCounter(METRIC_NAMES.backupRuns, { description: "Backup runs", unit: "{run}" });
+  const teamsPushes = meter.createCounter(METRIC_NAMES.teamsPushes, {
+    description: "Files copied to Microsoft Teams",
+    unit: "{file}",
+  });
+  const graphRequests = meter.createCounter(METRIC_NAMES.teamsGraphRequests, {
+    description: "Microsoft Graph requests made for the Teams integration",
+    unit: "{request}",
+  });
   return {
     recordOperation: ({ type, status, durationSeconds }) => {
       const attributes = {
@@ -149,6 +168,12 @@ export function createMetrics<const T extends string, const S extends string>(
     },
     recordBackupRun: (result) => {
       backups.add(1, { result: closed(BACKUP_RESULTS, result) });
+    },
+    recordTeamsPush: (result) => {
+      teamsPushes.add(1, { result: closed(TEAMS_PUSH_RESULTS, result) });
+    },
+    recordTeamsGraphRequest: (statusClass) => {
+      graphRequests.add(1, { status_class: closed(GRAPH_STATUS_CLASSES, statusClass) });
     },
   };
 }

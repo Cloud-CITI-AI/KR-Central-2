@@ -9,7 +9,8 @@ import type { Database, OperationRow, OperationTypeValue } from "./schema.js";
 type Executor = Kysely<Database> | Transaction<Database>;
 
 export interface EnqueueInput {
-  readonly jobId: string;
+  /** null for a global operation that belongs to no job (`teams.check`). */
+  readonly jobId: string | null;
   readonly type: OperationTypeValue;
   readonly payload: Readonly<Record<string, unknown>>;
   readonly createdBy: string | null;

@@ -98,6 +98,8 @@ export const ApiConfigSchema = z
 
     FEATURE_AI_STAMP_READING: BooleanFromString.default(false),
     FEATURE_ENTRA_GUEST_INVITES: BooleanFromString.default(false),
+    /** The Teams/SharePoint integration exists (routes, panel, Admin → Teams); whether it runs is a setting (ADR-0015 A2). */
+    FEATURE_TEAMS_FILE_SYNC: BooleanFromString.default(false),
 
     OTEL_EXPORTER_OTLP_ENDPOINT: OptionalVar(z.url()),
     OTEL_EXPORTER_OTLP_HEADERS: OptionalVar(z.string()),

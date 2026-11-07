@@ -33,6 +33,7 @@ that no alert points at. Start from the alert name; if you were paged, open the 
 | [incident-response](incident-response.md)       | Severity, roles, containment switches, communication, privacy obligations, review |
 | [first-admin-recovery](first-admin-recovery.md) | Choose or recover the administrator                                               |
 | [unarchive-job](unarchive-job.md)               | Bring an archived job back (operator SQL)                                         |
+| [teams-sync-failures](teams-sync-failures.md)   | Read a failed Teams copy or link, fix grants and secrets, stop copying (ADR-0015) |
 
 ## How every runbook is laid out
 

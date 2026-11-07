@@ -547,7 +547,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "409":
-          description: Job number already in use
+          description: Job number already in use, or (phase 3) a Teams channel with the
+            generated name already exists
           content:
             application/problem+json:
               schema:
@@ -2531,6 +2532,819 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
+  /v1/admin/teams-settings:
+    get:
+      operationId: getTeamsSettings
+      summary: The Teams integration's settings (Admin → Teams, PRODUCT_SPEC §9.3)
+      tags:
+        - teams
+      description: "Authorisation: global capability teams.settings.read; 404 when the
+        teams-file-sync flag is off"
+      responses:
+        "200":
+          description: Settings (ETag carries the version)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamsSettings"
+        "400":
+          description: Validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: No valid session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Authenticated but not allowed, or CSRF token missing/invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: The Teams integration is not enabled in this deployment
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Rate limited
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: Unexpected error (generic body, requestId only)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    put:
+      operationId: updateTeamsSettings
+      summary: Replace the Teams settings (audited; every switch needs the one above it)
+      tags:
+        - teams
+      description: "Authorisation: global capability teams.settings.manage with MFA
+        evidence; If-Match required; 404 when the flag is off"
+      parameters:
+        - in: header
+          name: x-csrf-token
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 256
+            description: CSRF token from GET /v1/me (required on every state-changing
+              request)
+          required: true
+          description: CSRF token from GET /v1/me (required on every state-changing request)
+        - in: header
+          name: if-match
+          schema:
+            type: string
+            pattern: ^"\d+"$
+            description: Current version of the resource, quoted (e.g. "3"). Missing → 428,
+              stale → 412.
+          required: true
+          description: Current version of the resource, quoted (e.g. "3"). Missing → 428,
+            stale → 412.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeamsSettingsRequest"
+      responses:
+        "200":
+          description: Saved settings (ETag carries the new version)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamsSettings"
+        "400":
+          description: Validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: No valid session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Authenticated but not allowed, or CSRF token missing/invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: The Teams integration is not enabled in this deployment
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "412":
+          description: If-Match version is stale — reload and retry
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "428":
+          description: If-Match header missing
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Rate limited
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: Unexpected error (generic body, requestId only)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/admin/teams-settings/checks:
+    post:
+      operationId: checkTeamsConnection
+      summary: "Test connection: queue a worker check of the Teams settings against
+        Microsoft Graph"
+      tags:
+        - teams
+      description: "Authorisation: global capability teams.settings.manage with MFA
+        evidence; 404 when the flag is off"
+      parameters:
+        - in: header
+          name: x-csrf-token
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 256
+            description: CSRF token from GET /v1/me (required on every state-changing
+              request)
+          required: true
+          description: CSRF token from GET /v1/me (required on every state-changing request)
+      responses:
+        "202":
+          description: Check queued; follow getOperation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamsCheckStarted"
+        "400":
+          description: Validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: No valid session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Authenticated but not allowed, or CSRF token missing/invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: The Teams integration is not enabled in this deployment
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: A check is already running
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Rate limited
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: Unexpected error (generic body, requestId only)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/jobs/{jobId}/teams-link:
+    get:
+      operationId: getJobTeamsLink
+      summary: The job's Teams channel link, sync state and counts (the tracker's
+        Teams panel, §5.10)
+      tags:
+        - teams
+      description: "Authorisation: job capability teams.view (admin, kr_admin, staff);
+        externals and a disabled flag get 404"
+      parameters:
+        - in: path
+          name: jobId
+          schema:
+            type: string
+            format: uuid
+            pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+            description: UUID identifier
+            example: 0f8fad5b-d9cb-469f-a165-70867728950e
+          required: true
+          description: UUID identifier
+      responses:
+        "200":
+          description: Link state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamsLink"
+        "400":
+          description: Validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: No valid session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Authenticated but not allowed, or CSRF token missing/invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Job not found or not visible to the caller
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Rate limited
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: Unexpected error (generic body, requestId only)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    put:
+      operationId: linkJobTeamsChannel
+      summary: Link (or relink) the job to a Teams channel by its pasted link and
+        queue folder provisioning
+      tags:
+        - teams
+      description: "Authorisation: job capability teams.link (admin, kr_admin); the
+        link must be a channel of the configured team and tenant"
+      parameters:
+        - in: path
+          name: jobId
+          schema:
+            type: string
+            format: uuid
+            pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+            description: UUID identifier
+            example: 0f8fad5b-d9cb-469f-a165-70867728950e
+          required: true
+          description: UUID identifier
+        - in: header
+          name: x-csrf-token
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 256
+            description: CSRF token from GET /v1/me (required on every state-changing
+              request)
+          required: true
+          description: CSRF token from GET /v1/me (required on every state-changing request)
+        - in: header
+          name: if-match
+          schema:
+            description: Optional current version, quoted (e.g. "3"). Stale → 412; omitted →
+              last write wins.
+            type: string
+            pattern: ^"\d+"$
+          description: Optional current version, quoted (e.g. "3"). Stale → 412; omitted →
+            last write wins.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkTeamsChannelRequest"
+      responses:
+        "202":
+          description: Linked; provisioning queued (operationId inside)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamsLink"
+        "400":
+          description: Validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: No valid session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Authenticated but not allowed, or CSRF token missing/invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Job not found or not visible to the caller
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: That channel is already linked to another job, or copying is
+            switched off
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "412":
+          description: If-Match was sent and is stale — reload and retry
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Rate limited
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: Unexpected error (generic body, requestId only)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    delete:
+      operationId: unlinkJobTeamsChannel
+      summary: Unlink the job from its Teams channel (files already copied stay in
+        Teams)
+      tags:
+        - teams
+      description: "Authorisation: job capability teams.link (admin, kr_admin)"
+      parameters:
+        - in: path
+          name: jobId
+          schema:
+            type: string
+            format: uuid
+            pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+            description: UUID identifier
+            example: 0f8fad5b-d9cb-469f-a165-70867728950e
+          required: true
+          description: UUID identifier
+        - in: header
+          name: x-csrf-token
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 256
+            description: CSRF token from GET /v1/me (required on every state-changing
+              request)
+          required: true
+          description: CSRF token from GET /v1/me (required on every state-changing request)
+      responses:
+        "204":
+          description: Unlinked (also when it was not linked)
+        "400":
+          description: Validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: No valid session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Authenticated but not allowed, or CSRF token missing/invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Job not found or not visible to the caller
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Rate limited
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: Unexpected error (generic body, requestId only)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/jobs/{jobId}/teams-link/create:
+    post:
+      operationId: createJobTeamsChannel
+      summary: Create the job's Teams channel now (phase 3; the panel's CREATE CHANNEL)
+      tags:
+        - teams
+      description: "Authorisation: job capability teams.link; 409 when the job is
+        already linked or channel creation is off"
+      parameters:
+        - in: path
+          name: jobId
+          schema:
+            type: string
+            format: uuid
+            pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+            description: UUID identifier
+            example: 0f8fad5b-d9cb-469f-a165-70867728950e
+          required: true
+          description: UUID identifier
+        - in: header
+          name: x-csrf-token
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 256
+            description: CSRF token from GET /v1/me (required on every state-changing
+              request)
+          required: true
+          description: CSRF token from GET /v1/me (required on every state-changing request)
+      responses:
+        "202":
+          description: Creation queued; follow getOperation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamsCheckStarted"
+        "400":
+          description: Validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: No valid session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Authenticated but not allowed, or CSRF token missing/invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Job not found or not visible to the caller
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: Already linked, or channel creation is switched off
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Rate limited
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: Unexpected error (generic body, requestId only)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/teams/channels:
+    get:
+      operationId: listTeamsChannels
+      summary: The configured team's standard channels from the worker's cache, and
+        the name a new job would get
+      tags:
+        - teams
+      description: "Authorisation: global capability jobs.create; 404 when the flag is off"
+      parameters:
+        - in: query
+          name: jobNumber
+          schema:
+            type: string
+            maxLength: 32
+        - in: query
+          name: address
+          schema:
+            type: string
+            maxLength: 200
+        - in: query
+          name: clientName
+          schema:
+            type: string
+            maxLength: 200
+      responses:
+        "200":
+          description: Channels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamsChannelList"
+        "400":
+          description: Validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: No valid session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Authenticated but not allowed, or CSRF token missing/invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Not enabled
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Rate limited
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: Unexpected error (generic body, requestId only)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/jobs/{jobId}/teams-unfiled:
+    get:
+      operationId: listTeamsUnfiled
+      summary: Files added in Teams that need filing (phase 2 Unfiled list, §5.10)
+      tags:
+        - teams
+      description: "Authorisation: job capability teams.view; externals and a disabled
+        flag get 404"
+      parameters:
+        - in: path
+          name: jobId
+          schema:
+            type: string
+            format: uuid
+            pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+            description: UUID identifier
+            example: 0f8fad5b-d9cb-469f-a165-70867728950e
+          required: true
+          description: UUID identifier
+      responses:
+        "200":
+          description: Unfiled items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamsUnfiledList"
+        "400":
+          description: Validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: No valid session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Authenticated but not allowed, or CSRF token missing/invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Job not found or not visible to the caller
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Rate limited
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: Unexpected error (generic body, requestId only)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/jobs/{jobId}/teams-unfiled/{itemId}/file:
+    post:
+      operationId: fileTeamsUnfiled
+      summary: File an item added in Teams into a checkpoint slot or as condition
+        evidence (queues the import)
+      tags:
+        - teams
+      description: "Authorisation: job capability teams.view plus upload rights on the
+        target slot (files.upload.staff_slots / conditions.evidence.upload)"
+      parameters:
+        - in: path
+          name: jobId
+          schema:
+            type: string
+            format: uuid
+            pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+            description: UUID identifier
+            example: 0f8fad5b-d9cb-469f-a165-70867728950e
+          required: true
+          description: UUID identifier
+        - in: path
+          name: itemId
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          required: true
+        - in: header
+          name: x-csrf-token
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 256
+            description: CSRF token from GET /v1/me (required on every state-changing
+              request)
+          required: true
+          description: CSRF token from GET /v1/me (required on every state-changing request)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileTeamsUnfiledRequest"
+      responses:
+        "202":
+          description: Import queued; follow getOperation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamsCheckStarted"
+        "400":
+          description: Validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: No valid session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Authenticated but not allowed, or CSRF token missing/invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Job not found or not visible to the caller
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: The item is no longer unfiled
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Rate limited
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: Unexpected error (generic body, requestId only)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/jobs/{jobId}/teams-unfiled/{itemId}/dismiss:
+    post:
+      operationId: dismissTeamsUnfiled
+      summary: Hide an item added in Teams from the Unfiled list (it stays in Teams;
+        shown again if it changes)
+      tags:
+        - teams
+      description: "Authorisation: job capability teams.view"
+      parameters:
+        - in: path
+          name: jobId
+          schema:
+            type: string
+            format: uuid
+            pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+            description: UUID identifier
+            example: 0f8fad5b-d9cb-469f-a165-70867728950e
+          required: true
+          description: UUID identifier
+        - in: path
+          name: itemId
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          required: true
+        - in: header
+          name: x-csrf-token
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 256
+            description: CSRF token from GET /v1/me (required on every state-changing
+              request)
+          required: true
+          description: CSRF token from GET /v1/me (required on every state-changing request)
+      responses:
+        "204":
+          description: Dismissed
+        "400":
+          description: Validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          description: No valid session
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: Authenticated but not allowed, or CSRF token missing/invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Job not found or not visible to the caller
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Rate limited
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          description: Unexpected error (generic body, requestId only)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
   /v1/audit-events:
     get:
       operationId: listAuditEvents
@@ -2692,6 +3506,11 @@ components:
             - type: "null"
         subdivisionType:
           $ref: "#/components/schemas/SubdivisionType"
+        createTeamsChannel:
+          description: "Phase 3 (ADR-0015 A5): create the job's Teams channel. Honoured
+            only when the integration, copying and channel creation are on;
+            defaults to true then"
+          type: boolean
       required:
         - jobNumber
         - address
@@ -2974,6 +3793,105 @@ components:
       enum:
         - client
         - architect
+    UpdateTeamsSettingsRequest:
+      type: object
+      properties:
+        teamId:
+          anyOf:
+            - type: string
+              format: uuid
+              pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+              description: UUID identifier
+              example: 0f8fad5b-d9cb-469f-a165-70867728950e
+            - type: "null"
+        teamSiteUrl:
+          anyOf:
+            - type: string
+              maxLength: 500
+              format: uri
+              description: A SharePoint site URL, e.g.
+                https://contoso.sharepoint.com/sites/TeamSurvey
+            - type: "null"
+        feeChannelLink:
+          anyOf:
+            - type: string
+              minLength: 1
+              maxLength: 2000
+              description: A Teams channel link from 'Get link to channel'
+              example: https://teams.microsoft.com/l/channel/19%3Aabc%40thread.tacv2/General?groupId=…&tenantId=…
+            - type: "null"
+          description: Link of the private Fee Proposals channel, or null
+        feeSiteUrl:
+          anyOf:
+            - type: string
+              maxLength: 500
+              format: uri
+              description: A SharePoint site URL, e.g.
+                https://contoso.sharepoint.com/sites/TeamSurvey
+            - type: "null"
+        rootFolder:
+          default: 102. Subdivision Tracker
+          type: string
+          minLength: 1
+          maxLength: 100
+        feeProposalPolicy:
+          $ref: "#/components/schemas/FeeProposalPolicy"
+        syncEnabled:
+          type: boolean
+        inboundSyncEnabled:
+          type: boolean
+        createChannelsEnabled:
+          type: boolean
+        inboundPollSeconds:
+          type: integer
+          minimum: 60
+          maximum: 86400
+      required:
+        - teamId
+        - teamSiteUrl
+        - feeChannelLink
+        - feeSiteUrl
+        - feeProposalPolicy
+        - syncEnabled
+        - inboundSyncEnabled
+        - createChannelsEnabled
+        - inboundPollSeconds
+      additionalProperties: false
+    FeeProposalPolicy:
+      type: string
+      enum:
+        - exclude
+        - restricted
+      description: "exclude: fee proposal (1.0) files are never copied; restricted:
+        copied only to the private Fee Proposals channel"
+    LinkTeamsChannelRequest:
+      type: object
+      properties:
+        channelLink:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: A Teams channel link from 'Get link to channel'
+          example: https://teams.microsoft.com/l/channel/19%3Aabc%40thread.tacv2/General?groupId=…&tenantId=…
+      required:
+        - channelLink
+      additionalProperties: false
+    FileTeamsUnfiledRequest:
+      type: object
+      properties:
+        checkpointKey:
+          $ref: "#/components/schemas/CheckpointKey"
+        slot:
+          type: string
+          minLength: 1
+          maxLength: 40
+        conditionId:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+          description: UUID identifier
+          example: 0f8fad5b-d9cb-469f-a165-70867728950e
+      additionalProperties: false
     HealthResponse:
       type: object
       properties:
@@ -3131,6 +4049,8 @@ components:
         - jobs.create
         - jobs.read_all
         - access.manage
+        - teams.settings.manage
+        - teams.settings.read
     Features:
       type: object
       properties:
@@ -3144,10 +4064,16 @@ components:
         malwareScanning:
           type: boolean
           description: Uploads are scanned before they can be opened
+        teamsFileSync:
+          type: boolean
+          description: The Teams integration exists in this deployment (flag
+            teams-file-sync, ADR-0015); whether it runs is set under Admin →
+            Teams
       required:
         - aiStampReading
         - guestInvites
         - malwareScanning
+        - teamsFileSync
       additionalProperties: false
     UserPage:
       type: object
@@ -3764,6 +4690,29 @@ components:
           anyOf:
             - $ref: "#/components/schemas/EmailMeta"
             - type: "null"
+        source:
+          default: upload
+          description: "teams: the file was added in the linked Teams channel and brought
+            into the tracker (phase 2)"
+          type: string
+          enum:
+            - upload
+            - teams
+        teamsState:
+          anyOf:
+            - type: string
+              enum:
+                - pushed
+                - pending
+                - failed
+                - excluded
+                - removed
+                - changed
+            - type: "null"
+          description: "The file's copy in Teams (ADR-0015, §5.10 badges): pushed, pending
+            (waiting or uploading), failed, excluded by policy; removed =
+            deleted in Teams; changed = edited in Teams so not removed there.
+            null: the job is not linked or the viewer cannot see the panel"
       required:
         - id
         - jobId
@@ -3780,6 +4729,8 @@ components:
         - uploadedBy
         - canDelete
         - email
+        - source
+        - teamsState
       additionalProperties: false
     FileKind:
       type: string
@@ -4004,6 +4955,8 @@ components:
         - package.download
         - access.manage
         - audit.read
+        - teams.view
+        - teams.link
     JobFacets:
       type: object
       properties:
@@ -4061,11 +5014,14 @@ components:
           description: UUID identifier
           example: 0f8fad5b-d9cb-469f-a165-70867728950e
         jobId:
-          type: string
-          format: uuid
-          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
-          description: UUID identifier
-          example: 0f8fad5b-d9cb-469f-a165-70867728950e
+          anyOf:
+            - type: string
+              format: uuid
+              pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+              description: UUID identifier
+              example: 0f8fad5b-d9cb-469f-a165-70867728950e
+            - type: "null"
+          description: null for a global task (teams.check)
         type:
           $ref: "#/components/schemas/OperationType"
         status:
@@ -4090,6 +5046,12 @@ components:
                 - $ref: "#/components/schemas/ConditionsExtractResult"
                 - $ref: "#/components/schemas/ConformanceReadResult"
                 - $ref: "#/components/schemas/FileScanResult"
+                - $ref: "#/components/schemas/TeamsCheckResult"
+                - $ref: "#/components/schemas/TeamsProvisionResult"
+                - $ref: "#/components/schemas/TeamsPushResult"
+                - $ref: "#/components/schemas/TeamsPollResult"
+                - $ref: "#/components/schemas/TeamsChannelCreateResult"
+                - $ref: "#/components/schemas/TeamsListChannelsResult"
             - type: "null"
         error:
           anyOf:
@@ -4121,6 +5083,12 @@ components:
         - conformance.read
         - email.parse
         - file.scan
+        - teams.provision
+        - teams.push
+        - teams.check
+        - teams.poll
+        - teams.create_channel
+        - teams.list_channels
     OperationStatus:
       type: string
       enum:
@@ -4226,6 +5194,179 @@ components:
       required:
         - scanStatus
         - followUpOperationId
+      additionalProperties: false
+    TeamsCheckResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamsCheckItem"
+        skipped:
+          type: array
+          items:
+            type: string
+            enum:
+              - token
+              - team_site
+              - team_site_write
+              - fee_site
+              - fee_site_write
+              - channel_list
+              - channel_create
+            description: Which check; the page shows its §9.3 label
+      required:
+        - results
+        - skipped
+      additionalProperties: false
+    TeamsCheckItem:
+      type: object
+      properties:
+        item:
+          type: string
+          enum:
+            - token
+            - team_site
+            - team_site_write
+            - fee_site
+            - fee_site_write
+            - channel_list
+            - channel_create
+          description: Which check; the page shows its §9.3 label
+        ok:
+          type: boolean
+        errorCode:
+          description: HTTP status and Graph error code of a failed check, e.g. 403
+            accessDenied; null when ok
+          type:
+            - string
+            - "null"
+      required:
+        - item
+        - ok
+        - errorCode
+      additionalProperties: false
+    TeamsProvisionResult:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - ready
+            - error
+            - skipped
+          description: "skipped: sync is off or the job is not linked"
+        foldersCreated:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        filesQueued:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        errorCode:
+          type:
+            - string
+            - "null"
+      required:
+        - status
+        - foldersCreated
+        - filesQueued
+        - errorCode
+      additionalProperties: false
+    TeamsPushResult:
+      type: object
+      properties:
+        pushed:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        failed:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        skipped:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+          description: Rows left alone (sync off, link not ready, archived)
+        deleted:
+          default: 0
+          description: Items removed from Teams after an app delete
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+      required:
+        - pushed
+        - failed
+        - skipped
+        - deleted
+      additionalProperties: false
+    TeamsPollResult:
+      type: object
+      properties:
+        imported:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        unfiled:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        replaced:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        removed:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        failed:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        skipped:
+          type: boolean
+          description: True when inbound sync is off or the job is not linked
+      required:
+        - imported
+        - unfiled
+        - replaced
+        - removed
+        - failed
+        - skipped
+      additionalProperties: false
+    TeamsChannelCreateResult:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - created
+            - error
+            - skipped
+        channelName:
+          type:
+            - string
+            - "null"
+        errorCode:
+          type:
+            - string
+            - "null"
+      required:
+        - status
+        - channelName
+        - errorCode
+      additionalProperties: false
+    TeamsListChannelsResult:
+      type: object
+      properties:
+        channels:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+      required:
+        - channels
       additionalProperties: false
     UploadResult:
       type: object
@@ -4382,6 +5523,415 @@ components:
         - not_sent
         - sent
         - failed
+    TeamsSettings:
+      type: object
+      properties:
+        teamId:
+          anyOf:
+            - type: string
+              format: uuid
+              pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+              description: UUID identifier
+              example: 0f8fad5b-d9cb-469f-a165-70867728950e
+            - type: "null"
+          description: The Microsoft 365 group id of the team
+        teamSiteUrl:
+          type:
+            - string
+            - "null"
+        teamName:
+          description: Display only; filled by Test connection when Graph allows it
+          type:
+            - string
+            - "null"
+        feeChannelId:
+          type:
+            - string
+            - "null"
+        feeChannelLink:
+          description: Rebuilt link of the Fee Proposals channel (for the form)
+          type:
+            - string
+            - "null"
+        feeSiteUrl:
+          type:
+            - string
+            - "null"
+        rootFolder:
+          type: string
+        feeProposalPolicy:
+          $ref: "#/components/schemas/FeeProposalPolicy"
+        syncEnabled:
+          type: boolean
+        inboundSyncEnabled:
+          type: boolean
+        createChannelsEnabled:
+          type: boolean
+        inboundPollSeconds:
+          type: integer
+          minimum: 60
+          maximum: 9007199254740991
+        updatedBy:
+          anyOf:
+            - $ref: "#/components/schemas/UserRef"
+            - type: "null"
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+          description: Instant (RFC 3339)
+          example: 2026-09-28T03:50:56.543Z
+        version:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+          description: Row version for optimistic concurrency (send as If-Match)
+        lastCheck:
+          anyOf:
+            - type: object
+              properties:
+                operationId:
+                  type: string
+                  format: uuid
+                  pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+                  description: UUID identifier
+                  example: 0f8fad5b-d9cb-469f-a165-70867728950e
+                status:
+                  $ref: "#/components/schemas/OperationStatus"
+                startedAt:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+                  description: Instant (RFC 3339)
+                  example: 2026-09-28T03:50:56.543Z
+              required:
+                - operationId
+                - status
+                - startedAt
+              additionalProperties: false
+            - type: "null"
+          description: The newest Test connection run; follow it with getOperation
+      required:
+        - teamId
+        - teamSiteUrl
+        - teamName
+        - feeChannelId
+        - feeChannelLink
+        - feeSiteUrl
+        - rootFolder
+        - feeProposalPolicy
+        - syncEnabled
+        - inboundSyncEnabled
+        - createChannelsEnabled
+        - inboundPollSeconds
+        - updatedBy
+        - updatedAt
+        - version
+        - lastCheck
+      additionalProperties: false
+    TeamsCheckStarted:
+      type: object
+      properties:
+        operationId:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+          description: UUID identifier
+          example: 0f8fad5b-d9cb-469f-a165-70867728950e
+      required:
+        - operationId
+      additionalProperties: false
+      description: Follow with getOperation; its result is a TeamsCheckResult
+    TeamsLink:
+      type: object
+      properties:
+        jobId:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+          description: UUID identifier
+          example: 0f8fad5b-d9cb-469f-a165-70867728950e
+        state:
+          $ref: "#/components/schemas/TeamsLinkState"
+        channelName:
+          type:
+            - string
+            - "null"
+        teamsUrl:
+          description: Rebuilt teams.microsoft.com link (Open in Teams)
+          type:
+            - string
+            - "null"
+        sharePointUrl:
+          type:
+            - string
+            - "null"
+        linkedBy:
+          anyOf:
+            - $ref: "#/components/schemas/UserRef"
+            - type: "null"
+        linkedAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+              description: Instant (RFC 3339)
+              example: 2026-09-28T03:50:56.543Z
+            - type: "null"
+        lastPushAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+              description: Instant (RFC 3339)
+              example: 2026-09-28T03:50:56.543Z
+            - type: "null"
+        counts:
+          type: object
+          properties:
+            pushed:
+              type: integer
+              minimum: 0
+              maximum: 9007199254740991
+            pending:
+              type: integer
+              minimum: 0
+              maximum: 9007199254740991
+            failed:
+              type: integer
+              minimum: 0
+              maximum: 9007199254740991
+            excluded:
+              type: integer
+              minimum: 0
+              maximum: 9007199254740991
+            unfiled:
+              default: 0
+              description: Items added in Teams waiting to be filed
+              type: integer
+              minimum: 0
+              maximum: 9007199254740991
+          required:
+            - pushed
+            - pending
+            - failed
+            - excluded
+            - unfiled
+          additionalProperties: false
+        errorCode:
+          type:
+            - string
+            - "null"
+        operationId:
+          anyOf:
+            - type: string
+              format: uuid
+              pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+              description: UUID identifier
+              example: 0f8fad5b-d9cb-469f-a165-70867728950e
+            - type: "null"
+          description: The provisioning task to follow while state is provisioning
+        lastPollAt:
+          default: null
+          description: When files added in Teams were last checked
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+              description: Instant (RFC 3339)
+              example: 2026-09-28T03:50:56.543Z
+            - type: "null"
+        inboundSyncEnabled:
+          default: false
+          type: boolean
+        feeProposalPolicy:
+          $ref: "#/components/schemas/FeeProposalPolicy"
+        feeProposalFolderUrl:
+          description: The job's subfolder in the Fee Proposals channel; only for viewers
+            with fee_proposal.view
+          type:
+            - string
+            - "null"
+        canLink:
+          type: boolean
+          description: Whether the current user may link, relink or unlink (teams.link)
+        createEnabled:
+          default: false
+          description: "Create channels for new jobs is on (phase 3): the panel may offer
+            CREATE CHANNEL"
+          type: boolean
+        version:
+          anyOf:
+            - type: integer
+              minimum: 1
+              maximum: 9007199254740991
+              description: Row version for optimistic concurrency (send as If-Match)
+            - type: "null"
+      required:
+        - jobId
+        - state
+        - channelName
+        - teamsUrl
+        - sharePointUrl
+        - linkedBy
+        - linkedAt
+        - lastPushAt
+        - counts
+        - errorCode
+        - operationId
+        - lastPollAt
+        - inboundSyncEnabled
+        - feeProposalPolicy
+        - feeProposalFolderUrl
+        - canLink
+        - createEnabled
+        - version
+      additionalProperties: false
+    TeamsLinkState:
+      type: string
+      enum:
+        - sync_off
+        - not_linked
+        - not_created
+        - provisioning
+        - ready
+        - error
+      description: "sync_off: Admin → Teams has copying switched off; not_linked: no
+        channel yet; not_created: the app tried to create the channel and could
+        not (errorCode says why); the rest follow the link"
+    TeamsChannelList:
+      type: object
+      properties:
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamsChannelOption"
+          description: Standard channels only, by name
+        cachedAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+              description: Instant (RFC 3339)
+              example: 2026-09-28T03:50:56.543Z
+            - type: "null"
+          description: When the worker last listed them; null when never
+        channelName:
+          description: The name the app would give a new job's channel, when job details
+            are given
+          type:
+            - string
+            - "null"
+        nameTaken:
+          type: boolean
+          description: That name is already a channel of the team (case-insensitive)
+        createEnabled:
+          type: boolean
+          description: Create channels for new jobs is on under Admin → Teams
+        teamId:
+          anyOf:
+            - type: string
+              format: uuid
+              pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+              description: UUID identifier
+              example: 0f8fad5b-d9cb-469f-a165-70867728950e
+            - type: "null"
+          description: The configured team, for building a link from a picked channel
+        tenantId:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+          description: UUID identifier
+          example: 0f8fad5b-d9cb-469f-a165-70867728950e
+      required:
+        - channels
+        - cachedAt
+        - channelName
+        - nameTaken
+        - createEnabled
+        - teamId
+        - tenantId
+      additionalProperties: false
+    TeamsChannelOption:
+      type: object
+      properties:
+        channelId:
+          type: string
+        displayName:
+          type: string
+      required:
+        - channelId
+        - displayName
+      additionalProperties: false
+    TeamsUnfiledList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamsUnfiledItem"
+        uploadMaxBytes:
+          type: integer
+          exclusiveMinimum: 0
+          maximum: 9007199254740991
+      required:
+        - items
+        - uploadMaxBytes
+      additionalProperties: false
+    TeamsUnfiledItem:
+      type: object
+      properties:
+        itemId:
+          type: string
+          description: The Graph drive item id
+        name:
+          type: string
+        path:
+          type: string
+          description: Folder path under the root folder, '' at the root
+        sizeBytes:
+          anyOf:
+            - type: integer
+              minimum: 0
+              maximum: 9007199254740991
+            - type: "null"
+        addedBy:
+          description: Display name of whoever last modified it in Teams
+          type:
+            - string
+            - "null"
+        modifiedAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+              description: Instant (RFC 3339)
+              example: 2026-09-28T03:50:56.543Z
+            - type: "null"
+        seenAt:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+          description: Instant (RFC 3339)
+          example: 2026-09-28T03:50:56.543Z
+        problem:
+          anyOf:
+            - type: string
+              enum:
+                - too_large
+                - kind_not_accepted
+                - malware
+            - type: "null"
+      required:
+        - itemId
+        - name
+        - path
+        - sizeBytes
+        - addedBy
+        - modifiedAt
+        - seenAt
+        - problem
+      additionalProperties: false
     AuditEventPage:
       type: object
       properties:

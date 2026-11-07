@@ -225,3 +225,73 @@ describe("NewJobForm when the session ends (PRODUCT_SPEC 3.1, 15)", () => {
     expect(window.sessionStorage).toHaveLength(0);
   });
 });
+
+describe("NewJobForm with the Teams integration (phase 3)", () => {
+  const features = { aiStampReading: false, guestInvites: false, malwareScanning: true, teamsFileSync: true };
+  const channels = (over: Record<string, unknown> = {}) => ({
+    channels: [{ channelId: "19:x@thread.tacv2", displayName: "S-T1_1 TAKEN RD (Client)" }],
+    cachedAt: "2026-11-06T00:00:00.000Z",
+    channelName: null,
+    nameTaken: false,
+    createEnabled: true,
+    teamId: "11111111-2222-4333-8444-555555555555",
+    tenantId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    ...over,
+  });
+
+  it("offers a ticked Create Teams channel box with a live name preview, warns of a taken name, and sends the choice", async () => {
+    setTestUrl("/");
+    server.use(handlerFor("listTeamsChannels", () => HttpResponse.json(channels())));
+    const sent: unknown[] = [];
+    server.use(
+      handlerFor("createJob", async ({ request }) => {
+        sent.push(await request.json());
+        return HttpResponse.json(syntheticJobDetail(), { status: 201 });
+      }),
+    );
+    renderWithProviders(<NewJobForm onCancel={() => undefined} />, { me: syntheticMe("staff", { features }) });
+    const box = await screen.findByRole("checkbox", { name: /Create Teams channel/ });
+    expect(box).toBeChecked();
+    await fill({ number: "T2", address: "2 Free Rd", client: "Client", type: "Survey-Strata" });
+    expect(screen.getByText("S-T2_2 FREE RD (Client)")).toBeInTheDocument();
+    await userEvent.clear(screen.getByRole("textbox", { name: "Job number" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Job number" }), "T1");
+    await userEvent.clear(screen.getByRole("textbox", { name: "Address" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Address" }), "1 Taken Rd");
+    expect(
+      screen.getByText("A channel with this name already exists — choose a different job name"),
+    ).toBeInTheDocument();
+    await userEvent.click(box);
+    await create();
+    await waitFor(() => {
+      expect(sent).toHaveLength(1);
+    });
+    expect(sent[0]).toMatchObject({ jobNumber: "T1", createTeamsChannel: false });
+  });
+
+  it("shows the API's channel-name refusal and offers no box when creation is off", async () => {
+    setTestUrl("/");
+    server.use(handlerFor("listTeamsChannels", () => HttpResponse.json(channels())));
+    server.use(
+      mockProblem("createJob", 409, PROBLEM_TYPES.channelNameExists, {
+        detail: "A channel with this name already exists — choose a different job name",
+      }),
+    );
+    const refused = renderWithProviders(<NewJobForm onCancel={() => undefined} />, {
+      me: syntheticMe("staff", { features }),
+    });
+    await screen.findByRole("checkbox", { name: /Create Teams channel/ });
+    await fill({ number: "T1", address: "1 Taken Rd", type: "Survey-Strata" });
+    await create();
+    expect(
+      await screen.findByText("A channel with this name already exists — choose a different job name", {
+        selector: "p, div, span[role], [role=alert]",
+      }),
+    ).toBeInTheDocument();
+    refused.unmount();
+    server.use(handlerFor("listTeamsChannels", () => HttpResponse.json(channels({ createEnabled: false }))));
+    renderWithProviders(<NewJobForm onCancel={() => undefined} />, { me: syntheticMe("staff", { features }) });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+});

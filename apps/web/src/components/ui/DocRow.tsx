@@ -17,7 +17,16 @@ export interface DocRowProps {
   readonly removing?: boolean;
 }
 
-/** One uploaded file: extension badge, name (opens the viewer), scan state, and × with inline confirmation. */
+/** Per-file Teams badges (PRODUCT_SPEC §5.10); `excluded` shows nothing. */
+const TEAMS_BADGES: Readonly<Record<"pushed" | "pending" | "failed" | "removed" | "changed", string>> = {
+  pushed: "In Teams",
+  pending: "Waiting to copy",
+  failed: "Not copied",
+  removed: "Removed in Teams",
+  changed: "Changed in Teams; not removed there",
+};
+
+/** One uploaded file: extension badge, name (opens the viewer), Teams badge, scan state, and × with inline confirmation. */
 export function DocRow({ file, onOpen, onRemove, removing = false }: DocRowProps) {
   const [confirming, setConfirming] = useState(false);
   const row = useRef<HTMLLIElement>(null);
@@ -54,6 +63,13 @@ export function DocRow({ file, onOpen, onRemove, removing = false }: DocRowProps
         >
           {file.name}
         </button>
+      )}
+      {file.teamsState && file.teamsState !== "excluded" && (
+        <span
+          className={`${styles.teams} ${file.teamsState === "failed" || file.teamsState === "changed" ? styles.teamsAttention : ""}`}
+        >
+          {TEAMS_BADGES[file.teamsState]}
+        </span>
       )}
       {stateText && (
         <span

@@ -7,7 +7,7 @@ import { OpenFeature, TypedInMemoryProvider } from "@openfeature/server-sdk";
 import type { ApiConfig } from "../config.js";
 import type { Clock, FeatureFlag, FeatureFlags } from "./module.js";
 
-export const FLAG_KEYS: readonly FeatureFlag[] = ["ai-stamp-reading", "entra-guest-invites"];
+export const FLAG_KEYS: readonly FeatureFlag[] = ["ai-stamp-reading", "entra-guest-invites", "teams-file-sync"];
 
 export const systemClock: Clock = { now: () => new Date() };
 
@@ -35,17 +35,19 @@ function flagConfiguration(values: Readonly<Record<FeatureFlag, boolean>>) {
   return {
     "ai-stamp-reading": entry(values["ai-stamp-reading"]),
     "entra-guest-invites": entry(values["entra-guest-invites"]),
+    "teams-file-sync": entry(values["teams-file-sync"]),
   };
 }
 
 /** Resolve every flag through OpenFeature once and expose the result synchronously. */
 export async function createFeatureFlags(
-  config: Pick<ApiConfig, "FEATURE_AI_STAMP_READING" | "FEATURE_ENTRA_GUEST_INVITES">,
+  config: Pick<ApiConfig, "FEATURE_AI_STAMP_READING" | "FEATURE_ENTRA_GUEST_INVITES" | "FEATURE_TEAMS_FILE_SYNC">,
 ): Promise<FeatureFlags> {
   const provider = new TypedInMemoryProvider(
     flagConfiguration({
       "ai-stamp-reading": config.FEATURE_AI_STAMP_READING,
       "entra-guest-invites": config.FEATURE_ENTRA_GUEST_INVITES,
+      "teams-file-sync": config.FEATURE_TEAMS_FILE_SYNC,
     }),
   );
   await OpenFeature.setProviderAndWait(DOMAIN, provider);

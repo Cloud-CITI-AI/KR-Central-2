@@ -83,10 +83,11 @@ suspected leaked, or while a restore is under way. Write the reason and the pers
 
 Flags are read from environment variables when a service starts ([flags.md](../flags.md)). To switch one off:
 
-| Flag                  | Variable                      | Set to `false` on  | Effect                                                                      |
-| --------------------- | ----------------------------- | ------------------ | --------------------------------------------------------------------------- |
-| `ai-stamp-reading`    | `FEATURE_AI_STAMP_READING`    | `worker` and `api` | No page image goes to Anthropic; the text rule and manual date entry remain |
-| `entra-guest-invites` | `FEATURE_ENTRA_GUEST_INVITES` | `api`              | Grants stop sending Entra invitations; KR IT invites guests by hand         |
+| Flag                  | Variable                      | Set to `false` on  | Effect                                                                                                                                                                                                                        |
+| --------------------- | ----------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai-stamp-reading`    | `FEATURE_AI_STAMP_READING`    | `worker` and `api` | No page image goes to Anthropic; the text rule and manual date entry remain                                                                                                                                                   |
+| `entra-guest-invites` | `FEATURE_ENTRA_GUEST_INVITES` | `api`              | Grants stop sending Entra invitations; KR IT invites guests by hand                                                                                                                                                           |
+| `teams-file-sync`     | `FEATURE_TEAMS_FILE_SYNC`     | `api` and `worker` | Every Teams route answers 404, the panel and Admin → Teams vanish, the worker creates no Graph client; queued `teams.*` tasks complete as no-ops. The gentler switch is Admin → Teams → Copy files to Teams off (no redeploy) |
 
 Confirm before running: the environment is the one in trouble, the variable is the flag's, and a second person agrees in
 production. Change it in the Railway dashboard (service, Variables), redeploy each service from the dashboard, then

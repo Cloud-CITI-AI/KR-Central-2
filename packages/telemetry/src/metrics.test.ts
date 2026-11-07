@@ -43,9 +43,13 @@ describe("createMetrics", () => {
     m.recordSignin("failure");
     m.recordStampReading("timeout");
     m.recordBackupRun("success");
+    m.recordTeamsPush("pushed");
+    m.recordTeamsGraphRequest("429");
     const all = await collect();
 
     expect(all.map((x) => x.descriptor.name).sort()).toEqual(Object.values(METRIC_NAMES).sort());
+    expect(points(all, "kr.teams.pushes")[0]?.attributes).toEqual({ result: "pushed" });
+    expect(points(all, "kr.teams.graph_requests")[0]?.attributes).toEqual({ status_class: "429" });
     const ops = points(all, "kr.operations.processed").map((p) => [p.attributes, p.value]);
     expect(ops).toContainEqual([{ type: "file.scan", status: "succeeded" }, 2]);
     expect(ops).toContainEqual([{ type: "email.parse", status: "failed" }, 1]);
@@ -98,6 +102,8 @@ describe("createMetrics", () => {
     m.recordSignin(leak as never);
     m.recordStampReading(leak as never);
     m.recordBackupRun(leak as never);
+    m.recordTeamsPush(leak as never);
+    m.recordTeamsGraphRequest("https://contoso.sharepoint.com/sites/x" as never);
     m.recordOperation({ type: leak, status: "failed", durationSeconds: 1 } as never);
     m.observeQueueDepth(() => ({ [leak]: 4, [`Lot 4 Smith St`]: 5 }) as never);
     m.observeQueueAge(() => ({ [leak]: 4, "file.scan": 9, "x@y.test": 12 }) as never);

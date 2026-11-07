@@ -26,6 +26,8 @@ export const GLOBAL_CAPABILITIES = [
   "jobs.create",
   "jobs.read_all",
   "access.manage",
+  "teams.settings.manage",
+  "teams.settings.read",
 ] as const;
 export const GlobalCapability = z.enum(GLOBAL_CAPABILITIES).meta({ id: "GlobalCapability" });
 export type GlobalCapability = z.infer<typeof GlobalCapability>;
@@ -55,6 +57,8 @@ export const JOB_CAPABILITIES = [
   "package.download",
   "access.manage",
   "audit.read",
+  "teams.view",
+  "teams.link",
 ] as const;
 export const JobCapability = z.enum(JOB_CAPABILITIES).meta({ id: "JobCapability" });
 export type JobCapability = z.infer<typeof JobCapability>;
@@ -81,6 +85,7 @@ const STAFF_JOB: readonly JobCapability[] = [
   "notes.delete.any",
   "package.download",
   "access.manage",
+  "teams.view",
 ];
 
 const CLIENT_JOB: readonly JobCapability[] = [
@@ -109,9 +114,17 @@ const ARCHITECT_JOB: readonly JobCapability[] = [
 export function globalCapabilitiesFor(role: GlobalRole): GlobalCapability[] {
   switch (role) {
     case "admin":
-      return ["users.manage", "audit.read", "jobs.create", "jobs.read_all", "access.manage"];
+      return [
+        "users.manage",
+        "audit.read",
+        "jobs.create",
+        "jobs.read_all",
+        "access.manage",
+        "teams.settings.manage",
+        "teams.settings.read",
+      ];
     case "kr_admin":
-      return ["audit.read", "jobs.create", "jobs.read_all", "access.manage"];
+      return ["audit.read", "jobs.create", "jobs.read_all", "access.manage", "teams.settings.read"];
     case "staff":
       return ["jobs.create", "jobs.read_all", "access.manage"];
     case "external":
@@ -127,9 +140,9 @@ export function globalCapabilitiesFor(role: GlobalRole): GlobalCapability[] {
 export function jobCapabilitiesFor(role: GlobalRole, grantRole: GrantRole | null): JobCapability[] {
   switch (role) {
     case "admin":
-      return [...STAFF_JOB, "fee_proposal.view", "job.delete", "audit.read"];
+      return [...STAFF_JOB, "fee_proposal.view", "job.delete", "audit.read", "teams.link"];
     case "kr_admin":
-      return [...STAFF_JOB, "fee_proposal.view", "job.delete", "audit.read"];
+      return [...STAFF_JOB, "fee_proposal.view", "job.delete", "audit.read", "teams.link"];
     case "staff":
       return [...STAFF_JOB];
     case "external":

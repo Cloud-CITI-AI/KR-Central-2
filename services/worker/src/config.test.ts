@@ -22,6 +22,32 @@ describe("worker config", () => {
     expect(() => parseConfig(WorkerConfigSchema, { ...valid, FEATURE_AI_STAMP_READING: "true" })).toThrow(ConfigError);
   });
 
+  it("requires the Teams registration when the Teams flag is on, and pins Microsoft's hosts outside local", () => {
+    expect(() => parseConfig(WorkerConfigSchema, { ...valid, FEATURE_TEAMS_FILE_SYNC: "true" })).toThrow(ConfigError);
+    const teams = {
+      ...valid,
+      FEATURE_TEAMS_FILE_SYNC: "true",
+      TEAMS_TENANT_ID: "11111111-1111-4111-8111-111111111111",
+      TEAMS_CLIENT_ID: "22222222-2222-4222-8222-222222222222",
+      TEAMS_CLIENT_SECRET: "a-secret-value-of-sixteen-plus",
+    };
+    const c = parseConfig(WorkerConfigSchema, teams);
+    expect(c.TEAMS_GRAPH_BASE_URL).toBe("https://graph.microsoft.com");
+    expect(c.TEAMS_AUTHORITY_HOST).toBe("https://login.microsoftonline.com");
+    expect(c.TEAMS_GRAPH_TIMEOUT_MS).toBe(30_000);
+    expect(() =>
+      parseConfig(WorkerConfigSchema, { ...teams, TEAMS_GRAPH_BASE_URL: "https://graph.example.test" }),
+    ).toThrow(ConfigError);
+    expect(() =>
+      parseConfig(WorkerConfigSchema, { ...teams, TEAMS_CLIENT_SECRET: "change-me-change-me-change-me" }),
+    ).toThrow(ConfigError);
+    // local may point at the fake
+    expect(
+      parseConfig(WorkerConfigSchema, { ...teams, APP_ENV: "local", TEAMS_GRAPH_BASE_URL: "http://127.0.0.1:4100" })
+        .TEAMS_GRAPH_BASE_URL,
+    ).toBe("http://127.0.0.1:4100");
+  });
+
   it("refuses an upload limit larger than what clamd will stream", () => {
     expect(() => parseConfig(WorkerConfigSchema, { ...valid, UPLOAD_MAX_BYTES: String(80 * 1024 * 1024) })).toThrow(
       ConfigError,

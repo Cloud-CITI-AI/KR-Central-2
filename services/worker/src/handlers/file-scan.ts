@@ -26,6 +26,9 @@ import {
   mayRescan,
   type ScanErrorKind,
 } from "../domain/scan.js";
+import { queuePushAfterScan } from "../data/teams.js";
+import { readTeamsSettings } from "../data/teams-settings.js";
+import { syncPolicyFor } from "../domain/teams-policy.js";
 import { TaskError } from "../errors.js";
 import type { FeatureFlags } from "../flags.js";
 import type { Handler, HandlerContext } from "./types.js";
@@ -38,7 +41,7 @@ export interface FileScanDeps {
   readonly clamd: ClamdClient;
   readonly config: Pick<WorkerConfig, "MALWARE_SCAN_MODE" | "CLAMAV_TIMEOUT_MS" | "SCAN_ERROR_MAX_RETRIES">;
   readonly metrics: Pick<KrMetrics, "recordFileScan">;
-  /** `ai-stamp-reading` is carried into the conformance read an upload starts (the handler re-checks it). */
+  /** `ai-stamp-reading` is carried into the conformance read an upload starts (the handler re-checks it); `teams-file-sync` gates the push hook. */
   readonly flags: FeatureFlags;
 }
 
@@ -60,11 +63,23 @@ export function fileScanHandler(deps: FileScanDeps): Handler {
     );
   }
 
-  /** Records a passed scan and queues what follows it (email parse, conformance read) in the same transaction. */
+  /**
+   * A clean file of a linked job is queued for copying to Teams in the same transaction (ADR-0015 decision 7). Only
+   * `clean` qualifies, never `skipped`, and only while the flag is on; the data layer checks copying and the link.
+   */
+  async function teamsHook(trx: Transaction<Database>, file: ScanFile, status: "clean" | "skipped"): Promise<void> {
+    if (status !== "clean" || !flags.isEnabled("teams-file-sync")) return;
+    const settings = await readTeamsSettings(trx);
+    await queuePushAfterScan(trx, file, syncPolicyFor(file.checkpoint_key, settings));
+  }
+
+  /** Records a passed scan and queues what follows it (email parse, conformance read, Teams copy) in the same transaction. */
   function pass(file: ScanFile, status: "clean" | "skipped"): Promise<string | null> {
     return db.transaction().execute(async (trx) => {
       await saveScanResult(trx, file.id, { status, detail: null });
-      return followUp(trx, file);
+      const followUpId = await followUp(trx, file);
+      await teamsHook(trx, file, status);
+      return followUpId;
     });
   }
 

@@ -27,7 +27,7 @@ describe("AccessManager", () => {
   it("says the invitation is sent automatically when the flag is on", async () => {
     server.use(...emptyLists());
     const me = syntheticMe("kr_admin", {
-      features: { aiStampReading: false, guestInvites: true, malwareScanning: true },
+      features: { aiStampReading: false, guestInvites: true, malwareScanning: true, teamsFileSync: false },
     });
     renderWithProviders(<AccessManager />, { me });
     expect(

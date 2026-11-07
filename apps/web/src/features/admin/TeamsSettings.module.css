@@ -1,0 +1,86 @@
+/* Admin → Teams (§9.3): grouped fields, switches and the Test connection list */
+.form {
+  display: grid;
+  gap: 14px;
+}
+.group {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.group > legend {
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.switch input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.results {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.resultsTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.checkList {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+}
+.pass {
+  color: var(--ok, #1a7f37);
+}
+.fail {
+  color: var(--danger, #b42318);
+}
+.skipped {
+  color: var(--ink-3);
+}
+.code {
+  margin-left: 8px;
+  font-size: 12px;
+}
+.error {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--danger, #b42318);
+}
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

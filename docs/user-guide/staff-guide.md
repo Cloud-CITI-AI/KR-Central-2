@@ -99,3 +99,40 @@ on, in which case the tracker sends one.
 - **Admin, Users** (administrator): search people, change a role (admin, KR Admin, staff, external), disable or enable. You
   cannot change your own role, and there must always be one active admin. Changing a role signs that person out.
 - **Admin, Audit** (administrator, KR Admin): newest first, filter by job, person or action, with what changed.
+
+## Teams channels (when the Teams integration is on)
+
+Every job can be linked to its channel in Teams, so the files in the tracker also appear in the channel's
+**102. Subdivision Tracker** folder (the other two template folders are never touched).
+
+- **Linking** (administrators and KR Admins): on the tracker page, under JOB FILES, the TEAMS CHANNEL section shows
+  "This job is not linked to a Teams channel." Press **LINK CHANNEL**, and in Teams open the channel, choose **Get link
+  to channel**, paste it and press **Link**. The channel must be a standard channel of the team set up under Admin →
+  Teams; a channel already linked to another job is refused with that job's number.
+- **What is copied**: every file whose virus scan passed, as soon as it passes, into the stage and checkpoint folder it
+  belongs to (the same layout as the zip download). Fee proposal (1.0) files are **never** copied into the job channel;
+  depending on the settings they are either not copied at all or copied to the private **Fee Proposals** channel, which
+  only KR Admins can open. Files removed in the tracker are not removed in Teams, and edits made in Teams are not
+  brought back (that is the next phase).
+- **The panel**: the channel's name with **OPEN IN TEAMS**, how many files are copied, waiting, failed or not copied,
+  and when the last copy happened. Each file row shows "In Teams", "Waiting to copy" or "Not copied". Staff see the panel;
+  only administrators and KR Admins can link, relink or unlink.
+- **Needs attention**: "the channel's folder was not found" means the link points at a private, shared, renamed or
+  deleted channel: relink with a fresh link. "the app is not allowed to write to this team's site" is for KR IT (the site
+  grant). "Teams did not answer" clears itself; copies are retried.
+- **Files added in Teams** (when "Bring files added in Teams into the tracker" is on): a file dropped into a
+  checkpoint's folder in Teams appears on that checkpoint here once its virus scan passes, with no uploader. A file
+  dropped somewhere else shows under **Files added in Teams that need filing**: choose the checkpoint (or condition
+  evidence) and press **FILE**, or **DISMISS** to hide it (it stays in Teams and comes back if it changes). Editing a
+  file in Teams replaces the tracker's copy; deleting one in Teams keeps the tracker's copy and marks it "Removed in
+  Teams"; removing a file here removes the copy in Teams unless it was changed there.
+- **New jobs** (when "Create channels for new jobs" is on): the NEW JOB form shows **Create Teams channel**, ticked,
+  with the channel name the job will get (`S-<job number>_<ADDRESS IN CAPS> (<client>)`, shortened to 50
+  characters). If the team already has that name the form says so and the job is not created until you change the job
+  number. The channel is created with its three template folders and linked for you; the panel offers **CREATE
+  CHANNEL** if that could not happen at the time. Renaming a job does not rename its channel. When linking by hand
+  you can now pick the channel from a list instead of pasting a link.
+- **Unlink** stops new copies; files already in Teams stay there.
+- **Admin, Teams** (administrator; KR Admin can read): the team the app works in, the Fee Proposals channel, the copy
+  switches and **Test connection**, which checks each permission and shows a tick or a cross with the reason. Changing
+  the team does not move jobs already linked: relink them to move them.

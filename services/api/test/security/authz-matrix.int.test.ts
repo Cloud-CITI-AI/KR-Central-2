@@ -37,6 +37,8 @@ interface Case {
   readonly denied: number;
   /** A caller without the capability gets 403 even with no grant (there is no job to hide). */
   readonly global: boolean;
+  /** Per-role outcome overriding `denied` (the Teams panel is hidden from externals but forbidden to staff). */
+  readonly deniedFor: Partial<Record<RoleName, number>>;
 }
 const row = (
   r: string,
@@ -53,6 +55,7 @@ const row = (
   run,
   denied: 403,
   global: false,
+  deniedFor: {},
   ...o,
 });
 
@@ -78,6 +81,41 @@ const FIXTURES: Record<string, (c: Ctx) => Promise<string>> = {
     enqueueOperation(c.w.t.db, { jobId: c.jobId, type: "conditions.extract", payload: {}, createdBy: null }).then(
       (o) => o.id,
     ),
+  // A channel link of the configured team (set in beforeAll) with a channel id nobody else holds.
+  teamlink: (c) => {
+    const id = encodeURIComponent(`19:${randomUUID().replaceAll("-", "")}@thread.tacv2`);
+    const tenant = c.w.t.deps.config.ENTRA_TENANT_ID;
+    return Promise.resolve(`https://teams.microsoft.com/l/channel/${id}/General?groupId=${TEAM_ID}&tenantId=${tenant}`);
+  },
+};
+const TEAM_ID = "11111111-2222-4333-8444-555555555555";
+const HIDDEN_FROM_EXTERNALS = { client: 404, architect: 404 } as const;
+/** An unfiled Teams item on a linked job (phase 2); the link row is what the FK needs. */
+FIXTURES.unfiled = async (c) => {
+  const itemId = `01ITEM${randomUUID().replaceAll("-", "").slice(0, 20)}`;
+  await c.w.t.db
+    .insertInto("job_teams_links")
+    .values({
+      job_id: c.jobId,
+      team_id: TEAM_ID,
+      channel_id: `19:${randomUUID().replaceAll("-", "")}@thread.tacv2`,
+      channel_name: "General",
+      teams_url: "https://teams.microsoft.com/l/channel/x/y",
+      status: "ready",
+    })
+    .onConflict((oc) => oc.column("job_id").doNothing())
+    .execute();
+  await c.w.t.db
+    .insertInto("teams_inbound_items")
+    .values({
+      job_id: c.jobId,
+      drive_item_id: itemId,
+      remote_path: `loose/${itemId}.pdf`,
+      name: `${itemId}.pdf`,
+      status: "unfiled",
+    })
+    .execute();
+  return itemId;
 };
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -227,17 +265,95 @@ const CASES: readonly Case[] = [
     global: true,
   }),
   row("audit trail", "listAuditEvents", ADMINS, 200, get("/v1/audit-events"), { global: true }),
+  // Teams panel, link and settings (ADR-0015; §5.10 hides the panel from externals, §9.3 keeps settings to admins)
+  row("teams panel", "getJobTeamsLink", STAFF, 200, get("/v1/jobs/{job}/teams-link"), { denied: 404 }),
+  row(
+    "link teams channel",
+    "linkJobTeamsChannel",
+    ADMINS,
+    202,
+    send("PUT", "/v1/jobs/{job}/teams-link", { channelLink: "{teamlink}" }),
+    { deniedFor: HIDDEN_FROM_EXTERNALS },
+  ),
+  row("unlink teams channel", "unlinkJobTeamsChannel", ADMINS, 204, send("DELETE", "/v1/jobs/{job}/teams-link"), {
+    deniedFor: HIDDEN_FROM_EXTERNALS,
+  }),
+  row("teams unfiled list", "listTeamsUnfiled", STAFF, 200, get("/v1/jobs/{job}/teams-unfiled"), { denied: 404 }),
+  row(
+    "file unfiled item",
+    "fileTeamsUnfiled",
+    STAFF,
+    202,
+    send("POST", "/v1/jobs/{job}/teams-unfiled/{unfiled}/file", { checkpointKey: "i2_0", slot: "survey" }),
+    { deniedFor: HIDDEN_FROM_EXTERNALS },
+  ),
+  row(
+    "dismiss unfiled item",
+    "dismissTeamsUnfiled",
+    STAFF,
+    204,
+    send("POST", "/v1/jobs/{job}/teams-unfiled/{unfiled}/dismiss"),
+    {
+      deniedFor: HIDDEN_FROM_EXTERNALS,
+    },
+  ),
+  row("create teams channel", "createJobTeamsChannel", ADMINS, 202, send("POST", "/v1/jobs/{job}/teams-link/create"), {
+    deniedFor: HIDDEN_FROM_EXTERNALS,
+  }),
+  row("teams channel list", "listTeamsChannels", STAFF, 200, get("/v1/teams/channels"), { global: true }),
+  row("teams settings", "getTeamsSettings", ADMINS, 200, get("/v1/admin/teams-settings"), { global: true }),
+  row(
+    "teams settings",
+    "updateTeamsSettings",
+    ["admin"],
+    200,
+    send(
+      "PUT",
+      "/v1/admin/teams-settings",
+      {
+        teamId: TEAM_ID,
+        teamSiteUrl: "https://contoso.sharepoint.com/sites/TeamSurvey",
+        feeChannelLink: null,
+        feeSiteUrl: null,
+        rootFolder: "102. Subdivision Tracker",
+        feeProposalPolicy: "exclude",
+        syncEnabled: true,
+        inboundSyncEnabled: true,
+        createChannelsEnabled: true,
+        inboundPollSeconds: 300,
+      },
+      { "if-match": '"2"' },
+    ),
+    { global: true },
+  ),
+  row("teams settings", "checkTeamsConnection", ["admin"], 202, send("POST", "/v1/admin/teams-settings/checks"), {
+    global: true,
+  }),
 ];
 
 function expected(c: Case, role: RoleName): number {
   if (role === "disabled") return 401;
   if (c.allow.includes(role)) return c.ok;
-  return role === "outsider" && !c.global ? 404 : c.denied;
+  if (role === "outsider" && !c.global) return 404;
+  return c.deniedFor[role] ?? c.denied;
 }
 
 let w: World;
 beforeAll(async () => {
-  w = await createWorld();
+  w = await createWorld({ FEATURE_TEAMS_FILE_SYNC: "true" });
+  // Admin → Teams as a KR admin would have saved it: a team, its site and copying on (version 2, as the PUT row expects).
+  await w.t.db
+    .updateTable("teams_settings")
+    .set({
+      team_id: TEAM_ID,
+      team_site_url: "https://contoso.sharepoint.com/sites/TeamSurvey",
+      sync_enabled: true,
+      inbound_sync_enabled: true,
+      create_channels_enabled: true,
+      version: 2,
+    })
+    .where("singleton", "=", true)
+    .execute();
 });
 afterAll(async () => {
   await w.t.close();

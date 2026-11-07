@@ -15,7 +15,7 @@ import { storable, storableDates, summarise } from "../domain/extraction.js";
 import { TaskError } from "../errors.js";
 import { readObject } from "../objects.js";
 import type { Parser } from "../parsing/isolate.js";
-import type { Handler } from "./types.js";
+import { jobIdOf, type Handler } from "./types.js";
 
 const Payload = z.object({ fileId: z.uuid(), replaceExisting: z.boolean().default(false) });
 const DECISION_SLOT = slotsOf(getCheckpoint(CONDITIONAL_APPROVAL_CHECKPOINT_KEY))[0]?.key;
@@ -53,7 +53,7 @@ export function conditionsExtractHandler({ db, storage, parser, clock, config }:
       const found = storable(parsed.conditions);
       await db.transaction().execute((trx) =>
         applyExtraction(trx, {
-          jobId: ctx.operation.job_id,
+          jobId: jobIdOf(ctx.operation),
           fileId,
           operationId: ctx.operation.id,
           replaceExisting,

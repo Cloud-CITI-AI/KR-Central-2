@@ -63,6 +63,12 @@ Objective: SLO-4. Runbook: [operation-failures](../runbooks/operation-failures.m
 - Fires when more than 20 % of operations of one type fail over 30 min with at least 5 operations, or when
   `kr.ai.stamp_reading{result}` is `error`, `timeout` or `unparseable` for more than 50 % of readings over 1 h
   (stamp reading falls back to the text rule, so this is a ticket, not a page).
+- Teams integration (ADR-0015, WP-25): `kr.teams.pushes{result}` counts files copied to Teams (`pushed`, `adopted`
+  after a crash, `excluded` by policy, `failed`), and `kr.teams.graph_requests{status_class}` counts the worker's
+  Microsoft Graph calls (`2xx`, `4xx`, `429`, `5xx`, `network`). A ticket when `failed` exceeds 10 % of pushes over 1 h
+  or `429` exceeds 20 % of Graph requests over 15 min, and a ticket when
+  `kr.operations.processed{type="teams.poll",status="failed"}` exceeds 20 % over 1 h; all handled through
+  the Teams sync runbook (`docs/runbooks/teams-sync-failures.md`) (not an alert of its own: the fixed runbook list stands).
 
 ## malware-detected
 

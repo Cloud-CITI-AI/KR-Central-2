@@ -51,6 +51,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: ModuleDeps, oi
         aiStampReading: deps.flags.isEnabled("ai-stamp-reading"),
         guestInvites: deps.flags.isEnabled("entra-guest-invites"),
         malwareScanning: deps.config.MALWARE_SCAN_MODE === "required",
+        teamsFileSync: deps.flags.isEnabled("teams-file-sync"),
       },
       uploadMaxBytes: deps.config.UPLOAD_MAX_BYTES,
       // The earliest the session can end if nothing happens: the sliding idle limit or the absolute one.

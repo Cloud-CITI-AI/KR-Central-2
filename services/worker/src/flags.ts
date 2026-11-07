@@ -6,9 +6,9 @@
 import { OpenFeature, TypedInMemoryProvider } from "@openfeature/server-sdk";
 import type { WorkerConfig } from "./config.js";
 
-export type FeatureFlag = "ai-stamp-reading";
+export type FeatureFlag = "ai-stamp-reading" | "teams-file-sync";
 
-export const FLAG_KEYS: readonly FeatureFlag[] = ["ai-stamp-reading"];
+export const FLAG_KEYS: readonly FeatureFlag[] = ["ai-stamp-reading", "teams-file-sync"];
 
 export interface FeatureFlags {
   isEnabled(flag: FeatureFlag): boolean;
@@ -18,15 +18,16 @@ const DOMAIN = "kr-worker";
 
 /** Resolve every flag through OpenFeature once and expose the result synchronously. */
 export async function createFeatureFlags(
-  config: Pick<WorkerConfig, "FEATURE_AI_STAMP_READING">,
+  config: Pick<WorkerConfig, "FEATURE_AI_STAMP_READING" | "FEATURE_TEAMS_FILE_SYNC">,
 ): Promise<FeatureFlags> {
-  const on = config.FEATURE_AI_STAMP_READING;
+  const entry = (on: boolean) => ({
+    variants: { on: true, off: false },
+    defaultVariant: on ? ("on" as const) : ("off" as const),
+    disabled: false,
+  });
   const provider = new TypedInMemoryProvider({
-    "ai-stamp-reading": {
-      variants: { on: true, off: false },
-      defaultVariant: on ? ("on" as const) : ("off" as const),
-      disabled: false,
-    },
+    "ai-stamp-reading": entry(config.FEATURE_AI_STAMP_READING),
+    "teams-file-sync": entry(config.FEATURE_TEAMS_FILE_SYNC),
   });
   await OpenFeature.setProviderAndWait(DOMAIN, provider);
   const client = OpenFeature.getClient(DOMAIN);

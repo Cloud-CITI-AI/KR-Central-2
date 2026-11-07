@@ -303,9 +303,10 @@ So that KR can test against a test team and then point the app at the live team 
 ### A6. Consequences of the amendment
 
 - Three work packages instead of one; WP-26 and WP-27 reuse WP-25's link, folder and push tables.
-- New tables `teams_settings` (0005) and `teams_inbound_items` (0006); new columns on `files` (`source`,
-  `teams_removed_at`, `deleted_reason`) in 0006; operation types `teams.check` (0005), `teams.poll`,
-  `teams.create_channel`, `teams.list_channels` (0006); table `teams_channels` (0006). All expand-only.
+- New tables `teams_settings` (0005) and `teams_inbound_items` (0007); `job_teams_links.team_site_url` (0006, the
+  team site at link time); new columns on `files` (`source`, `teams_removed_at`, `deleted_reason`) in 0007;
+  operation types `teams.check` (0005), `teams.poll`, `teams.create_channel`, `teams.list_channels` (0007); table
+  `teams_channels` (0007). All expand-only.
 - The settings page and `teams.check` add an admin-facing diagnostic the plan did not have; KR IT's checklist
   (E13–E17) is unchanged except that the team id and site URLs are entered on the page, not in Railway.
 - Risk accepted by Craig: inbound sync and channel creation ship before phase 1 has run in production for long.

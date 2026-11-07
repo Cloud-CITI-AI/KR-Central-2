@@ -21,6 +21,8 @@ const file = (overrides: Partial<FileMeta> = {}): FileMeta => ({
   uploadedBy: null,
   canDelete: true,
   email: null,
+  teamsState: null,
+  source: "upload",
   ...overrides,
 });
 const row = (props: Partial<React.ComponentProps<typeof DocRow>> = {}) => {
@@ -101,5 +103,16 @@ describe("DocRow: scan states (PRODUCT_SPEC §5.5)", () => {
     row({ file: file({ scanStatus: "skipped" }) });
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.getByRole("button", { name: "Decision Letter.pdf" })).toBeEnabled();
+  });
+
+  it("shows the Teams badge for a copied, waiting, failed or removed file and nothing for an excluded one", () => {
+    const { rerender } = render(<DocRow file={file({ teamsState: "pushed" })} onOpen={vi.fn()} onRemove={vi.fn()} />);
+    expect(screen.getByText("In Teams")).toBeInTheDocument();
+    rerender(<DocRow file={file({ teamsState: "failed" })} onOpen={vi.fn()} onRemove={vi.fn()} />);
+    expect(screen.getByText("Not copied")).toBeInTheDocument();
+    rerender(<DocRow file={file({ teamsState: "removed" })} onOpen={vi.fn()} onRemove={vi.fn()} />);
+    expect(screen.getByText("Removed in Teams")).toBeInTheDocument();
+    rerender(<DocRow file={file({ teamsState: "excluded" })} onOpen={vi.fn()} onRemove={vi.fn()} />);
+    expect(screen.queryByText(/Teams/)).toBeNull();
   });
 });

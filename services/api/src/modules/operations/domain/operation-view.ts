@@ -3,7 +3,18 @@
  * the API never relays text it has not vetted: known codes get a fixed message owned here, and an unknown code's message
  * is shown only when it looks like plain prose (no stack frames, paths, SQL or addresses), else a generic one (PRODUCT_SPEC §10).
  */
-import { ConditionsExtractResult, ConformanceReadResult, FileScanResult, type Operation } from "@kr/contracts";
+import {
+  ConditionsExtractResult,
+  ConformanceReadResult,
+  FileScanResult,
+  TeamsChannelCreateResult,
+  TeamsCheckResult,
+  TeamsListChannelsResult,
+  TeamsPollResult,
+  TeamsProvisionResult,
+  TeamsPushResult,
+  type Operation,
+} from "@kr/contracts";
 import type { OperationRow } from "@kr/db";
 
 export const GENERIC_FAILURE = "The task could not be completed. Try again, or contact KR Surveys if it keeps failing.";
@@ -19,6 +30,13 @@ const KNOWN_FAILURES: Readonly<Record<string, string>> = {
   invalid_eml: "That file is not a readable email.",
   timeout: "Reading the document took too long. Try again.",
   lease_expired: "The task did not finish in time. Try again.",
+  // Teams (ADR-0015): the panel maps these codes to its own wording; this is the fallback text
+  channel_folder_missing: "The channel's folder was not found in Teams.",
+  permission_denied: "The app is not allowed to write to this team's site.",
+  graph_unavailable: "Teams did not answer.",
+  teams_not_configured: "Teams settings are incomplete. Check Admin → Teams.",
+  channel_name_taken: "A channel with this name already exists.",
+  item_not_unfiled: "That file is no longer waiting to be filed.",
 };
 
 const CODE_FORMAT = /^[a-z0-9_.-]{1,80}$/;
@@ -54,7 +72,19 @@ function resultOf(row: Pick<OperationRow, "type" | "result">, onUnreadable?: () 
       ? ConditionsExtractResult.safeParse(row.result)
       : row.type === "conformance.read"
         ? ConformanceReadResult.safeParse(row.result)
-        : FileScanResult.safeParse(withFollowUpDefault(row.result));
+        : row.type === "teams.check"
+          ? TeamsCheckResult.safeParse(row.result)
+          : row.type === "teams.provision"
+            ? TeamsProvisionResult.safeParse(row.result)
+            : row.type === "teams.push"
+              ? TeamsPushResult.safeParse(row.result)
+              : row.type === "teams.poll"
+                ? TeamsPollResult.safeParse(row.result)
+                : row.type === "teams.create_channel"
+                  ? TeamsChannelCreateResult.safeParse(row.result)
+                  : row.type === "teams.list_channels"
+                    ? TeamsListChannelsResult.safeParse(row.result)
+                    : FileScanResult.safeParse(withFollowUpDefault(row.result));
   if (parsed.success) return parsed.data;
   onUnreadable?.();
   return null;

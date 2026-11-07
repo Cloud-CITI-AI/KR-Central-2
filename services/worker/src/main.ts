@@ -34,6 +34,9 @@ const { createClamdClient } = await import("./clients/clamd.js");
 const { createParser } = await import("./parsing/isolate.js");
 const { createAnthropicStampReader } = await import("./clients/anthropic-stamp-reader.js");
 const { createFeatureFlags } = await import("./flags.js");
+const { createGraphTokenSource } = await import("./clients/graph-token.js");
+const { createGraphDriveClient } = await import("./clients/graph-drive.js");
+const { createGraphTeamsClient } = await import("./clients/graph-teams.js");
 
 const log = createLogger({ service: "kr-worker", env: config.APP_ENV, level: config.LOG_LEVEL });
 const exit = (code: number): never => process.exit(code);
@@ -92,6 +95,26 @@ const stampReader =
       })
     : undefined;
 
+// The Graph client exists only when the Teams flag is on and the registration is configured (ADR-0015 decision 2);
+// the config schema already refuses the flag without the three variables.
+const graph =
+  flags.isEnabled("teams-file-sync") && config.TEAMS_TENANT_ID && config.TEAMS_CLIENT_ID && config.TEAMS_CLIENT_SECRET
+    ? createGraphDriveClient({
+        baseUrl: config.TEAMS_GRAPH_BASE_URL,
+        tokens: createGraphTokenSource({
+          authorityHost: config.TEAMS_AUTHORITY_HOST,
+          tenantId: config.TEAMS_TENANT_ID,
+          clientId: config.TEAMS_CLIENT_ID,
+          clientSecret: config.TEAMS_CLIENT_SECRET,
+          clock: systemClock,
+        }),
+        timeoutMs: config.TEAMS_GRAPH_TIMEOUT_MS,
+        releaseVersion: config.RELEASE_VERSION,
+        metrics,
+        breaker: { onStateChange: circuitLogger("graph") },
+      })
+    : undefined;
+
 try {
   const worker = await app.startWorker({
     config,
@@ -101,6 +124,7 @@ try {
     metrics,
     clock: systemClock,
     workerId: `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`,
+    teamsEnabled: graph !== undefined,
     handlers: buildHandlers({
       db,
       storage,
@@ -111,6 +135,8 @@ try {
       stampReader,
       config,
       metrics,
+      graph,
+      teams: graph ? createGraphTeamsClient(graph.request.bind(graph), graph.sleep) : undefined,
     }),
   });
   if (config.MALWARE_SCAN_MODE === "required" && !(await clamd.ping())) {

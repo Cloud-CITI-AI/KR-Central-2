@@ -193,6 +193,8 @@ describe("ViewerBody", () => {
         kind: "email",
         contentType: "application/vnd.ms-outlook",
         email: email({ cc: "records@example.test" }),
+        teamsState: null,
+        source: "upload",
       });
       const { container } = renderViewer(<ViewerBody file={file} />);
       expect([...container.querySelectorAll("dt")].map((dt) => dt.textContent)).toEqual([
@@ -212,6 +214,8 @@ describe("ViewerBody", () => {
         kind: "text",
         contentType: "text/plain",
         email: email({ isPasted: true, from: "Pasted text", to: null, bodyText: "Please confirm the setback." }),
+        teamsState: null,
+        source: "upload",
       });
       const { container } = renderViewer(<ViewerBody file={file} />);
       expect(container.querySelector("pre")).toHaveTextContent("Please confirm the setback.");
@@ -231,6 +235,8 @@ describe("ViewerBody", () => {
         kind: "email",
         contentType: "message/rfc822",
         email: email({ parseStatus: "failed", subject: null, from: null, to: null, sentAt: null, bodyText: null }),
+        teamsState: null,
+        source: "upload",
       });
       const { container } = renderViewer(<ViewerBody file={file} />);
       expect(await screen.findByText(/raw body/)).toBeInTheDocument();
@@ -242,6 +248,8 @@ describe("ViewerBody", () => {
         kind: "email",
         contentType: "application/vnd.ms-outlook",
         email: email({ parseStatus: "pending", bodyText: null }),
+        teamsState: null,
+        source: "upload",
       });
       renderViewer(<ViewerBody file={file} />);
       expect(screen.getByText(/can't be previewed in the browser/)).toBeInTheDocument();

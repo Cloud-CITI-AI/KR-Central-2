@@ -63,6 +63,9 @@ function state(key: string, o: Partial<CheckpointStateRow> = {}): CheckpointStat
 function file(id: string, o: Partial<FileRow>): FileRow {
   return {
     id,
+    source: "upload",
+    teams_removed_at: null,
+    deleted_reason: null,
     job_id: JOB_ID,
     checkpoint_key: "i2_0",
     slot: "survey",
@@ -111,6 +114,7 @@ const condition: ConditionRow = {
 function parts(o: Partial<JobParts> = {}): JobParts {
   return {
     job,
+    pushes: [],
     states: CHECKPOINTS.map((c) =>
       state(c.key, {
         responsibility: c.defaultResponsibility,

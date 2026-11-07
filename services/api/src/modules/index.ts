@@ -10,6 +10,8 @@ import { operationsModule } from "./operations/index.js";
 import { notesModule } from "./notes/index.js";
 import { accessModule } from "./access/index.js";
 import { auditModule } from "./audit/index.js";
+import { teamsSettingsModule } from "./teams-settings/index.js";
+import { teamsModule } from "./teams/index.js";
 
 export const MODULES: readonly ApiModule[] = [
   authModule,
@@ -22,4 +24,6 @@ export const MODULES: readonly ApiModule[] = [
   notesModule,
   accessModule,
   auditModule,
+  teamsSettingsModule,
+  teamsModule,
 ];

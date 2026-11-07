@@ -33,4 +33,23 @@ describe("permissions", () => {
     expect(jobCapabilitiesFor("staff", null)).not.toContain("job.delete");
     expect(jobCapabilitiesFor("kr_admin", null)).toContain("job.delete");
   });
+
+  it("lets only admin and kr_admin link a job's Teams channel, and staff only see the panel (§2.1, ADR-0015)", () => {
+    expect(jobCapabilitiesFor("admin", null)).toContain("teams.link");
+    expect(jobCapabilitiesFor("kr_admin", null)).toContain("teams.link");
+    expect(jobCapabilitiesFor("staff", null)).not.toContain("teams.link");
+    expect(jobCapabilitiesFor("staff", null)).toContain("teams.view");
+    for (const grant of ["client", "architect"] as const) {
+      expect(jobCapabilitiesFor("external", grant)).not.toContain("teams.view");
+      expect(jobCapabilitiesFor("external", grant)).not.toContain("teams.link");
+    }
+  });
+
+  it("keeps Teams settings to admins, readable by kr_admin (§9.3)", () => {
+    expect(globalCapabilitiesFor("admin")).toContain("teams.settings.manage");
+    expect(globalCapabilitiesFor("kr_admin")).toContain("teams.settings.read");
+    expect(globalCapabilitiesFor("kr_admin")).not.toContain("teams.settings.manage");
+    expect(globalCapabilitiesFor("staff")).not.toContain("teams.settings.read");
+    expect(globalCapabilitiesFor("external")).not.toContain("teams.settings.read");
+  });
 });

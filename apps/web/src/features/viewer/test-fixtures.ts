@@ -19,6 +19,8 @@ export function syntheticFile(overrides: Partial<FileMeta> = {}): FileMeta {
     uploadedBy: null,
     canDelete: false,
     email: null,
+    teamsState: null,
+    source: "upload",
     ...overrides,
   });
 }

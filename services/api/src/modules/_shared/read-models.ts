@@ -21,6 +21,7 @@ import type {
   EmailMessageRow,
   FileRow,
   JobNoteRow,
+  TeamsPushStatusValue,
   UserRow,
 } from "@kr/db";
 import type { z } from "zod";
@@ -57,6 +58,8 @@ export interface FileMetaContext {
   readonly uploader: Named | null;
   readonly canDelete: boolean;
   readonly email: EmailMessageRow | null;
+  /** From the job's teams_file_pushes row, for viewers with `teams.view`; absent elsewhere. */
+  readonly teamsState?: FileMeta["teamsState"];
 }
 
 export function toFileMeta(file: FileRow, ctx: FileMetaContext): FileMeta {
@@ -76,7 +79,20 @@ export function toFileMeta(file: FileRow, ctx: FileMetaContext): FileMeta {
     uploadedBy: toUserRef(ctx.uploader),
     canDelete: ctx.canDelete,
     email: ctx.email ? toEmailMeta(ctx.email, file.scan_status) : null,
+    source: file.source,
+    teamsState: file.teams_removed_at ? "removed" : (ctx.teamsState ?? null),
   };
+}
+
+/** The badge state of a push row (uploading reads as pending for the person; a copy whose eTag moved reads as changed). */
+export function teamsStateOf(
+  push: { status: TeamsPushStatusValue; error_code: string | null } | undefined,
+): FileMeta["teamsState"] {
+  if (push === undefined) return null;
+  if (push.status === "uploading") return "pending";
+  if (push.status === "deleting" || push.status === "deleted") return null;
+  if (push.status === "pushed" && push.error_code === "etag_changed") return "changed";
+  return push.status;
 }
 
 export function toCondition(row: ConditionRow, evidence: readonly FileMeta[]): Condition {

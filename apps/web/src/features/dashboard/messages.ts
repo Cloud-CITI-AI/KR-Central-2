@@ -39,6 +39,8 @@ export const NEW_JOB_MESSAGES = {
   jobNumber: "Enter the job number.",
   address: "Enter the address.",
   subdivisionType: "Choose the subdivision type.",
+  createChannel: "Create Teams channel",
+  channelNameExists: "A channel with this name already exists — choose a different job name",
 } as const;
 
 export function duplicateJobText(jobNumber: string): string {
