@@ -82,5 +82,6 @@ Org policy (managed settings, rulesets) > this file > package `AGENTS.md` (may o
 - Integration tests need Docker (Testcontainers `postgres:17-alpine`); without Docker set `TEST_DATABASE_ADMIN_URL` to a local Postgres 17 superuser URL.
 - Business dates are Australia/Perth (UTC+8, no DST); inject a clock, never call `Date.now()` in domain code.
 - Next.js 16 changed conventions (e.g. `proxy.ts` replaces middleware): read `node_modules/next/dist/docs/` before writing web code.
+- A1 size limit waived (Craig, 6 Nov 2026): with one developer merging, PRs may be any size. One task per PR and the rest of A1–A12 still apply.
 
 <!-- REPO-SPECIFIC:END -->
