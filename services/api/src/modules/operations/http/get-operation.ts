@@ -1,7 +1,7 @@
 /** getOperation (ADR-0006): the status the web app polls while a document is being read. */
 import type { FastifyInstance } from "fastify";
-import { resolveJobAccess } from "../../../platform/authz.js";
-import { NotFoundError } from "../../../platform/errors.js";
+import { requireCapability, resolveJobAccess } from "../../../platform/authz.js";
+import { ForbiddenError, NotFoundError } from "../../../platform/errors.js";
 import type { ModuleDeps } from "../../../platform/module.js";
 import { defineRoute } from "../../../platform/routes.js";
 import { findOperation } from "../data/operations.js";
@@ -18,7 +18,12 @@ export function registerGetOperationRoute(app: FastifyInstance, deps: ModuleDeps
     // A global operation (no job: the Teams settings check) is visible to whoever may read the Teams settings; anyone
     // else gets the same 404 as for an unknown id, as the contract declares.
     if (op.job_id === null) {
-      if (!auth.globalCapabilities.includes("teams.settings.read")) throw new NotFoundError();
+      try {
+        requireCapability(auth, "teams.settings.read");
+      } catch (error) {
+        if (error instanceof ForbiddenError) throw new NotFoundError();
+        throw error;
+      }
     } else await resolveJobAccess(deps.db, auth, op.job_id, "job.read");
     if (op.status === "queued" || op.status === "running") void reply.header("retry-after", RETRY_AFTER_SECONDS);
     return toOperation(op, () => {
