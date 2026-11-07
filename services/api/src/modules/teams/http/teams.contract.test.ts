@@ -145,7 +145,7 @@ describe("teams modules contract (flag on)", () => {
     const op = await get(krAdmin, `/v1/operations/${operationId}`);
     conforms("getOperation", 200, op);
     expect(op.json()).toMatchObject({ jobId: null, type: "teams.check", status: "queued" });
-    conforms("getOperation", 403, await get(staff, `/v1/operations/${operationId}`));
+    conforms("getOperation", 404, await get(staff, `/v1/operations/${operationId}`));
     expect((await get(admin, SETTINGS)).json<{ lastCheck: { operationId: string } }>().lastCheck.operationId).toBe(
       operationId,
     );

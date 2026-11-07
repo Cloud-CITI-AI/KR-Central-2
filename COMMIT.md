@@ -1,10 +1,11 @@
-# CI fix 1 — api route-completeness world, worker Teams integration tests and fake, web bundle budgets
+# CI fix 1 — api route-completeness world and getOperation 404, worker Teams integration tests and fake, web bundle budgets
 
-9 files. Commit message:
+11 files. Commit message:
 
 fix(worker): treat an open Graph circuit as unavailable; fix Teams integration tests and the Graph fake
 
 route-completeness runs its world with the Teams flag on (its routes answer 404 by design when off).
+getOperation answers 404, as its contract declares, for a global operation the caller may not read.
 The fake reports parentReference.path on every item (the poll handler resolves folders by it) and seeds
 folders by intent rather than by name (template folders carry dots). An open circuit now counts as
 "Teams unavailable" (retry later) in push, provision and poll instead of a per-file refusal. Push
