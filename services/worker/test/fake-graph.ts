@@ -216,12 +216,14 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
     driveId: string,
     parentId: string,
     name: string,
-    content = Buffer.alloc(0),
+    content?: Buffer,
     createdByAppId = "person",
   ): FakeItem {
     const items = drives.get(driveId);
     if (!items?.has(parentId)) throw new Error("unknown drive or parent");
-    const isFolder = content.byteLength === 0 && !name.includes(".");
+    // a seed without content is a folder (channel and template folders carry dots in their names)
+    const isFolder = content === undefined;
+    content ??= Buffer.alloc(0);
     const item: FakeItem = {
       id: newId(isFolder ? "01F" : "01X"),
       name,
@@ -347,8 +349,9 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
     // GET /drives/{id}/root
     if (req.method === "GET" && (m = /^\/drives\/([^/]+)\/root$/.exec(path))) {
       const site = siteOfDrive(m[1] ?? "");
-      const root = site ? drives.get(site.driveId)?.get(site.rootId) : undefined;
-      return root ? json(res, 200, render(root)) : problem(res, 404, "itemNotFound");
+      const items = site ? drives.get(site.driveId) : undefined;
+      const root = site ? items?.get(site.rootId) : undefined;
+      return root && items ? json(res, 200, render(root, items)) : problem(res, 404, "itemNotFound");
     }
     // GET /drives/{id}/items/{item}/delta[?token=n]
     if (req.method === "GET" && (m = /^\/drives\/([^/]+)\/items\/([^/]+)\/delta$/.exec(path))) {
@@ -407,8 +410,9 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
     }
     // GET /drives/{id}/root:/{path}
     if (req.method === "GET" && (m = /^\/drives\/([^/]+)\/root:\/(.*)$/.exec(path))) {
+      const items = drives.get(m[1] ?? "");
       const item = itemAt(m[1] ?? "", m[2] ?? "");
-      return item ? json(res, 200, render(item)) : problem(res, 404, "itemNotFound");
+      return item && items ? json(res, 200, render(item, items)) : problem(res, 404, "itemNotFound");
     }
     // GET /drives/{id}/items/{item}/children
     if (req.method === "GET" && (m = /^\/drives\/([^/]+)\/items\/([^/]+)\/children$/.exec(path))) {
@@ -418,8 +422,9 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
     }
     // GET /drives/{id}/items/{item}
     if (req.method === "GET" && (m = /^\/drives\/([^/]+)\/items\/([^/]+)$/.exec(path))) {
-      const item = drives.get(m[1] ?? "")?.get(m[2] ?? "");
-      return item ? json(res, 200, render(item)) : problem(res, 404, "itemNotFound");
+      const items = drives.get(m[1] ?? "");
+      const item = items?.get(m[2] ?? "");
+      return item && items ? json(res, 200, render(item, items)) : problem(res, 404, "itemNotFound");
     }
     // POST /drives/{id}/items/{item}/children (create folder)
     if (req.method === "POST" && (m = /^\/drives\/([^/]+)\/items\/([^/]+)\/children$/.exec(path))) {
@@ -443,7 +448,7 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
       };
       items.set(item.id, item);
       record(driveId, item.id);
-      return json(res, 201, render(item));
+      return json(res, 201, render(item, items));
     }
     // DELETE /drives/{id}/items/{item}
     if (req.method === "DELETE" && (m = /^\/drives\/([^/]+)\/items\/([^/]+)$/.exec(path))) {
@@ -484,7 +489,7 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
         req.socket.destroy();
         return true;
       }
-      return json(res, 201, render(item));
+      return json(res, 201, render(item, items));
     }
     // POST /drives/{id}/items/{parent}:/{name}:/createUploadSession
     if (req.method === "POST" && (m = /^\/drives\/([^/]+)\/items\/([^/]+):\/(.+):\/createUploadSession$/.exec(path))) {

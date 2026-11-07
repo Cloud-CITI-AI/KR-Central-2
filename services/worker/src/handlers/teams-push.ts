@@ -21,6 +21,7 @@ import {
   type GraphDriveClient,
 } from "../clients/graph-drive.js";
 import { GraphTokenError } from "../clients/graph-token.js";
+import { CircuitOpenError } from "../clients/circuit-breaker.js";
 import {
   FEE_FOLDER_KEY,
   auditSystem,
@@ -76,6 +77,7 @@ async function readRange(storage: ObjectStorage, key: string, start: number, end
 
 /** The short code stored on a failed row. */
 export function pushErrorCode(error: unknown): string {
+  if (error instanceof CircuitOpenError) return "graph_unavailable";
   if (error instanceof GraphError)
     return error.kind === "graph_error" ? `graph_${error.status ?? "error"}` : error.kind;
   if (error instanceof GraphTokenError) return "permission_denied";
@@ -85,6 +87,7 @@ export function pushErrorCode(error: unknown): string {
 
 function unavailable(error: unknown): boolean {
   return (
+    error instanceof CircuitOpenError ||
     (error instanceof GraphError && error.unavailable) ||
     (error instanceof GraphTokenError && (error.status === null || error.status >= 500))
   );

@@ -13,6 +13,7 @@ import { z } from "zod";
 import type { Clock } from "../clock.js";
 import type { WorkerConfig } from "../config.js";
 import { GraphError, type DeltaItem, type GraphDriveClient } from "../clients/graph-drive.js";
+import { CircuitOpenError } from "../clients/circuit-breaker.js";
 import { auditSystem, findLink, isJobArchived, listConditions } from "../data/teams.js";
 import {
   fileTargetOf,
@@ -252,7 +253,7 @@ export function teamsPollHandler(deps: TeamsPollDeps): Handler {
           }
         } catch (error) {
           if (signal.aborted) throw error;
-          if (error instanceof GraphError && error.unavailable) {
+          if (error instanceof CircuitOpenError || (error instanceof GraphError && error.unavailable)) {
             throw new TaskError("graph_unavailable", "Teams did not answer. It will be tried again.", {
               retryable: true,
               cause: error,

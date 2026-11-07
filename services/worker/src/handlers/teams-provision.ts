@@ -11,6 +11,7 @@ import type { Clock } from "../clock.js";
 import type { WorkerConfig } from "../config.js";
 import { GraphError, type DriveItem, type GraphDriveClient } from "../clients/graph-drive.js";
 import { GraphTokenError } from "../clients/graph-token.js";
+import { CircuitOpenError } from "../clients/circuit-breaker.js";
 import {
   auditSystem,
   ensurePushRow,
@@ -41,6 +42,7 @@ const skipped = (): TeamsProvisionResult => ({ status: "skipped", foldersCreated
 
 /** The error code a link shows for a Graph failure (PRODUCT_SPEC §5.10 error texts). */
 export function linkErrorCode(error: unknown): string {
+  if (error instanceof CircuitOpenError) return "graph_unavailable";
   if (error instanceof GraphError) {
     if (error.kind === "not_found") return "channel_folder_missing";
     if (error.kind === "permission_denied") return "permission_denied";

@@ -5,6 +5,7 @@
  * resyncs without duplicates, and the switches make it a no-op. Needs the test database (migrations 0005–0007).
  */
 import { createMemoryStorage } from "@kr/storage/testing";
+import { CHECKPOINTS } from "@kr/workflow";
 import type { Db } from "@kr/db";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { enqueue, insertJob, openDb } from "../../test/db.js";
@@ -47,6 +48,12 @@ interface Result {
 }
 
 async function provisioned(jobId: string) {
+  // a real job carries all 46 checkpoint rows from creation; the worker's test helper inserts the bare job
+  await db
+    .insertInto("checkpoint_states")
+    .values(CHECKPOINTS.map((c) => ({ job_id: jobId, checkpoint_key: c.key })))
+    .onConflict((oc) => oc.doNothing())
+    .execute();
   const { site, channelName } = await linkJob(db, g.fake, jobId);
   const op = await enqueue(db, jobId, "teams.provision");
   await teamsProvisionHandler({

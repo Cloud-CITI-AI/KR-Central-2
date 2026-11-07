@@ -129,6 +129,7 @@ describe("teams.list_channels and the cache refresh", () => {
     g.fake.addTeam(TEAM, site);
     g.fake.addChannel(TEAM, "General");
     g.fake.addChannel(TEAM, "Fee Proposals", "private");
+    await db.updateTable("job_teams_links").set({ last_poll_at: g.clock.now() }).execute(); // no job poll is due
     expect(await scheduleDuePolls(db, g.clock)).toBe(1);
     const op = await db
       .selectFrom("operations")

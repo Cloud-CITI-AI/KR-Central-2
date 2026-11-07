@@ -29,7 +29,8 @@ function registeredRoutes(world: World): string[] {
 
 let w: World;
 beforeAll(async () => {
-  w = await createWorld();
+  // The Teams flag on: its routes answer 404 by design when it is off, and this suite checks that every route exists.
+  w = await createWorld({ FEATURE_TEAMS_FILE_SYNC: "true" });
 });
 afterAll(async () => {
   await w.t.close();

@@ -143,7 +143,7 @@ describe("teams.push", () => {
     for (const f of [a, b, e]) await queued(jobId, f);
 
     const first = await push(jobId);
-    expect(first.result).toEqual({ pushed: 3, failed: 0, skipped: 0 });
+    expect(first.result).toEqual({ pushed: 3, failed: 0, skipped: 0, deleted: 0 });
     const rows = await pushRows(db, jobId);
     expect(rows.map((r) => [r.status, r.remote_path])).toEqual([
       ["pushed", "01 Preliminaries/2.0 Site Feature Survey/plan.pdf"],
@@ -163,7 +163,7 @@ describe("teams.push", () => {
 
     // a second run has nothing due and makes no second copy
     const uploads = g.fake.requests.filter((r) => r.method === "PUT").length;
-    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 0, skipped: 0 });
+    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 0, skipped: 0, deleted: 0 });
     expect(g.fake.requests.filter((r) => r.method === "PUT")).toHaveLength(uploads);
     const audit = await db
       .selectFrom("audit_events")
@@ -194,7 +194,7 @@ describe("teams.push", () => {
       .where("id", "=", removed.id)
       .execute();
     for (const f of [...bad, removed]) await queued(jobId, f);
-    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 0, skipped: 5 });
+    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 0, skipped: 5, deleted: 0 });
     expect(g.fake.requests.filter((r) => r.method === "PUT")).toHaveLength(0);
     const rows = await pushRows(db, jobId);
     expect(rows.every((r) => r.status === "excluded")).toBe(true);
@@ -223,7 +223,7 @@ describe("teams.push", () => {
     expect(g.fake.itemAt(drive, `${channel}/${ROOT}/01 Preliminaries/2.0 Site Feature Survey/crash.pdf`)).toBeDefined();
 
     const again = await push(jobId);
-    expect(again.result).toEqual({ pushed: 1, failed: 0, skipped: 0 });
+    expect(again.result).toEqual({ pushed: 1, failed: 0, skipped: 0, deleted: 0 });
     expect(results).toContain("adopted");
     const folder = g.fake.itemAt(drive, `${channel}/${ROOT}/01 Preliminaries/2.0 Site Feature Survey`);
     const copies = [...g.fake.items(drive).values()].filter(
@@ -290,7 +290,7 @@ describe("teams.push", () => {
     });
     await queued(jobId, one);
     await queued(jobId, two);
-    g.fake.failNext(8, { status: 429, retryAfter: "1" });
+    g.fake.failNext(4, { status: 429, retryAfter: "1" }); // one attempt and its three retries
     const throttled = await push(jobId);
     expect(throttled.error).toMatchObject({ code: "graph_unavailable", retryable: true });
     const rows = await pushRows(db, jobId);
@@ -302,7 +302,7 @@ describe("teams.push", () => {
     expect(rows.find((r) => r.file_id === two.id)?.status).toBe("pending");
 
     const ok = await push(jobId);
-    expect(ok.result).toEqual({ pushed: 2, failed: 0, skipped: 0 });
+    expect(ok.result).toEqual({ pushed: 2, failed: 0, skipped: 0, deleted: 0 });
 
     const gone = await insertFile(db, storage, jobId, {
       scanStatus: "clean",
@@ -312,7 +312,7 @@ describe("teams.push", () => {
       noObject: true,
     });
     await queued(jobId, gone);
-    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 1, skipped: 0 });
+    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 1, skipped: 0, deleted: 0 });
     expect((await pushRows(db, jobId)).find((r) => r.file_id === gone.id)).toMatchObject({
       status: "failed",
       error_code: "object_missing",
@@ -322,7 +322,7 @@ describe("teams.push", () => {
       .set({ attempts: PUSH_MAX_ATTEMPTS })
       .where("file_id", "=", gone.id)
       .execute();
-    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 0, skipped: 0 });
+    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 0, skipped: 0, deleted: 0 });
   });
 
   it("copies fee-proposal files only to the job's subfolder in the Fee Proposals channel under the restricted policy", async () => {
@@ -346,7 +346,7 @@ describe("teams.push", () => {
     });
     await queued(jobId, fee);
     await queued(jobId, plain);
-    expect((await push(jobId)).result).toEqual({ pushed: 2, failed: 0, skipped: 0 });
+    expect((await push(jobId)).result).toEqual({ pushed: 2, failed: 0, skipped: 0, deleted: 0 });
     const jobNumber = (
       await db.selectFrom("jobs").select("job_number").where("id", "=", jobId).executeTakeFirstOrThrow()
     ).job_number;
@@ -376,10 +376,10 @@ describe("teams.push", () => {
     const file = await insertFile(db, storage, jobId, { scanStatus: "clean", checkpointKey: "i2_0", slot: "survey" });
     await queued(jobId, file);
     await configureTeams(db, { syncEnabled: false });
-    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 0, skipped: 1 });
+    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 0, skipped: 1, deleted: 0 });
     await configureTeams(db);
     await db.updateTable("job_teams_links").set({ status: "error" }).where("job_id", "=", jobId).execute();
-    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 0, skipped: 1 });
+    expect((await push(jobId)).result).toEqual({ pushed: 0, failed: 0, skipped: 1, deleted: 0 });
     expect((await pushRows(db, jobId))[0]?.status).toBe("pending");
   });
 });
