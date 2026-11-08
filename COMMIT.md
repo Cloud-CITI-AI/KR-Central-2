@@ -13,7 +13,7 @@ expectations include the new `deleted` count; the throttling test injects one at
 the poll test seeds the job's checkpoint rows like a real job; the scheduler test isolates its due work.
 apps/web/.size-limit.mjs: the lazy-JS guard moves 307 → 330 KB for the three lazily loaded Teams screens
 (319.5 KB) and the all-routes first-load union 170 → 172 KB (170.1 KB; the largest route is 166.7 KB, within
-FE-9's 170 KB per route, which is unchanged). Performance-sensitive: aggregate budgets re-based, per-route not.
+FE-9's 170 KB per route, which is unchanged). Performance-sensitive: aggregate budgets re-based, per-route not. CM
 
 AI-Agent: claude.ai/claude-fable-5.1
 Refs: WP-25
