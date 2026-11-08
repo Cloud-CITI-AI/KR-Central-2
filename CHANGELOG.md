@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.1.0](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.14...v1.1.0) (2026-11-08)
+
+
+### Features
+
+* Teams/SharePoint integration — admin settings, one-way push, two-way sync and channel creation (WP-25/26/27) ([3f7ee85](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/3f7ee858d0d3790d81960d707b0487efb974db33))
+
+
+### Bug Fixes
+
+* **worker:** treat an open Graph circuit as unavailable; fix Teams integration tests and the Graph fake ([3f7ee85](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/3f7ee858d0d3790d81960d707b0487efb974db33))
+
 ## [1.0.14](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.13...v1.0.14) (2026-10-31)
 
 
