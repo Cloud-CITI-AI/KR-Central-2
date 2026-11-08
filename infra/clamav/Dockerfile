@@ -1,8 +1,9 @@
 # ClamAV for the tracker (ADR-0011): the official image with our clamd.conf. The worker streams every upload to clamd
 # over TCP 3310 (INSTREAM); the limits in clamd.conf are above UPLOAD_MAX_BYTES so every accepted upload can be scanned.
 # Base: clamav/clamav:stable pinned by digest (ClamAV 1.5.x on Alpine 3.24, signatures baked in at build time and then
-# kept fresh by freshclam; bump the digest deliberately). Build:  docker build -f infra/clamav/Dockerfile -t kr-clamav infra/clamav   (or with context . as the release does)
-FROM clamav/clamav:stable@sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d
+# kept fresh by freshclam; bump the digest deliberately: the release scan fails on fixed high CVEs in a stale base —
+# last bumped 8 Nov 2026 for release 1.1.1). Build:  docker build -f infra/clamav/Dockerfile -t kr-clamav infra/clamav   (or with context . as the release does)
+FROM clamav/clamav:stable@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a
 
 ARG RELEASE_VERSION=dev
 # The release workflow passes the repository URL (github.server_url/github.repository), so forks and renames label correctly.
