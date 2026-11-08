@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.1.1](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.1.0...v1.1.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* **infra:** bump the ClamAV base image digest (scan found fixed high CVEs) ([bec027b](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/bec027b2f29954f5782c08cd1cdaa3b25b2a3956))
+
 ## [1.1.0](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.0.14...v1.1.0) (2026-11-08)
 
 
