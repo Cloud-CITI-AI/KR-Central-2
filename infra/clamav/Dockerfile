@@ -5,6 +5,10 @@
 # last bumped 8 Nov 2026 for release 1.1.1). Build:  docker build -f infra/clamav/Dockerfile -t kr-clamav infra/clamav   (or with context . as the release does)
 FROM clamav/clamav:stable@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a
 
+# Alpine packages patched after upstream built the image (the release scan fails on fixed high CVEs). The upstream
+# image runs apk as root at this point; the result is still pinned by the digest of the built image that deploy uses.
+RUN apk upgrade --no-cache
+
 ARG RELEASE_VERSION=dev
 # The release workflow passes the repository URL (github.server_url/github.repository), so forks and renames label correctly.
 ARG IMAGE_SOURCE=
