@@ -74,7 +74,7 @@ test("print drops the dashboard's filters and search and keeps the job cards", a
   const job = await createJob(staff);
   // The stack is shared: on "/" a new job with nothing to attend to sorts below everyone else's and can fall off the first
   // page of 50, so search for it (the search box is one of the controls print drops).
-  await page.goto(`/?q=${job.jobNumber}`);
+  await page.goto(`/subdivisions?q=${job.jobNumber}`);
   await expect(page.getByRole("article", { name: job.jobNumber })).toBeVisible();
   await page.getByRole("button", { name: /^In progress/ }).click();
   await expect(page.getByRole("button", { name: /^In progress/ })).toHaveAttribute("aria-pressed", "true");

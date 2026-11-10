@@ -55,7 +55,7 @@ test("staff cannot archive; a KR admin archives from the dialog and the job disa
     `Archive ${job.jobNumber}? It disappears from the dashboard and job picker for everyone, and client/architect access stops. Files and history are kept.`,
   );
   await confirm.getByRole("button", { name: "ARCHIVE" }).click();
-  await expect(admin).toHaveURL(`/?archived=${encodeURIComponent(job.jobNumber)}`);
+  await expect(admin).toHaveURL(`/subdivisions?archived=${encodeURIComponent(job.jobNumber)}`);
   await expect(admin.getByText(`${job.jobNumber} was archived.`)).toBeVisible();
   await adminContext.close();
 

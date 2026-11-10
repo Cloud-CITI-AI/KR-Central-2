@@ -53,7 +53,7 @@ describe("ArchiveJobDialog", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "ARCHIVE" }));
     await waitFor(() => {
-      expect(router.push).toHaveBeenCalledWith("/?archived=S-0001");
+      expect(router.push).toHaveBeenCalledWith("/subdivisions?archived=S-0001");
     });
     expect(seen).toEqual(['"3"']);
     expect(localStorage.getItem(LAST_JOB_KEY)).toBeNull();

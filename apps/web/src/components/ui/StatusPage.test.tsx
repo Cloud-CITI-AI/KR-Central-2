@@ -11,7 +11,7 @@ describe("StatusPage", () => {
     );
     expect(screen.getByRole("banner")).toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Something went wrong" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Something went wrong" })).toBeInTheDocument();
     expect(screen.getByText("Request ID: req-1")).toBeInTheDocument();
   });
 
@@ -21,9 +21,9 @@ describe("StatusPage", () => {
         <p>Nothing here.</p>
       </StatusPage>,
     );
-    expect(screen.getByRole("heading", { level: 2, name: "Page not found" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
     expect(screen.queryByRole("banner")).toBeNull();
     expect(screen.queryByRole("main")).toBeNull();
-    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 });

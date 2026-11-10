@@ -152,7 +152,6 @@ export function Sidebar({ attentionCount: given }: SidebarProps) {
         type="button"
         className={styles.fold}
         aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
-        aria-expanded={!collapsed}
         onClick={() => {
           setSidebarCollapsed(!collapsed);
         }}

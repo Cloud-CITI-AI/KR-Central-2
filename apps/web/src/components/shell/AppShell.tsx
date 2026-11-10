@@ -29,18 +29,18 @@ export function AppShell({ me, children }: AppShellProps) {
           <main className={styles.main}>
             <BannerRegion />
             {children}
-            <div className={styles.footer}>
-              <span>KR Surveys</span>
-              <span>
-                Files accepted: PDF, images, video and text/CSV up to {formatMegabytes(me.uploadMaxBytes)} MB each
-              </span>
-              {feedbackUrl && (
-                <a href={feedbackUrl} target="_blank" rel="noopener noreferrer">
-                  Send feedback
-                </a>
-              )}
-            </div>
           </main>
+          <footer className={styles.footer}>
+            <span>KR Surveys</span>
+            <span>
+              Files accepted: PDF, images, video and text/CSV up to {formatMegabytes(me.uploadMaxBytes)} MB each
+            </span>
+            {feedbackUrl && (
+              <a href={feedbackUrl} target="_blank" rel="noopener noreferrer">
+                Send feedback
+              </a>
+            )}
+          </footer>
         </div>
       </div>
       <ToastRegion />

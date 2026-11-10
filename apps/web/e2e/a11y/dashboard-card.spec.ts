@@ -16,12 +16,12 @@ test("the progress segments of a card do not animate when the person prefers red
     segments().evaluateAll((elements) => elements.map((e) => getComputedStyle(e).transitionDuration));
 
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/");
+  await page.goto("/subdivisions");
   await expect(segments()).toHaveCount(3);
   expect(await transitions()).toEqual(["0.4s", "0.4s", "0.4s"]);
 
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
+  await page.goto("/subdivisions");
   await expect(segments()).toHaveCount(3);
   expect(await transitions()).toEqual(["0s", "0s", "0s"]);
 });
@@ -36,7 +36,7 @@ for (const width of [320, 390, 1280]) {
     await createJob(await apiAs(STAFF), { jobNumber, clientName: "C".repeat(200) });
     await signInAs(STAFF);
     await page.setViewportSize({ width, height: 800 });
-    await page.goto("/");
+    await page.goto("/subdivisions");
     await page.getByRole("searchbox", { name: "Search jobs" }).fill(jobNumber);
     const card = page.getByRole("article").filter({ hasText: jobNumber });
     await expect(card).toHaveCount(1);

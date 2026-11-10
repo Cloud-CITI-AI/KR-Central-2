@@ -183,7 +183,15 @@
   justify-content: center;
   padding: 10px 0;
 }
-.collapsed .label,
+/* folded: the words leave the screen but stay in the accessibility tree, so every icon link keeps its name */
+.collapsed .label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .collapsed .count,
 .collapsed .brandText,
 .collapsed .sub,
@@ -344,11 +352,18 @@
   .sub,
   .spacer,
   .user,
-  .label,
   .count,
   .brandText,
   .fold {
     display: none;
+  }
+  .label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .item {
     padding: 8px;

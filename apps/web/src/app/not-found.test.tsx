@@ -19,8 +19,8 @@ describe("root not-found page", () => {
   it("is branded, shows the request id and links back to the dashboard (no session needed)", async () => {
     incoming.headers = new Headers({ "x-request-id": "req-404-abcd" });
     const { container } = render(await NotFound());
-    expect(screen.getByRole("heading", { level: 1, name: "KR Surveys Subdivision Tracker" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Page not found" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "KR Central home" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
     expect(screen.getByText("Request ID: req-404-abcd")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to home" })).toHaveAttribute("href", "/");
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
@@ -42,7 +42,7 @@ describe("root not-found page", () => {
     session.getOptionalMe.mockResolvedValue(syntheticMe("admin"));
     const { container } = render(await NotFound());
     expect(session.getOptionalMe).not.toHaveBeenCalled();
-    expect(screen.getByRole("heading", { level: 2, name: "Page not found" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
     expect(screen.getByText("Request ID: req-404-public")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Admin" })).toBeNull();

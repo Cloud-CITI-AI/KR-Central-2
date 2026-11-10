@@ -29,7 +29,7 @@ test("staff create a job from the dashboard, and a duplicate number is refused",
   await expectProgressCounts(page, { completed: 0, notRequired: 0, notCompleted: 46 });
   await expect(progressSummary(page)).toContainText("46 Not completed");
 
-  await page.getByRole("link", { name: "Dashboard" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Dashboard" }).click();
   await page.getByRole("button", { name: "New job" }).click();
   await page.getByRole("textbox", { name: "Job number" }).fill(jobNumber.toLowerCase());
   await page.getByRole("textbox", { name: "Address", exact: true }).fill("Another address");

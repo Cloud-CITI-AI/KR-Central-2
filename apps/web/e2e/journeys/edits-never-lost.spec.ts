@@ -136,7 +136,7 @@ test("a NEW JOB form left idle past the dashboard's refresh comes back filled in
   await page.waitForURL((url) => url.pathname === "/sign-in");
 
   await signBackIn(page, user.email);
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/subdivisions");
   await expect(page.getByText(RESTORED)).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Job number" })).toHaveValue("EXP-0042");
   await expect(page.getByRole("textbox", { name: "Address", exact: true })).toHaveValue(
@@ -168,7 +168,7 @@ test("the access form keeps what was typed when the session ended and puts it ba
   await page.waitForURL((url) => url.pathname === "/sign-in");
 
   await signBackIn(page, user.email);
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/subdivisions");
   await expect(page.getByText(RESTORED)).toBeVisible();
   const restored = page.getByRole("region", { name: "Access manager" });
   await expect(restored.getByRole("textbox", { name: "Email address" })).toHaveValue("grantee.expiry@example.com");

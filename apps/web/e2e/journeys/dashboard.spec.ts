@@ -20,7 +20,7 @@ test("the status filter, search and type chips narrow the cards, and the choices
   await patchCheckpoint(staff, finished.id, "i13_2", { status: "completed" });
 
   await signInAs(STAFF);
-  await page.goto(`/?q=${token}`);
+  await page.goto(`/subdivisions?q=${token}`);
   const cards = page.getByRole("article");
   const show = page.getByRole("group", { name: "Show" });
   // In progress is the default filter: the finished job is not listed.
@@ -57,7 +57,7 @@ test("the status filter, search and type chips narrow the cards, and the choices
   await expect(page.getByText("No jobs match.")).toBeVisible();
 
   // The URL is the state: a reload and a deep link land on the same view.
-  await page.goto(`/?q=${token}&status=all&type=Freehold`);
+  await page.goto(`/subdivisions?q=${token}&status=all&type=Freehold`);
   await expect(cards).toHaveCount(2);
   await expect(show.getByRole("button", { name: /^All/ })).toHaveAttribute("aria-pressed", "true");
 });
@@ -66,7 +66,7 @@ test("a card shows the next actions and who owns them, and opens the job", async
   const staff = await apiAs(STAFF);
   const job = await createJob(staff, { clientName: `Zq${randomBytes(3).toString("hex")} Pty Ltd` });
   await signInAs(STAFF);
-  await page.goto(`/?q=${job.jobNumber}`);
+  await page.goto(`/subdivisions?q=${job.jobNumber}`);
   const cardEl = page.getByRole("article");
   await expect(cardEl).toHaveCount(1);
   await expect(cardEl.getByText("Next to action")).toBeVisible();
@@ -74,6 +74,6 @@ test("a card shows the next actions and who owns them, and opens the job", async
   await expect(cardEl.getByText("Client", { exact: true }).first()).toBeVisible();
   await cardEl.getByRole("link", { name: /Open job/ }).click();
   await expect(page).toHaveURL(`/jobs/${job.id}`);
-  await page.getByRole("link", { name: "Dashboard" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Dashboard" }).click();
   await expect(page.getByRole("link", { name: /Back to tracker/ })).toHaveAttribute("href", `/jobs/${job.id}`);
 });

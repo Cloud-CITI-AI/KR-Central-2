@@ -1,17 +1,17 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { KrMark } from "@/components/ui/KrMark";
-import { getFeedbackUrl } from "@/env";
 import { PublicThemeTools } from "./PublicThemeTools";
 import styles from "./PublicShell.module.css";
 
 export interface PublicShellProps {
   readonly children: ReactNode;
+  /** The feedback form's address, when configured (the layout reads it on the server; error pages pass none). */
+  readonly feedbackUrl?: string | undefined;
 }
 
 /** The frame of the pages without a session (§3.1): the brand line, the photo wash, one card, a one-line footer. */
-export function PublicShell({ children }: PublicShellProps) {
-  const feedbackUrl = getFeedbackUrl();
+export function PublicShell({ children, feedbackUrl }: PublicShellProps) {
   return (
     <div className={styles.canvas}>
       <header className={styles.top}>

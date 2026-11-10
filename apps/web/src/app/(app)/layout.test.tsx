@@ -30,10 +30,10 @@ describe("(app) layout", () => {
     );
     expect(screen.getByRole("main")).toHaveTextContent("Dashboard goes here");
     expect(container.querySelector("[aria-live='polite']")).toBeInTheDocument();
-    expect(screen.getByRole("main")).toHaveTextContent("up to 50 MB each");
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("up to 50 MB each");
     expect(screen.queryByRole("link", { name: "Send feedback" })).toBeNull();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Collapse the sidebar" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Collapse the sidebar" })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 

@@ -9,7 +9,7 @@ describe("global error page", () => {
       <GlobalError error={Object.assign(new Error("x"), { digest: "dg-9" })} reset={() => undefined} />,
     );
     expect(html).toMatch(/^<html lang="en-AU"><head><\/head><body>/);
-    expect(html).toContain("KR Surveys Subdivision Tracker");
+    expect(html).toContain("KR CENTRAL");
     expect(html).toContain("Something went wrong");
     expect(html).toContain("Request ID: dg-9");
     expect(html).not.toContain("x</");

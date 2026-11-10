@@ -63,7 +63,7 @@ for (const viewport of VIEWPORTS) {
 
       test("dashboard", async ({ page, signInAs }) => {
         await demoJobs(await signInAs(STAFF));
-        await page.goto("/");
+        await page.goto("/subdivisions");
         await expect(page.getByRole("article")).toHaveCount(2);
         await expect(page).toHaveScreenshot(name("dashboard"), { fullPage: true, mask: volatile(page) });
       });

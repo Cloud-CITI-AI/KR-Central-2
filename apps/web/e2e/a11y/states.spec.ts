@@ -53,13 +53,13 @@ for (const viewport of VIEWPORTS) {
         await patchCheckpoint(staff, job.id, "i4_0", { status: "not_required" });
         await signInAs(STAFF);
 
-        await page.goto("/");
+        await page.goto("/subdivisions");
         await settle(page);
         await expectAccessible(page, at("dashboard"));
         await page.getByRole("searchbox", { name: "Search jobs" }).fill("no-such-job-anywhere");
         await expect(page.getByText("No jobs match.")).toBeVisible();
         await expectAccessible(page, at("dashboard, nothing matches"));
-        await page.goto("/");
+        await page.goto("/subdivisions");
         const manager = page.getByRole("region", { name: "Access manager" });
         await manager.getByRole("button", { name: "Grant access" }).click();
         await expect(manager.getByText("Enter a valid email address, e.g. name@example.com.")).toBeVisible();
@@ -185,7 +185,7 @@ for (const viewport of VIEWPORTS) {
         ] as const) {
           await context.clearCookies();
           await signInAs(person);
-          await page.goto("/");
+          await page.goto("/subdivisions");
           await expect(page.getByRole("article", { name: job.jobNumber })).toBeVisible();
           await settle(page);
           await expectAccessible(page, at(`${role}: dashboard`));

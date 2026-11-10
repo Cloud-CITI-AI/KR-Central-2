@@ -10,7 +10,7 @@ describe("error page", () => {
     const { container } = render(
       <ErrorPage error={Object.assign(new Error("boom"), { digest: "dg-123" })} reset={reset} />,
     );
-    expect(screen.getByRole("heading", { level: 2, name: "Something went wrong" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Something went wrong" })).toBeInTheDocument();
     expect(screen.getByText("Request ID: dg-123")).toBeInTheDocument();
     expect(screen.queryByText(/boom/)).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));

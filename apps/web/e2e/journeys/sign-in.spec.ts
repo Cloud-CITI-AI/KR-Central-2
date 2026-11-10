@@ -37,7 +37,8 @@ test("a deep link to a checkpoint keeps its #fragment through sign-in and lands 
 
 test("signing in from the sign-in page opens the dashboard", async ({ page }) => {
   await signInThroughBrowser(page, ARCHITECT_GUEST);
-  await expect(page).toHaveURL("/");
+  // a guest has one module, so signing in goes straight to their jobs; KR people land on Home
+  await expect(page).toHaveURL("/subdivisions");
   await expect(page.getByRole("heading", { name: "Subdivision dashboard" })).toBeVisible();
 });
 

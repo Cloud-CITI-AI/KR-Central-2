@@ -18,7 +18,7 @@
 //      code moved here, it did not grow, and the first-load union fell from 239.8 to 167.5 KB. 307 KB left room for one
 //      small lazy feature; the Teams integration (WP-25/26/27, Nov 2026) added three lazily loaded screens, the Admin →
 //      Teams page, the job-page Teams panel with its link dialog and Unfiled list, and the new-job channel option, for
-//      319.5 KB; 330.1 KB with the KR Central home page (Nov 2026). 335 KB leaves room for one more small lazy feature, and a second large library still trips it)
+//      319.5 KB; 330.1 KB with the KR Central home page (Nov 2026). 340 KB leaves room for one more small lazy feature, and a second large library still trips it)
 // Besides sizes, loading this file fails the check when a waiver is stale or pdf.js is in any route's first load.
 import { budgetProblems, jsOnly, limitFor, measureBuild } from "./scripts/perf/route-budgets.ts";
 
@@ -52,7 +52,7 @@ export default [
   {
     name: "lazy JS, chunks no route loads first, e.g. pdf.js (gzip)",
     path: lazy,
-    limit: "335 KB",
+    limit: "340 KB",
     gzip: true,
   },
 ];

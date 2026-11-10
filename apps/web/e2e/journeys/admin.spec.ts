@@ -80,7 +80,7 @@ test("a disabled user is signed out and cannot sign in until enabled again", asy
   const again = await browser.newContext();
   const retry = await again.newPage();
   await signInThroughBrowser(retry, member);
-  await expect(retry.getByRole("heading", { name: "Subdivision dashboard" })).toBeVisible();
+  await expect(retry.getByRole("heading", { level: 1, name: /Good (morning|afternoon|evening)/ })).toBeVisible();
   await again.close();
 });
 
@@ -171,15 +171,15 @@ test("the admin pages link back out: Dashboard, the logo, and tabs styled like t
   expect(await colour(admin.getByRole("link", { name: "Audit trail" }))).toBe(ink);
 
   // The logo is a link home with a name, in the tab order.
-  const logo = page.getByRole("link", { name: "KR Surveys home" });
+  const logo = page.getByRole("link", { name: "KR Central home" });
   await expect(logo).toHaveAttribute("href", "/");
   await logo.focus();
   await expect(logo).toBeFocused();
 
-  await page.getByRole("link", { name: "Audit trail" }).click();
+  await admin.getByRole("link", { name: "Audit trail" }).click();
   await expect(page).toHaveURL(/\/admin\/audit$/);
-  await page.getByRole("link", { name: "Dashboard" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await page.getByRole("main").getByRole("link", { name: "Dashboard" }).click();
+  await expect(page).toHaveURL(/\/subdivisions$/);
   await expect(page.getByRole("heading", { level: 2, name: "Subdivision dashboard" })).toBeVisible();
   await page.goto("/admin/users");
   await logo.click();

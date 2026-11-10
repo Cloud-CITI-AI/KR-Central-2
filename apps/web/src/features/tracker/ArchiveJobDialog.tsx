@@ -31,7 +31,7 @@ export function ArchiveJobDialog({ job, open, onClose }: ArchiveJobDialogProps) 
       await queryClient.cancelQueries({ queryKey });
       queryClient.removeQueries({ queryKey });
       void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-      router.push(`/?archived=${encodeURIComponent(job.jobNumber)}`);
+      router.push(`/subdivisions?archived=${encodeURIComponent(job.jobNumber)}`);
     },
     onError: async (error) => {
       onClose();
