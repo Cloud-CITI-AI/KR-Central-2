@@ -45,7 +45,7 @@ export function Sidebar({ attentionCount: given }: SidebarProps) {
   const me = useSession();
   const pathname = usePathname();
   const facets = useQuery({
-    queryKey: queryKeys.jobs.facets({ status: "in_progress" }),
+    queryKey: queryKeys.jobs.attention,
     queryFn: ({ signal }) => api("getJobFacets", { query: { status: "in_progress" }, signal }),
     enabled: given === undefined,
     staleTime: 60_000,

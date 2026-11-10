@@ -18,7 +18,6 @@ const subscribeNothing = () => () => undefined;
 
 // Both forms validate with the contract's schemas (Zod): loaded on demand, they stay out of the dashboard's first load (FE-9).
 const NewJobForm = lazy(() => import("./NewJobForm").then((module) => ({ default: module.NewJobForm })));
-const AccessManager = lazy(() => import("@/features/access").then((module) => ({ default: module.AccessManager })));
 
 /** What the dashboard shows under its jobbar (§6): filters in the URL, counts from `getJobFacets`. The cards follow the counts. */
 export function DashboardContent() {
@@ -96,11 +95,6 @@ export function DashboardContent() {
         {facets.data ? <SummaryChips facets={facets.data} /> : <div className={styles.skSum} aria-hidden="true" />}
         <JobGrid params={params} visibleJobs={facets.data?.statusCounts.all} />
       </div>
-      {capabilities.includes("access.manage") && (
-        <Suspense fallback={null}>
-          <AccessManager />
-        </Suspense>
-      )}
     </>
   );
 }

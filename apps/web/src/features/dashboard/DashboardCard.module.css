@@ -97,8 +97,12 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+/* the row keeps its "Next to action" caption (§6), quiet above the actions */
 .noteHead {
-  display: none;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
 }
 .next,
 .alerts {

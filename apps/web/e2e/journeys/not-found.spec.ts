@@ -11,7 +11,7 @@ const UNKNOWN_JOB = "00000000-0000-4000-8000-000000000999";
 
 /** One sidebar, one h1, one main, and the signed-in controls of `user`: never a second nested shell. */
 async function expectOneShell(page: Page, user: MockUser, admin: boolean): Promise<void> {
-  await expect(page.getByRole("heading", { level: 2, name: "Page not found" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
   const side = page.getByRole("complementary", { name: "KR Central" });
   await expect(side).toHaveCount(1);
   await expect(page.getByRole("main")).toHaveCount(1);

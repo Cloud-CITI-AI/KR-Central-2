@@ -7,6 +7,12 @@ export const queryKeys = {
     all: ["jobs"] as const,
     list: (query: Query = {}) => ["jobs", "list", query] as const,
     facets: (query: Query = {}) => ["jobs", "facets", query] as const,
+    /**
+     * The shell's needs-attention count. Its own entry on purpose: the sidebar hydrates before the page's lazily hydrated
+     * content, and a shared entry would hand that content cached data the server HTML never had (a hydration mismatch
+     * that makes React throw the server-rendered page away and draw it again).
+     */
+    attention: ["jobs", "attention"] as const,
     detail: (jobId: string) => ["jobs", "detail", jobId] as const,
     notes: (jobId: string) => ["jobs", "notes", jobId] as const,
   },

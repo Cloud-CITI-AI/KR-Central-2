@@ -97,7 +97,12 @@
   color: var(--ink-2);
 }
 @media print {
-  .tools {
+  .head {
+    break-inside: avoid;
+  }
+  /* the filters, search and type chips are controls, not information: a printed list needs none */
+  .tools,
+  .types {
     display: none;
   }
 }
