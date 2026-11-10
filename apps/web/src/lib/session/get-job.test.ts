@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { getJobDetail, getJobSummary } from "./get-job";
+import { getJobSummary } from "./get-job";
 
 const JOB_ID = "00000000-0000-4000-8000-0000000000a1";
 let upstream: Upstream | undefined;
@@ -42,14 +42,26 @@ describe("getJobSummary", () => {
     expect(upstream?.seen[0]?.headers).toMatchObject({ cookie: "__Host-kr_session=s" });
   });
 
-  it("getJobDetail hands the whole job on for the tracker's first HTML, checking only what the page itself needs", async () => {
+  it("also returns what the heading shows, and tolerates a job with newer fields", async () => {
     const OTHER = "00000000-0000-4000-8000-0000000000a2";
-    const body = { id: OTHER, jobNumber: "P-0002", address: "2 Synthetic Way", checkpoints: [], somethingNewer: 1 };
-    await api(200, body);
-    await expect(getJobDetail(OTHER)).resolves.toEqual(body);
-    await upstream?.close();
-    await api(200, { id: OTHER, address: "no number" });
-    await expect(getJobDetail("00000000-0000-4000-8000-0000000000a3")).rejects.toThrow();
+    await api(200, {
+      id: OTHER,
+      jobNumber: "P-0002",
+      address: "2 Synthetic Way",
+      clientName: "Synthetic Client",
+      subdivisionType: "Freehold",
+      summary: { isComplete: true, somethingNewer: 1 },
+      checkpoints: [],
+      somethingNewer: 1,
+    });
+    await expect(getJobSummary(OTHER)).resolves.toEqual({
+      id: OTHER,
+      jobNumber: "P-0002",
+      address: "2 Synthetic Way",
+      clientName: "Synthetic Client",
+      subdivisionType: "Freehold",
+      summary: { isComplete: true },
+    });
   });
 
   it("is null for a job that is missing, archived or not the caller's (the API answers 404 for all three)", async () => {

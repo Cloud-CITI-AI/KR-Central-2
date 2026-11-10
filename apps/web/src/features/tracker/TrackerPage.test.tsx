@@ -144,4 +144,24 @@ describe("TrackerPage", { timeout: WHOLE_TRACKER_TIMEOUT_MS }, () => {
     });
     expect(document.getElementById("landgate")?.querySelector("button")).toHaveAttribute("aria-expanded", "true");
   });
+
+  it("draws the server's heading at once, before the job has loaded, and keeps one h1 when it has", async () => {
+    const job = syntheticJob();
+    server.use(mockApi("getJob", job), mockApi("listJobs", jobPage([])));
+    const heading = {
+      jobNumber: "P-0009",
+      address: "9 Synthetic Way",
+      clientName: "Synthetic Client",
+      subdivisionType: "Freehold",
+      isComplete: false,
+    };
+    renderTracker(<TrackerPage jobId={job.id} heading={heading} />);
+    // first render: no job yet, the heading is already there above the skeleton
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("P-0009");
+    expect(screen.getByRole("status")).toHaveTextContent("Loading job…");
+    expect(await screen.findByRole("combobox", { name: "Job" })).toBeInTheDocument();
+    // then it follows the live job
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(job.jobNumber);
+  });
 });

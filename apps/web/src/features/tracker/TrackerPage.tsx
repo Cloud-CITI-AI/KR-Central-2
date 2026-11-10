@@ -8,6 +8,7 @@ import { useBanners } from "@/lib/banner/BannerProvider";
 import { MESSAGES } from "@/lib/messages";
 import { rememberLastJob } from "./lastJob";
 import { loadFailedText, TRACKER_MESSAGES } from "./messages";
+import { JobHeading, type JobHeadingFacts } from "./JobHeading";
 import { TrackerSkeleton } from "./TrackerSkeleton";
 import { useJob } from "./useJob";
 
@@ -24,8 +25,8 @@ export interface TrackerPageProps {
   readonly jobId: string;
   /** `?stage=<stageKey>`: the stage to open and scroll to. */
   readonly initialStage?: StageKey;
-  /** The job as the server fetched it for this page, so the tracker is drawn in the first HTML. */
-  readonly initialJob?: JobDetail;
+  /** The job's heading facts as the server fetched them, so the heading is in the first HTML (LCP). */
+  readonly heading?: JobHeadingFacts;
 }
 
 /** Capabilities that change what is on the page. A viewer with none of them is view-only (architects, §5.1). */
@@ -44,8 +45,8 @@ export const isViewOnly = (job: JobDetail): boolean => !WRITE_CAPABILITIES.some(
  * The tracker page frame (§5): loads the job, turns problems into banners (§5.1), remembers the job for the dashboard's
  * back link and lays out the jobbar. A 404 (also what a job the person may not see answers) is the branded not-found page.
  */
-export function TrackerPage({ jobId, initialStage, initialJob }: TrackerPageProps) {
-  const query = useJob(jobId, initialJob);
+export function TrackerPage({ jobId, initialStage, heading }: TrackerPageProps) {
+  const query = useJob(jobId);
   useEffect(() => {
     void loadTrackerBody();
   }, []);
@@ -78,10 +79,31 @@ export function TrackerPage({ jobId, initialStage, initialJob }: TrackerPageProp
     if (openedId) rememberLastJob(openedId);
   }, [openedId]);
 
-  if (!job) return error ? null : <TrackerSkeleton />;
+  // The heading follows the live job once it has loaded (an edit to the address shows at once); until then, the server's.
+  const facts: JobHeadingFacts | undefined = job
+    ? {
+        jobNumber: job.jobNumber,
+        address: job.address,
+        clientName: job.clientName,
+        subdivisionType: job.subdivisionType,
+        isComplete: job.summary.isComplete,
+      }
+    : heading;
+  const title = facts ? <JobHeading job={facts} /> : null;
+  if (!job) {
+    return error ? null : (
+      <>
+        {title}
+        <TrackerSkeleton />
+      </>
+    );
+  }
   return (
-    <Suspense fallback={<TrackerSkeleton />}>
-      <TrackerBody job={job} initialStage={initialStage} />
-    </Suspense>
+    <>
+      {title}
+      <Suspense fallback={<TrackerSkeleton />}>
+        <TrackerBody job={job} initialStage={initialStage} />
+      </Suspense>
+    </>
   );
 }

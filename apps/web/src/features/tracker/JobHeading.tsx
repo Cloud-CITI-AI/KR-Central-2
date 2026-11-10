@@ -1,14 +1,25 @@
-import type { JobDetail } from "@kr/contracts";
 import { cx } from "@/lib/cx";
 import styles from "./JobHeading.module.css";
 
-export interface JobHeadingProps {
-  readonly job: JobDetail;
+/** What the heading shows. The page has these from the server before the job itself has loaded in the browser. */
+export interface JobHeadingFacts {
+  readonly jobNumber: string;
+  readonly address: string;
+  readonly clientName: string | null;
+  readonly subdivisionType: string | null;
+  readonly isComplete: boolean;
 }
 
-/** The job's title row (§5.1): number large, address beside it, then client, type and state as facts. */
+export interface JobHeadingProps {
+  readonly job: JobHeadingFacts;
+}
+
+/**
+ * The job's title row (§5.1): number large, address beside it, then client, type and state as facts. Nothing in it can
+ * be clicked, so it is safe to draw in the first HTML, before the page's scripts run; it is the page's largest content.
+ */
 export function JobHeading({ job }: JobHeadingProps) {
-  const complete = job.summary.isComplete;
+  const complete = job.isComplete;
   return (
     <div className={styles.head}>
       <h1 className={styles.title}>
