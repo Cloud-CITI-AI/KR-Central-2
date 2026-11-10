@@ -21,12 +21,12 @@ test("a client sees only the granted job, accepts a quote, uploads the signed co
   await signInAs(client);
 
   // Only the granted job, and none of the staff tools.
-  await page.goto("/");
+  await page.goto("/subdivisions");
   await expect(page.getByRole("article")).toHaveCount(1);
   await expect(page.getByRole("article", { name: job.jobNumber })).toBeVisible();
   await expect(page.getByRole("button", { name: "New job" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Access manager" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Audit trail" })).toHaveCount(0);
   await page.goto(`/jobs/${unrelated.id}`);
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
 

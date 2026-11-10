@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Dashboard } from "@/features/dashboard";
+import { Home } from "@/features/home";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Home" };
 
-/** The dashboard, first page after sign-in. The (app) layout owns <main> and the h1. */
-export default function DashboardPage() {
+/** KR Central home: the first page after sign-in. Modules and what needs the person (§4). */
+export default function HomePage() {
   return (
     <Suspense fallback={null}>
-      <Dashboard />
+      <Home />
     </Suspense>
   );
 }

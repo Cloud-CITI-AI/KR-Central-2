@@ -6,13 +6,13 @@ import { yantramanav } from "@/lib/fonts";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 
 export const metadata: Metadata = {
-  title: { default: "KR Surveys Subdivision Tracker", template: "%s | KR Surveys Subdivision Tracker" },
-  description: "Keeping you up to date with your subdivision",
+  title: { default: "KR Central", template: "%s | KR Central" },
+  description: "KR Surveys' operations portal: the Subdivision Tracker and the tools around it",
 };
 
 const HERO_PRELOADS = [
-  { href: "/brand/hero-header-640.avif", media: "(max-width: 640px)" },
-  { href: "/brand/hero-header-1280.avif", media: "(min-width: 641px)" },
+  { href: "/brand/kr-central-hero-800.avif", media: "(max-width: 760px)" },
+  { href: "/brand/kr-central-hero-1600.avif", media: "(min-width: 761px)" },
 ] as const;
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
@@ -33,8 +33,8 @@ export default async function RootLayout({ children }: RootLayoutProps) {
     <html lang="en-AU" style={{ "--font-sans": fontStack } as CSSProperties} suppressHydrationWarning>
       <head>
         <script nonce={nonce}>{THEME_BOOTSTRAP_SCRIPT}</script>
-        {/* The header's hero photo is the LCP element of every page and is only discovered once the CSS has loaded: fetch it from the
-            HTML (AVIF, the format the stylesheet's image-set picks; the size follows the stylesheet's 640 px breakpoint). */}
+        {/* The canvas wash photo is only discovered once the CSS has loaded: fetch it from the HTML (AVIF, the format the
+            stylesheet's image-set picks; the size follows the shell stylesheet's 760 px breakpoint). */}
         {HERO_PRELOADS.map((hero) => (
           <link key={hero.href} rel="preload" as="image" type="image/avif" fetchPriority="high" {...hero} />
         ))}

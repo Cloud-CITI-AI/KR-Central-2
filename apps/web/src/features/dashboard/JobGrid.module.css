@@ -1,26 +1,25 @@
-/* prototype .dash-grid and .dc-none */
+/* the jobs as a list: one surface, rows separated by rules, aligned columns */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
-/* the card fills its grid cell, so cards in a row are as tall as the tallest */
 .grid > li {
   display: grid;
 }
+.grid > li + li {
+  border-top: 1px solid var(--line);
+}
 .skeleton {
-  min-height: 230px;
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--line);
-  border-radius: var(--radius);
+  min-height: 72px;
   background: var(--surface);
   opacity: 0.6;
   animation: pulse 1.2s ease-in-out infinite alternate;
 }
-/* until the cards arrive the grid holds a screen, so the footer is not in view to be pushed down (CLS) */
 .pending {
   align-content: start;
   min-height: 100vh;
@@ -38,9 +37,13 @@
 .none {
   margin: 0;
   padding: 16px;
-  color: var(--on-bg);
+  color: var(--ink-3);
 }
 .more {
   display: flex;
   justify-content: center;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }

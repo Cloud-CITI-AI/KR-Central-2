@@ -1,7 +1,8 @@
-# KR Subdivision Tracker
+# KR Central
 
-Web application for KR Surveys (Western Australia) to track subdivision jobs through 10 stages and 46 checkpoints,
-shared with clients and architects. It replaces the single-file prototype with a Railway-hosted, Postgres-backed
+KR Surveys' operations portal (Western Australia). Its first module, the **Subdivision Tracker**, tracks subdivision
+jobs through 10 stages and 46 checkpoints, shared with clients and architects; the portal's home page and shell are
+built to take further modules. It replaces the single-file prototype with a Railway-hosted, Postgres-backed
 system that signs users in with Microsoft Entra ID (KR tenant; the first eligible user becomes the administrator).
 
 | Part      | Path                 | What it is                                                                                                   |

@@ -6,20 +6,20 @@ import { EXTERNAL_NO_GRANTS, FIRST_MEMBER, KR_ADMIN, STAFF } from "../harness/us
 
 // PRODUCT_SPEC §4 (Shell; not-found: "Branded 404 with request id" inside the normal shell) and §12 (WCAG 2.4.2 page titles).
 
-const APP = "KR Surveys Subdivision Tracker";
+const APP = "KR Central";
 const UNKNOWN_JOB = "00000000-0000-4000-8000-000000000999";
 
-/** One header, one h1, one main, the footer, and the signed-in controls of `user`: never a second nested shell. */
+/** One sidebar, one h1, one main, and the signed-in controls of `user`: never a second nested shell. */
 async function expectOneShell(page: Page, user: MockUser, admin: boolean): Promise<void> {
   await expect(page.getByRole("heading", { level: 2, name: "Page not found" })).toBeVisible();
-  await expect(page.getByRole("banner")).toHaveCount(1);
+  const side = page.getByRole("complementary", { name: "KR Central" });
+  await expect(side).toHaveCount(1);
   await expect(page.getByRole("main")).toHaveCount(1);
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-  await expect(page.getByRole("contentinfo")).toHaveCount(1);
-  await expect(page.getByRole("banner")).toContainText(user.name);
+  await expect(side).toContainText(user.name);
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(admin ? 1 : 0);
-  await expect(page.getByRole("link", { name: "Back to the dashboard" })).toHaveAttribute("href", "/");
+  await expect(side.getByRole("link", { name: "Users" })).toHaveCount(admin ? 1 : 0);
+  await expect(page.getByRole("link", { name: "Back to home" })).toHaveAttribute("href", "/");
 }
 
 test.describe("a job that cannot be shown", () => {
@@ -78,7 +78,7 @@ test("pages are titled for what they show", async ({ page, signInAs, apiAs }) =>
     address: "5 Synthetic Road, Testville WA 6000",
   });
   await signInAs(STAFF);
-  await page.goto("/");
+  await page.goto("/subdivisions");
   await expect(page).toHaveTitle(`Dashboard | ${APP}`);
   await page.goto(`/jobs/${job.id}`);
   await expect(page).toHaveTitle(`P-4242 – 5 Synthetic Road, Testville WA 6000 | ${APP}`);

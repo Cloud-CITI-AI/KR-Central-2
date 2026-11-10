@@ -13,7 +13,7 @@ describe("(app) not-found page", () => {
     const { container } = render(await AppNotFound());
     expect(screen.getByRole("heading", { level: 2, name: "Page not found" })).toBeInTheDocument();
     expect(screen.getByText("Request ID: req-404-in-shell")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Back to the dashboard" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Back to home" })).toHaveAttribute("href", "/");
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
     expect(screen.queryByRole("banner")).toBeNull();
     expect(screen.queryByRole("main")).toBeNull();

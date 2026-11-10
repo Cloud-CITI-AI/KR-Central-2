@@ -18,9 +18,7 @@ export function Jobbar({ job, onSaveAsPdf }: JobbarProps) {
   return (
     <div className={styles.jobbar}>
       <JobPicker job={job} />
-      <ButtonLink href="/" variant="primary">
-        Dashboard
-      </ButtonLink>
+      <ButtonLink href="/subdivisions">Dashboard</ButtonLink>
       <Button title={TRACKER_MESSAGES.saveAsPdfTitle} onClick={onSaveAsPdf}>
         Save as PDF
       </Button>

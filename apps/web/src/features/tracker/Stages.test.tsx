@@ -70,7 +70,8 @@ describe("Stages", { timeout: WHOLE_TRACKER_TIMEOUT_MS }, () => {
     expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(
       document.querySelectorAll("[data-checkpoint]").length,
     );
-    expect(screen.queryAllByRole("heading", { level: 1 })).toHaveLength(0);
+    // the page's one h1 is the job heading (number and address), above the stages
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
   it("colours a bar by its stage state and labels Complete and Not required", () => {

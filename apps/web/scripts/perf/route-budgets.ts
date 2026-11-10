@@ -1,4 +1,4 @@
-// Per-route first-load JS budget (PRODUCT_SPEC section 14, FE-9: 170 KB gzip per route) computed from the Next build.
+// Per-route first-load JS budget (PRODUCT_SPEC section 14, FE-9: 190 KB gzip per route since the KR Central shell, Nov 2026) computed from the Next build.
 //
 // Method. `next build` writes `.next/diagnostics/route-bundle-stats.json`: for every route, the chunk files the browser
 // loads before the route is interactive. A route's size is the sum, over those `.js` files, of each file's own gzip size
@@ -18,8 +18,11 @@ import { z } from "zod";
 export const STATS_PATH = ".next/diagnostics/route-bundle-stats.json";
 export const CHUNKS_DIR = ".next/static/chunks";
 
-/** FE-9 / PRODUCT_SPEC section 14: first-load JS per route, gzip. */
-export const FIRST_LOAD_BUDGET_BYTES = 170_000;
+/**
+ * FE-9 / PRODUCT_SPEC section 14: first-load JS per route, gzip. 170 KB until the KR Central shell (Nov 2026): the floating
+ * sidebar, breadcrumbs and theme tools ride in every signed-in route's first load (about 12 KB), so the rule moved to 190 KB.
+ */
+export const FIRST_LOAD_BUDGET_BYTES = 190_000;
 
 /** Strings that appear in the pdf.js engine (pdfjs-dist) and not in the viewer's small adapter chunk. */
 export const PDFJS_ENGINE_MARKERS: readonly string[] = ["pdfjs_internal_id_", "pdfjs_internal_editor_"];

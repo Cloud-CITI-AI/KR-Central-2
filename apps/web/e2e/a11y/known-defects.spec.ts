@@ -19,7 +19,7 @@ for (const theme of ["light", "dark"] as const) {
       }, theme);
       const job = await createJob(await apiAs(STAFF));
       await signInAs(STAFF);
-      if (surface === "dashboard") await page.goto("/");
+      if (surface === "dashboard") await page.goto("/subdivisions");
       else await openTracker(page, job.id);
       await page.waitForLoadState("networkidle");
       expect(await violationsOn(page, { only: ["color-contrast"] })).toEqual([]);
@@ -41,7 +41,7 @@ for (const theme of ["light", "dark"] as const) {
       localStorage.setItem("kr-theme", value);
     }, theme);
     await signInAs(STAFF);
-    await page.goto("/");
+    await page.goto("/subdivisions");
     const chip = page.getByRole("button", { name: /^All types/ });
     await expect(chip).toHaveAttribute("aria-pressed", "true");
     await expect(chip.locator("span")).toHaveText(/^\d+$/);

@@ -24,7 +24,7 @@ test("staff grant a client access; it is pending until the guest signs in, then 
   const guest = await newUser("guest", "grantee");
   const email = guest.email!;
   await signInAs(STAFF);
-  await page.goto("/");
+  await page.goto("/subdivisions");
   const manager = page.getByRole("region", { name: "Access manager" });
   // The access list and its text are rendered before the page hydrates, so a click can land before React handles it (the
   // form then does nothing, or submits natively). The job menu is filled from the API after hydration, so wait for it.
@@ -75,14 +75,14 @@ test("staff grant a client access; it is pending until the guest signs in, then 
   await row.getByRole("button", { name: "Remove" }).click();
   await row.getByRole("button", { name: "Yes" }).click();
   await expect(row).toContainText("Revoked");
-  await guestPage.goto("/");
+  await guestPage.goto("/subdivisions");
   await expect(
     guestPage.getByText("You don't have access to any jobs yet — ask your KR Surveys contact."),
   ).toBeVisible();
 
   // A revoked grant can be granted again (here as an architect); the same account sees the job once more.
   await grantAccess(staff, { jobId: job.id, email, role: "architect" });
-  await guestPage.goto("/");
+  await guestPage.goto("/subdivisions");
   await expect(guestPage.getByRole("article", { name: job.jobNumber })).toBeVisible();
   await guestContext.close();
 });

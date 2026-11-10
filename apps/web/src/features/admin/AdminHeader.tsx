@@ -40,9 +40,7 @@ export function AdminHeader({ current }: AdminHeaderProps) {
           ))}
         </nav>
       )}
-      <ButtonLink href="/" variant="primary">
-        Dashboard
-      </ButtonLink>
+      <ButtonLink href="/subdivisions">Dashboard</ButtonLink>
     </div>
   );
 }

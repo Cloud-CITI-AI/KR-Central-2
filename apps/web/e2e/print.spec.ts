@@ -56,18 +56,13 @@ test("print keeps the header, the progress ring, the bars, the stage tracks and 
     "a status swatch",
   );
 
-  // The hero is printed with its dark background (the logo's SURVEYS and the title are white): what is actually painted behind
-  // them is that background when it is kept and the white page when it is dropped, and both must read against it.
-  const hero = page.getByRole("banner");
-  const painted =
-    (await printAdjust(hero)) === "exact"
-      ? await hero.evaluate((el) => getComputedStyle(el).backgroundColor)
-      : "rgb(255, 255, 255)";
+  // The job heading prints as dark ink on the white page; the sidebar (with its controls) is left off the sheet.
+  const painted = "rgb(255, 255, 255)";
   const ink = await page.getByRole("heading", { level: 1 }).evaluate((el) => getComputedStyle(el).color);
   expect(contrast(ink, painted), `the title ${ink} on ${painted}`).toBeGreaterThanOrEqual(4.5);
-  expect(contrast("rgb(255, 255, 255)", painted), `the logo's white SURVEYS on ${painted}`).toBeGreaterThanOrEqual(4.5);
+  await expect(page.getByRole("complementary", { name: "KR Central" })).toBeHidden();
 
-  // The page itself is white and the header controls are gone.
+  // The page itself is white and the shell controls are gone.
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(255, 255, 255)");
   await expect(page.getByRole("group", { name: "Theme" })).toBeHidden();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeHidden();

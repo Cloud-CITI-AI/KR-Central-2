@@ -8,16 +8,18 @@ afterEach(() => {
 });
 
 describe("(public) layout", () => {
-  it("shows the hero header (no user controls) around the page, with no footer by default", async () => {
+  it("shows the KR Central brand line and the theme switch around the page, with no sign-out and no feedback link by default", async () => {
     const { container } = render(
       <PublicLayout>
         <p>Page</p>
       </PublicLayout>,
     );
-    expect(screen.getByRole("heading", { level: 1, name: "KR Surveys Subdivision Tracker" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "KR Central home" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("banner")).toHaveTextContent("KR CENTRAL");
     expect(screen.getByRole("main")).toHaveTextContent("Page");
+    expect(screen.getByRole("group", { name: "Theme" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
-    expect(screen.queryByRole("contentinfo")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Send feedback" })).toBeNull();
     await expectNoAxeViolations(container);
   });
 

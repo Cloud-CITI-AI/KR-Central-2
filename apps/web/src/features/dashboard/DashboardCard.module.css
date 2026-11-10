@@ -1,142 +1,124 @@
-/* prototype .dcard and .dc-* (the progress bar is .bar.dc-bar there) */
+/* One job as a row (§6): number · address and client · progress · next to action · state · open. */
 .card {
   display: grid;
-  /* a grid item: without this a long unbroken word makes the card (and the page) wider than the screen */
-  min-width: 0;
-  gap: 6px;
-  align-content: start;
-  padding: 12px 14px;
+  grid-template-columns: 100px minmax(160px, 1.3fr) 140px 44px minmax(200px, 1.6fr) 130px auto;
+  grid-template-areas: "num addr bar pct note state open";
+  gap: 6px 16px;
+  align-items: start;
+  padding: 12px 16px;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--red-line);
-  border-radius: var(--radius);
+  font-size: 14px;
 }
-.done {
-  border-left-color: var(--green-line);
+.card:hover {
+  background: var(--surface-2);
 }
+.done .addr,
+.done .num {
+  color: var(--ink-2);
+}
+/* the number, state and percentage sit in one element in the markup; as grid items they take their own columns */
 .top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: contents;
 }
 .num {
-  font-size: 16px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  grid-area: num;
+  font-weight: 700;
+  font-size: 15px;
 }
 .state {
-  padding: 2px 7px;
-  border-radius: var(--radius);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  grid-area: state;
+  justify-self: start;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
 }
 .inProgress {
-  background: var(--red-bg);
-  color: var(--red-ink);
-}
-.complete {
   background: var(--green-bg);
   color: var(--green-ink);
 }
-.openJob {
-  justify-self: end;
-  margin-top: 2px;
+.complete {
+  background: var(--grey-bg);
+  color: var(--grey-ink);
 }
-/* the link variant of Button has no text colour of its own */
-.openJob a {
-  color: inherit;
+.openJob {
+  grid-area: open;
+  justify-self: end;
 }
 .pct {
-  margin-left: auto;
-  font-size: 18px;
-  font-weight: 700;
+  grid-area: pct;
+  font-size: 13px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 .addr {
+  grid-area: addr;
   font-weight: 500;
-  overflow-wrap: anywhere;
 }
 .meta {
-  color: var(--ink-2);
+  grid-area: addr;
+  margin-top: 22px;
+  color: var(--ink-3);
   font-size: 12.5px;
-  /* a client name with no spaces must wrap, like the address line */
-  overflow-wrap: anywhere;
 }
 .bar {
+  grid-area: bar;
   display: flex;
-  height: 9px;
-  margin-block: 2px;
-  border-radius: 5px;
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 3px;
   overflow: hidden;
-  background: var(--line);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  background: var(--grey-bg);
 }
 .bar i {
   display: block;
   height: 100%;
-  transition: width 0.4s ease;
 }
 .g {
-  background: linear-gradient(180deg, #8fd09c, var(--green-ink));
+  background: var(--item);
 }
 .x {
-  background: linear-gradient(180deg, #dcdad6, #aeaca8);
+  background: var(--grey-line);
 }
 .n {
-  background: linear-gradient(180deg, #f6c9c3, #e08d83);
+  background: transparent;
 }
 .note {
+  grid-area: note;
   display: grid;
-  gap: 5px;
-  margin-top: 4px;
-  padding: 8px 10px;
-  background: var(--field);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  gap: 2px;
 }
 .noteHead {
-  color: var(--ink-3);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  display: none;
 }
 .next,
 .alerts {
-  display: grid;
-  gap: 4px;
+  list-style: none;
   margin: 0;
   padding: 0;
-  list-style: none;
 }
 .next li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 8px;
+  display: flex;
+  gap: 6px;
   align-items: baseline;
-  font-size: 13px;
+  flex-wrap: wrap;
 }
 .number {
-  color: var(--ink-3);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 .title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--ink);
 }
 .who {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   padding: 1px 7px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-pill);
   background: var(--item-soft);
   color: var(--item);
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
 }
 .client {
   background: var(--fee-soft);
@@ -147,17 +129,23 @@
   color: var(--grey-ink);
 }
 .alerts li {
-  padding: 3px 8px;
-  border-radius: var(--radius);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.alerts li::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
 }
 .warn {
-  background: var(--fee-soft);
   color: var(--fee);
 }
 .bad {
-  background: var(--red-bg);
   color: var(--red-ink);
 }
 .empty,
@@ -165,13 +153,22 @@
   color: var(--ink-3);
   font-size: 12.5px;
 }
-@media (prefers-reduced-motion: reduce) {
-  .bar i {
-    transition: none;
+@media (max-width: 900px) {
+  .card {
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      "num pct state"
+      "addr addr addr"
+      "bar bar bar"
+      "note note note"
+      "open open open";
+  }
+  .openJob {
+    justify-self: start;
   }
 }
 @media print {
-  .card {
-    break-inside: avoid;
+  .openJob {
+    display: none;
   }
 }

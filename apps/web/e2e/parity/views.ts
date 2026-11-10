@@ -124,7 +124,7 @@ export const VIEWS: readonly ParityView[] = [
     theme: "light",
     device: "desktop",
     capture: async (page) => {
-      await page.goto("/");
+      await page.goto("/subdivisions");
       return page.getByRole("region", { name: "Access manager" }).screenshot();
     },
     expected:
@@ -160,7 +160,7 @@ export const VIEWS: readonly ParityView[] = [
     theme: "light",
     device: "desktop",
     capture: async (page) => {
-      await page.goto("/");
+      await page.goto("/subdivisions");
       await page.getByRole("article").first().waitFor();
       return whole(page);
     },
@@ -195,7 +195,7 @@ export const VIEWS: readonly ParityView[] = [
     theme: "dark",
     device: "desktop",
     capture: async (page) => {
-      await page.goto("/");
+      await page.goto("/subdivisions");
       await page.getByRole("article").first().waitFor();
       return whole(page);
     },
@@ -230,7 +230,7 @@ export const VIEWS: readonly ParityView[] = [
     theme: "light",
     device: "mobile",
     capture: async (page) => {
-      await page.goto("/");
+      await page.goto("/subdivisions");
       await page.getByRole("article").first().waitFor();
       return whole(page);
     },

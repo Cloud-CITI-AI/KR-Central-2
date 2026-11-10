@@ -8,7 +8,7 @@ import { card, expectProgress, expectProgressCounts, openTracker, progressSummar
 test("staff create a job from the dashboard, and a duplicate number is refused", async ({ page, signInAs }) => {
   await signInAs(STAFF);
   const jobNumber = uniqueJobNumber();
-  await page.goto("/");
+  await page.goto("/subdivisions");
   await page.getByRole("button", { name: "New job" }).click();
 
   await page.getByRole("button", { name: "Create job" }).click();

@@ -10,7 +10,7 @@ const login = () => screen.getByRole("link", { name: "Sign in with Microsoft" })
 describe("sign-in page", () => {
   it("offers Sign in with Microsoft to the API login and a short privacy note", async () => {
     const { container } = await show();
-    expect(screen.getByRole("heading", { level: 2, name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Sign in to KR Central" })).toBeInTheDocument();
     expect(login()).toHaveAttribute("href", "/api/v1/auth/login");
     expect(screen.getByText(/Your Microsoft password is never shared/)).toBeInTheDocument();
     await expectNoAxeViolations(container);

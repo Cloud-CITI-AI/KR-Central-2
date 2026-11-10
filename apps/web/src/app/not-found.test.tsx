@@ -22,7 +22,7 @@ describe("root not-found page", () => {
     expect(screen.getByRole("heading", { level: 1, name: "KR Surveys Subdivision Tracker" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Page not found" })).toBeInTheDocument();
     expect(screen.getByText("Request ID: req-404-abcd")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Back to the dashboard" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Back to home" })).toHaveAttribute("href", "/");
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
     await expectNoAxeViolations(container);
   });

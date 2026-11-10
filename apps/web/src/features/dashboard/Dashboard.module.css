@@ -31,7 +31,7 @@
 }
 .skHead {
   min-height: 146px;
-  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
 }
 .skSum {
   min-height: 32px;

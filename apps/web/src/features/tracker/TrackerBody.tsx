@@ -5,6 +5,7 @@ import { JobFiles } from "@/features/job-files";
 import { JobNotes } from "@/features/notes";
 import { TeamsPanel } from "@/features/teams";
 import { Jobbar } from "./Jobbar";
+import { JobHeading } from "./JobHeading";
 import { useOpenStages } from "./openStages";
 import { Stages } from "./Stages";
 import { SummaryPanels } from "./SummaryPanels";
@@ -23,6 +24,7 @@ export function TrackerBody({ job, initialStage }: TrackerBodyProps) {
   useStageLinks(stages, initialStage);
   return (
     <>
+      <JobHeading job={job} />
       <Jobbar job={job} onSaveAsPdf={stages.saveAsPdf} />
       <SummaryPanels job={job} />
       <Stages job={job} stages={stages} />

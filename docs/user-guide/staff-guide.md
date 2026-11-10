@@ -4,11 +4,14 @@ For KR Surveys employees. Where a task needs KR Admin or an administrator it say
 
 ## Signing in and out
 
-1. Open the tracker address KR Surveys gave you. You land on the sign-in page.
+1. Open the KR Central address KR Surveys gave you. You land on the sign-in page.
 2. Choose **Sign in with Microsoft** and use your KR Surveys account. If you are already signed in to Microsoft 365 it
    is one click.
-3. You arrive on the **dashboard**. Your name, a theme control (System, Light, Dark) and **Sign out** are at the top
-   right; **Admin** appears if you may use it.
+3. You arrive on **Home**: a greeting, how many jobs need attention, a tile for each module you may open (Subdivision
+   Tracker, and the admin pages if you may use them) and a **Needs you** list of the jobs with alerts. The sidebar on the
+   left holds the same links; its bottom block shows your name and role, the theme buttons (System, Light, Dark) and
+   **Sign out**. The chevron at the top folds the sidebar to icons. Choose **Subdivision Tracker** to reach the
+   dashboard.
 
 You are signed out after 2 hours without activity, or 12 hours after signing in. Close the tab and use **Sign out** on
 shared computers.

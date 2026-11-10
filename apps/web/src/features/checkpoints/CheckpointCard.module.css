@@ -1,23 +1,21 @@
 /* prototype .card, .ttl, .num, .det, .meta, .stat-label (status colours come from the effective status) */
+/* a checkpoint as a flat row: the status shows as a 4px mark on the left and in the status label, not as a tinted block */
 .card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
   gap: 12px 18px;
-  padding: 12px 14px;
-  border: 1px solid var(--red-line);
-  border-radius: var(--radius);
-  background: var(--red-bg);
-  transition:
-    background-color 0.2s,
-    border-color 0.2s;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: inset 4px 0 0 var(--red-ink);
+  transition: box-shadow 0.2s;
 }
 .card[data-s="completed"] {
-  border-color: var(--green-line);
-  background: var(--green-bg);
+  box-shadow: inset 4px 0 0 var(--green-ink);
 }
 .card[data-s="not_required"] {
-  border-color: var(--grey-line);
-  background: var(--grey-bg);
+  box-shadow: inset 4px 0 0 var(--grey-line);
 }
 .card[data-s="not_required"] .ttl,
 .card[data-s="not_required"] .det {

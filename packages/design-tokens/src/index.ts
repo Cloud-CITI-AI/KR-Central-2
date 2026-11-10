@@ -3,33 +3,33 @@
  * Use CSS variables in components; use these constants only where CSS cannot reach (e.g. canvas, tests).
  */
 export const lightColors = {
-  field: "#f5f5f3",
-  onBg: "#f2f2f0",
-  onBg2: "#d6d6d2",
-  bg: "#61625d",
+  field: "#f4f5f7",
+  onBg: "#1f2328",
+  onBg2: "#5f646b",
+  bg: "#f4f5f7",
   surface: "#ffffff",
-  ink: "#303133",
-  ink2: "#5e5e5e",
-  ink3: "#686868",
-  line: "#eaeaea",
+  ink: "#1f2328",
+  ink2: "#4b5159",
+  ink3: "#5f646b",
+  line: "#e5e7ea",
   brand: "#141618",
   brandInk: "#ffffff",
   accent: "#d65614",
   accentInk: "#b5410e",
-  accentSoft: "#fbe9df",
+  accentSoft: "#fdeee5",
   redBg: "#fce8e6",
   redLine: "#efbcb6",
   redInk: "#9b2c22",
   greenBg: "#e3f3e5",
   greenLine: "#a8d6b0",
   greenInk: "#2e6b3a",
-  greyBg: "#ebeae8",
-  greyLine: "#cfcdc9",
-  greyInk: "#64635f",
+  greyBg: "#eceef0",
+  greyLine: "#cfd3d8",
+  greyInk: "#5f646b",
   fee: "#7a5d00",
   feeSoft: "#fbf0b8",
   item: "#1f5f8b",
-  itemSoft: "#e1eef7",
+  itemSoft: "#e4eef6",
   claim: "#a3410b",
   claimSoft: "#fde2cf",
   onStatus: "#ffffff",
@@ -38,15 +38,15 @@ export const lightColors = {
 export type ColorToken = keyof typeof lightColors;
 
 export const darkColors: Record<ColorToken, string> = {
-  field: "#1a1c1f",
-  onBg: "#eeeeee",
-  onBg2: "#a8a8a8",
-  bg: "#141618",
-  surface: "#1e2023",
-  ink: "#eeeeee",
-  ink2: "#b3b3b3",
-  ink3: "#9d9d9d",
-  line: "#34373b",
+  field: "#15171a",
+  onBg: "#e8eaed",
+  onBg2: "#9ba1a9",
+  bg: "#15171a",
+  surface: "#1e2124",
+  ink: "#e8eaed",
+  ink2: "#b3b8bf",
+  ink3: "#9ba1a9",
+  line: "#2e3236",
   brand: "#0d0e10",
   brandInk: "#ffffff",
   accent: "#e8743a",
@@ -58,16 +58,16 @@ export const darkColors: Record<ColorToken, string> = {
   greenBg: "#1f3324",
   greenLine: "#3d6a47",
   greenInk: "#8fd09c",
-  greyBg: "#2c2c2a",
-  greyLine: "#454542",
-  greyInk: "#9a9994",
+  greyBg: "#2c3034",
+  greyLine: "#454a50",
+  greyInk: "#a7acb3",
   fee: "#e9cf62",
   feeSoft: "#37301a",
   item: "#79b3dd",
   itemSoft: "#1a2c3a",
   claim: "#f0a070",
   claimSoft: "#3d2619",
-  onStatus: "#151514",
+  onStatus: "#15171a",
 };
 
 /** camelCase token → CSS custom property name. */
@@ -75,7 +75,7 @@ export function cssVar(token: ColorToken): string {
   return `--${token.replace(/([A-Z0-9])/g, (c) => `-${c.toLowerCase()}`).replace(/-(\d)/, "-$1")}`;
 }
 
-export const layout = { maxWidth: 1180, gutter: 16, radius: 3 } as const;
+export const layout = { maxWidth: 1240, gutter: 24, radius: 6 } as const;
 
 /** Breakpoints used by the prototype's media queries (max-width). */
 export const breakpoints = { narrow: 520, cfields: 640, stacked: 760 } as const;

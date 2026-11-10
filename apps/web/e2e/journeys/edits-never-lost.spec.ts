@@ -124,7 +124,7 @@ test("a NEW JOB form left idle past the dashboard's refresh comes back filled in
   const user = await newUser("staff", "expiry-new-job");
   const session = await signInAs(user);
   await page.clock.install();
-  await page.goto("/");
+  await page.goto("/subdivisions");
   await page.getByRole("button", { name: "New job" }).click();
   await page.getByRole("textbox", { name: "Job number" }).fill("EXP-0042");
   await page.getByRole("textbox", { name: "Address", exact: true }).fill("5 Synthetic Way, Testville WA 6000");
@@ -155,7 +155,7 @@ test("the access form keeps what was typed when the session ended and puts it ba
   const job = await createJob(await apiAs(STAFF));
   const user = await newUser("staff", "expiry-access");
   const session = await signInAs(user);
-  await page.goto("/");
+  await page.goto("/subdivisions");
   const manager = page.getByRole("region", { name: "Access manager" });
   // The job picker is filled from the API once the page is hydrated: typing earlier would be wiped by hydration.
   await expect(manager.getByRole("option", { name: job.jobNumber })).toBeAttached();

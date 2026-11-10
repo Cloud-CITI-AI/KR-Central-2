@@ -9,9 +9,9 @@ test.describe.configure({ mode: "serial" });
 
 test("the first KR member to sign in becomes admin and sees the Admin link", async ({ page }) => {
   await signInThroughBrowser(page, FIRST_MEMBER);
-  await expect(page.getByRole("heading", { name: "SUBDIVISION DASHBOARD" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /Good (morning|afternoon|evening)/ })).toBeVisible();
   await expect(page.getByText(FIRST_MEMBER.name)).toBeVisible();
-  await page.getByRole("link", { name: "Admin" }).click();
+  await page.getByRole("complementary", { name: "KR Central" }).getByRole("link", { name: "Users" }).click();
   await expect(page).toHaveURL(/\/admin\/users$/);
   const ada = page.getByRole("row", { name: FIRST_MEMBER.name });
   await expect(ada).toContainText("AdminMember");
@@ -19,8 +19,8 @@ test("the first KR member to sign in becomes admin and sees the Admin link", asy
 
 test("the next KR member is staff, and a guest with no grants is external", async ({ page, browser, own }) => {
   await signInThroughBrowser(page, STAFF);
-  await expect(page.getByRole("heading", { name: "SUBDIVISION DASHBOARD" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1, name: /Good (morning|afternoon|evening)/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Users" })).toHaveCount(0);
   const guest = await browser.newContext({ baseURL: own.info.webUrl });
   const guestPage = await guest.newPage();
   await signInThroughBrowser(guestPage, EXTERNAL_NO_GRANTS);

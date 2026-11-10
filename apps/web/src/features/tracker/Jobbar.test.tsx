@@ -80,7 +80,7 @@ describe("Jobbar", () => {
     server.use(mockApi("listJobs", jobPage([])));
     const onSaveAsPdf = vi.fn();
     renderTracker(<Jobbar job={job} onSaveAsPdf={onSaveAsPdf} />);
-    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/subdivisions");
     const pdf = screen.getByRole("button", { name: "Save as PDF" });
     expect(pdf).toHaveAttribute("title", "Saves exactly what is showing – use Expand all first to include everything");
     await userEvent.click(pdf);

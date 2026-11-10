@@ -10,20 +10,16 @@
   align-items: center;
   gap: 16px;
 }
+/* the figure as type, not a ring: the bar beside it carries the proportions */
 .pct {
   flex: none;
-  display: grid;
-  place-items: center;
-  width: 78px;
-  height: 78px;
-  border-radius: 50%;
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
-  background:
-    radial-gradient(closest-side, var(--surface) 72%, transparent 73% 100%),
-    conic-gradient(var(--green-ink) calc(var(--pc, 0) * 1%), var(--line) 0);
+  min-width: 78px;
 }
 .progRight {
   flex: 1;
@@ -33,11 +29,10 @@
 }
 .bar {
   display: flex;
-  height: 18px;
-  border-radius: var(--radius-pill);
+  height: 8px;
+  border-radius: 4px;
   overflow: hidden;
-  background: var(--line);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  background: var(--grey-bg);
 }
 .bar i {
   display: block;
@@ -45,13 +40,13 @@
   transition: width 0.4s ease;
 }
 .barCompleted {
-  background: var(--bar-green);
+  background: var(--item);
 }
 .barNotRequired {
-  background: var(--bar-grey);
+  background: var(--grey-line);
 }
 .barNotCompleted {
-  background: var(--bar-red);
+  background: transparent;
 }
 .counts {
   display: flex;
@@ -63,27 +58,20 @@
   display: inline-flex;
   align-items: baseline;
   gap: 5px;
-  padding: 3px 10px;
-  border-radius: var(--radius);
-  border: 1px solid;
-  font-size: 12.5px;
+  font-size: 13px;
+  color: var(--ink-2);
 }
 .cnt b {
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 500;
 }
-.cntCompleted {
-  background: var(--green-bg);
-  border-color: var(--green-line);
+.cntCompleted b {
   color: var(--green-ink);
 }
-.cntNotCompleted {
-  background: var(--red-bg);
-  border-color: var(--red-line);
+.cntNotCompleted b {
   color: var(--red-ink);
 }
-.cntNotRequired {
-  background: var(--grey-bg);
-  border-color: var(--grey-line);
+.cntNotRequired b {
   color: var(--grey-ink);
 }
 /* the status key panel itself (prototype `.panel.legend`): a grid whose heading is blockified, so its rule spans the panel, and whose

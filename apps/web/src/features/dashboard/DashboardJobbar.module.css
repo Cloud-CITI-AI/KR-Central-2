@@ -1,8 +1,24 @@
-/* prototype .jobbar */
+/* the dashboard's own row of buttons: back to the last job, Save as PDF */
+/* sits on the breadcrumb row's right (the strip above the page leaves that space free) */
 .jobbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  margin-top: 18px;
+  justify-content: flex-end;
+  margin: -50px 0 8px;
+  min-height: 34px;
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 760px) {
+  .jobbar {
+    margin: 0 0 8px;
+    justify-content: flex-start;
+  }
+}
+@media print {
+  .jobbar {
+    display: none;
+  }
 }

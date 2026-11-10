@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ButtonLink } from "@/components/ui/ButtonLink";
-import { Panel } from "@/components/ui/Panel";
+import { PublicCard } from "@/components/shell/PublicShell";
 import { signInErrorMessage } from "@/lib/auth-errors";
 
 export const metadata: Metadata = { title: "Sign-in problem" };
@@ -13,13 +13,13 @@ interface SignInErrorPageProps {
 export default async function SignInErrorPage({ searchParams }: SignInErrorPageProps) {
   const { reason } = await searchParams;
   return (
-    <Panel title="Sign-in problem">
+    <PublicCard title="Sign-in problem">
       <p>{signInErrorMessage(typeof reason === "string" ? reason : undefined)}</p>
       <p>
         <ButtonLink href="/sign-in" variant="primary">
           Try again
         </ButtonLink>
       </p>
-    </Panel>
+    </PublicCard>
   );
 }

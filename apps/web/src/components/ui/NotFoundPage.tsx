@@ -14,7 +14,7 @@ export function NotFoundPage({ requestId, inShell = false }: NotFoundPageProps) 
       <p>We couldn't find that page. It may have moved, or you may not have access to it.</p>
       <p>
         <ButtonLink href="/" variant="primary">
-          Back to the dashboard
+          Back to home
         </ButtonLink>
       </p>
     </StatusPage>

@@ -1,150 +1,103 @@
-/* prototype .dash-head, .dash-tools, .dash-filter, .dash-types, .dt, .dt-n */
+/* "Subdivision dashboard" (§6): the title row, then a quiet toolbar of filter, search and type chips. */
 .head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
-  padding: 14px 16px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-top: 3px solid var(--accent);
-  border-radius: var(--radius);
+  display: grid;
+  gap: 14px;
+  margin: 8px 0 16px;
 }
 .titleRow {
   display: flex;
+  align-items: flex-end;
+  gap: 16px;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
-  margin-right: auto;
 }
 .title {
   margin: 0;
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  flex: 1;
 }
 .tools {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
   align-items: center;
-}
-/*
- * Pressed states use the primary-button colours (white on #c04a10 in light, dark ink on the lighter accent in dark)
- * because the prototype's white on #d65614 is 4.03:1, below WCAG AA (§12, not overridable). The pressed chip's count sits on
- * a solid tile (not a translucent overlay, which gave 3.26:1 and 4.08:1): white on #8a3208 (8.3:1) in light, #f2f2f0 on
- * #151514 (16:1) in dark.
- */
-.filter,
-.types {
-  --on-ink: #fff;
-  --pressed-bg: var(--accent-hover);
-  --count-bg: #8a3208;
-  --count-ink: #fff;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) :is(.filter, .types) {
-    --on-ink: var(--on-status);
-    --pressed-bg: var(--accent);
-    --count-bg: #151514;
-    --count-ink: #f2f2f0;
-  }
-}
-:root[data-theme="dark"] :is(.filter, .types) {
-  --on-ink: var(--on-status);
-  --pressed-bg: var(--accent);
-  --count-bg: #151514;
-  --count-ink: #f2f2f0;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .filter {
-  display: grid;
-  grid-template-columns: repeat(3, auto);
-  border: 1px solid var(--line);
+  display: inline-flex;
+  border: 1px solid var(--line-2);
   border-radius: var(--radius);
-  overflow: hidden;
   background: var(--surface);
+  overflow: hidden;
 }
 .filter button {
-  padding: 6px 12px;
+  height: 32px;
+  padding: 0 12px;
   border: 0;
-  border-right: 1px solid var(--line);
   background: transparent;
-  font-size: 12px;
+  font-size: 13.5px;
+  color: var(--ink-2);
   cursor: pointer;
+  border-right: 1px solid var(--line);
 }
 .filter button:last-child {
   border-right: 0;
 }
 .filter button[aria-pressed="true"] {
-  background: var(--brand);
-  color: var(--brand-ink);
+  background: var(--ink);
+  color: var(--surface);
 }
 .search {
-  flex: 1 1 220px;
-  min-width: 0;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
+  height: 32px;
+  min-width: 240px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
   border-radius: var(--radius);
-  background: var(--field);
-  font-size: 14px;
+  background: var(--surface);
+  font-size: 13.5px;
 }
 .types {
   display: flex;
-  flex: 1 0 100%;
-  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 .typeLabel {
-  margin-right: 2px;
+  font-size: 12px;
   color: var(--ink-3);
-  font-size: 11px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  margin-right: 2px;
 }
 .chip {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  font-size: 12.5px;
+  color: var(--ink-2);
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  font-size: 12.5px;
   cursor: pointer;
 }
 .chip:hover {
   border-color: var(--ink-3);
 }
 .chip[aria-pressed="true"] {
-  background: var(--pressed-bg);
-  border-color: var(--pressed-bg);
-  color: var(--on-ink);
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 500;
 }
 .chipCount {
-  min-width: 1.4em;
-  padding: 0 5px;
-  border-radius: var(--radius);
-  background: var(--field);
-  color: var(--ink-2);
-  font-size: 11px;
-  font-weight: 600;
-  text-align: center;
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 .chip[aria-pressed="true"] .chipCount {
-  background: var(--count-bg);
-  color: var(--count-ink);
+  color: var(--ink-2);
 }
 @media print {
-  .head {
-    break-inside: avoid;
-  }
-  /* the filters and search are controls, not information: a pressed filter was white on white, and a printed list needs none */
-  .filter,
-  .search,
-  .types {
+  .tools {
     display: none;
   }
 }

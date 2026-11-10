@@ -98,8 +98,8 @@ test("staff and clients have no admin pages; a KR admin sees the audit trail but
   const context = await browser.newContext();
   await signInAs(KR_ADMIN, context);
   const tab = await context.newPage();
-  await tab.goto("/");
-  await expect(tab.getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin/audit");
+  await tab.goto("/subdivisions");
+  await expect(tab.getByRole("link", { name: "Audit trail" })).toHaveAttribute("href", "/admin/audit");
   await tab.goto("/admin/users");
   await expect(tab.getByRole("heading", { name: "Page not found" })).toBeVisible();
   await context.close();

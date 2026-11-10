@@ -18,7 +18,7 @@ describe("AdminHeader", () => {
   it("has a Dashboard link back, like the tracker's jobbar, for every admin role", () => {
     for (const role of ["admin", "kr_admin"] as const) {
       const { unmount } = renderWithProviders(<AdminHeader current="audit" />, { me: syntheticMe(role) });
-      expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/");
+      expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/subdivisions");
       unmount();
     }
   });

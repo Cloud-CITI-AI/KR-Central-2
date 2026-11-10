@@ -4,10 +4,17 @@ import { api, ApiProblem } from "@/lib/api";
 import { useBanners } from "@/lib/banner/BannerProvider";
 import { MESSAGES } from "@/lib/messages";
 import { navigation } from "@/lib/navigation";
+import { Icons } from "@/components/shell/icons";
+import styles from "@/components/shell/Shell.module.css";
 import { Button } from "./Button";
 
+export interface SignOutButtonProps {
+  /** Icon-only form for the sidebar's user block (the label stays for assistive tech). */
+  readonly compact?: boolean;
+}
+
 /** Sign out: POST logout (revokes the session, clears the cookie), then go to Entra's end-session URL (§3.1). */
-export function SignOutButton() {
+export function SignOutButton({ compact = false }: SignOutButtonProps = {}) {
   const { show } = useBanners();
   const [busy, setBusy] = useState(false);
 
@@ -23,9 +30,24 @@ export function SignOutButton() {
     }
   }
 
+  if (compact) {
+    return (
+      <button
+        type="button"
+        className={styles.tool}
+        aria-label="Sign out"
+        title="Sign out"
+        disabled={busy}
+        onClick={() => {
+          void signOut();
+        }}
+      >
+        <Icons.logout width={16} height={16} />
+      </button>
+    );
+  }
   return (
     <Button
-      variant="photo"
       small
       disabled={busy}
       onClick={() => {

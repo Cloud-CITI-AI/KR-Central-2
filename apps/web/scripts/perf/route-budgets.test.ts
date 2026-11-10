@@ -24,13 +24,13 @@ const routes: RouteStat[] = [
   { route: "/big", firstLoadChunkPaths: ["a.js", "huge.js"] },
   { route: "/gone", firstLoadChunkPaths: ["a.js"] },
 ];
-const sizes: Record<string, number> = { "a.js": 100_000, "b.js": 70_000, "huge.js": 90_000, "styles.css": 999_999 };
+const sizes: Record<string, number> = { "a.js": 120_000, "b.js": 70_000, "huge.js": 90_000, "styles.css": 999_999 };
 const sizeOf = (path: string) => sizes[path] ?? 0;
 
 describe("evaluateRoutes", () => {
   it("sums only .js files and accepts a route at exactly the budget", () => {
     const [root] = evaluateRoutes(routes, sizeOf, {});
-    expect(root).toEqual({ route: "/", bytes: 170_000, limitBytes: FIRST_LOAD_BUDGET_BYTES, status: "ok" });
+    expect(root).toEqual({ route: "/", bytes: 190_000, limitBytes: FIRST_LOAD_BUDGET_BYTES, status: "ok" });
   });
 
   it("flags a route one byte over the budget", () => {
@@ -39,17 +39,17 @@ describe("evaluateRoutes", () => {
   });
 
   it("holds a waived route to its ceiling: waived at or under it, over above it", () => {
-    expect(evaluateRoutes(routes, sizeOf, { "/big": 190_000 })[1]?.status).toBe("waived");
-    expect(evaluateRoutes(routes, sizeOf, { "/big": 189_999 })[1]?.status).toBe("over");
+    expect(evaluateRoutes(routes, sizeOf, { "/big": 210_000 })[1]?.status).toBe("waived");
+    expect(evaluateRoutes(routes, sizeOf, { "/big": 209_999 })[1]?.status).toBe("over");
   });
 
   it("reports a waiver on a route that fits the budget as stale", () => {
-    expect(evaluateRoutes(routes, sizeOf, { "/": 200_000 })[0]?.status).toBe("stale-waiver");
+    expect(evaluateRoutes(routes, sizeOf, { "/": 220_000 })[0]?.status).toBe("stale-waiver");
   });
 });
 
 describe("the waivers in force", () => {
-  it("are none: every route, signed in or not, is held to the FE-9 170 KB budget", () => {
+  it("are none: every route, signed in or not, is held to the FE-9 190 KB budget", () => {
     expect(BUDGET_WAIVERS).toEqual({});
   });
 
@@ -65,7 +65,7 @@ describe("the waivers in force", () => {
 
 describe("limitFor and unknownWaivers", () => {
   it("falls back to the FE-9 budget and finds waivers for routes that no longer exist", () => {
-    expect(limitFor("/x", {})).toBe(170_000);
+    expect(limitFor("/x", {})).toBe(190_000);
     expect(limitFor("/x", { "/x": 1 })).toBe(1);
     expect(unknownWaivers(routes, { "/big": 1, "/old": 2 })).toEqual(["/old"]);
   });

@@ -1,0 +1,103 @@
+/* Public pages (sign-in, sign-in problem, signed out): the photo wash with one centred card. */
+.canvas {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background:
+    var(--wash),
+    image-set(
+        url("/brand/kr-central-hero-1600.avif") type("image/avif"),
+        url("/brand/kr-central-hero-1600.webp") type("image/webp")
+      )
+      center 35% / cover no-repeat fixed;
+}
+@media (max-width: 760px) {
+  .canvas {
+    background-image:
+      var(--wash),
+      image-set(
+        url("/brand/kr-central-hero-800.avif") type("image/avif"),
+        url("/brand/kr-central-hero-800.webp") type("image/webp")
+      );
+    background-attachment: scroll;
+  }
+}
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+.mark {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--on-status);
+  border-radius: 10px;
+}
+.mark svg {
+  width: 28px;
+  height: 28px;
+}
+.brandText b {
+  display: block;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+.brandText span {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.main {
+  display: grid;
+  place-items: start center;
+  padding: 24px;
+}
+.card {
+  width: min(100%, 440px);
+  margin-top: 8vh;
+  padding: 28px 28px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+.card h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.card p {
+  margin: 10px 0 0;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.card .action {
+  margin: 18px 0 8px;
+}
+.footer {
+  color: var(--ink-3);
+  font-size: 12px;
+  padding: 16px 24px;
+  display: flex;
+  gap: 16px;
+}
+.footer a {
+  color: var(--item);
+}
+.themeTools {
+  display: flex;
+  gap: 2px;
+}

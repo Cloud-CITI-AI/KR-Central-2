@@ -29,15 +29,15 @@ describe("RootLayout", () => {
     expect(html).toContain(`<script nonce="n0nce123">${THEME_BOOTSTRAP_SCRIPT}</script>`);
   });
 
-  it("preloads the header's hero photo (the LCP element) at the size the stylesheet will pick, AVIF, high priority", async () => {
+  it("preloads the canvas wash photo at the size the stylesheet will pick, AVIF, high priority", async () => {
     incoming.headers = new Headers();
     const html = await render();
-    const css = readFileSync(new URL("../components/ui/AppHeader.module.css", import.meta.url), "utf8");
+    const css = readFileSync(new URL("../components/shell/Shell.module.css", import.meta.url), "utf8");
     for (const [width, media] of [
-      ["1280", "(min-width: 641px)"],
-      ["640", "(max-width: 640px)"],
+      ["1600", "(min-width: 761px)"],
+      ["800", "(max-width: 760px)"],
     ] as const) {
-      const href = `/brand/hero-header-${width}.avif`;
+      const href = `/brand/kr-central-hero-${width}.avif`;
       const link = html.split("<link").find((tag) => tag.includes(`href="${href}"`)) ?? "";
       expect(link, href).toContain('rel="preload"');
       expect(link).toContain('as="image"');
@@ -49,6 +49,6 @@ describe("RootLayout", () => {
   });
 
   it("titles pages with the product name", () => {
-    expect(metadata.title).toMatchObject({ default: "KR Surveys Subdivision Tracker" });
+    expect(metadata.title).toMatchObject({ default: "KR Central" });
   });
 });
