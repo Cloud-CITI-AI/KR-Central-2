@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { getJobSummary } from "./get-job";
+import { getJobDetail, getJobSummary } from "./get-job";
 
 const JOB_ID = "00000000-0000-4000-8000-0000000000a1";
 let upstream: Upstream | undefined;
@@ -40,6 +40,16 @@ describe("getJobSummary", () => {
     });
     expect(upstream?.seen[0]?.url).toBe(`/v1/jobs/${JOB_ID}`);
     expect(upstream?.seen[0]?.headers).toMatchObject({ cookie: "__Host-kr_session=s" });
+  });
+
+  it("getJobDetail hands the whole job on for the tracker's first HTML, checking only what the page itself needs", async () => {
+    const OTHER = "00000000-0000-4000-8000-0000000000a2";
+    const body = { id: OTHER, jobNumber: "P-0002", address: "2 Synthetic Way", checkpoints: [], somethingNewer: 1 };
+    await api(200, body);
+    await expect(getJobDetail(OTHER)).resolves.toEqual(body);
+    await upstream?.close();
+    await api(200, { id: OTHER, address: "no number" });
+    await expect(getJobDetail("00000000-0000-4000-8000-0000000000a3")).rejects.toThrow();
   });
 
   it("is null for a job that is missing, archived or not the caller's (the API answers 404 for all three)", async () => {

@@ -3,7 +3,7 @@ import { STAGE_KEYS, type StageKey } from "@kr/workflow";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { TrackerPage } from "@/features/tracker";
-import { getJobSummary } from "@/lib/session/get-job";
+import { getJobDetail, getJobSummary } from "@/lib/session/get-job";
 
 interface JobPageProps {
   readonly params: Promise<{ readonly jobId: string }>;
@@ -25,13 +25,15 @@ export async function generateMetadata({ params }: Pick<JobPageProps, "params">)
 /**
  * The tracker for one job (§4, §5). `?stage=<stageKey>` opens and scrolls to a stage; an id that is not a UUID can never
  * be a job, so it is a 404 without asking the API. A job that is missing, archived or not the person's is a 404 from the
- * API, which this asks before rendering so the response itself is a 404 (the tracker would only find out in the browser).
+ * API, which this asks before rendering so the response itself is a 404. The job it gets back goes to the tracker, so the
+ * page arrives drawn (the browser refreshes it on the usual 15 s cycle).
  */
 export default async function JobPage({ params, searchParams }: JobPageProps) {
   const { jobId } = await params;
   if (!Uuid.safeParse(jobId).success) notFound();
-  if (!(await getJobSummary(jobId))) notFound();
+  const job = await getJobDetail(jobId);
+  if (!job) notFound();
   const { stage } = await searchParams;
   const requested = Array.isArray(stage) ? stage[0] : stage;
-  return <TrackerPage jobId={jobId} {...(isStageKey(requested) ? { initialStage: requested } : {})} />;
+  return <TrackerPage jobId={jobId} initialJob={job} {...(isStageKey(requested) ? { initialStage: requested } : {})} />;
 }

@@ -24,6 +24,8 @@ export interface TrackerPageProps {
   readonly jobId: string;
   /** `?stage=<stageKey>`: the stage to open and scroll to. */
   readonly initialStage?: StageKey;
+  /** The job as the server fetched it for this page, so the tracker is drawn in the first HTML. */
+  readonly initialJob?: JobDetail;
 }
 
 /** Capabilities that change what is on the page. A viewer with none of them is view-only (architects, §5.1). */
@@ -42,8 +44,8 @@ export const isViewOnly = (job: JobDetail): boolean => !WRITE_CAPABILITIES.some(
  * The tracker page frame (§5): loads the job, turns problems into banners (§5.1), remembers the job for the dashboard's
  * back link and lays out the jobbar. A 404 (also what a job the person may not see answers) is the branded not-found page.
  */
-export function TrackerPage({ jobId, initialStage }: TrackerPageProps) {
-  const query = useJob(jobId);
+export function TrackerPage({ jobId, initialStage, initialJob }: TrackerPageProps) {
+  const query = useJob(jobId, initialJob);
   useEffect(() => {
     void loadTrackerBody();
   }, []);

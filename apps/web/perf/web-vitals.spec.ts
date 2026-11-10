@@ -28,7 +28,7 @@ interface Scenario {
 
 const dashboard: Scenario = {
   name: "dashboard",
-  prepare: () => Promise.resolve("/"),
+  prepare: () => Promise.resolve("/subdivisions"),
   ready: async (page) => {
     await expect(page.getByRole("article").first()).toBeVisible();
   },

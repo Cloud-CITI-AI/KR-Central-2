@@ -19,14 +19,24 @@ export interface BannerProviderProps {
   readonly children: ReactNode;
 }
 
-/** Page-level banners (§5.1): read-only access, save failures, stale data. Rendered by `<BannerRegion>`. */
+/**
+ * Page-level banners (§5.1): read-only access, save failures, stale data. Rendered by `<BannerRegion>`.
+ *
+ * A call that changes nothing keeps the same list, so nothing below re-renders: pages dismiss banners they never showed
+ * as they mount, and a context change at that moment reaches parts of the page React has not finished hydrating, which
+ * makes it throw their server-drawn HTML away and draw them again.
+ */
 export function BannerProvider({ children }: BannerProviderProps) {
   const [banners, setBanners] = useState<readonly BannerMessage[]>([]);
   const show = useCallback((id: string, text: string) => {
-    setBanners((current) => [...current.filter((b) => b.id !== id), { id, text }]);
+    setBanners((current) =>
+      current.some((b) => b.id === id && b.text === text)
+        ? current
+        : [...current.filter((b) => b.id !== id), { id, text }],
+    );
   }, []);
   const dismiss = useCallback((id: string) => {
-    setBanners((current) => current.filter((b) => b.id !== id));
+    setBanners((current) => (current.some((b) => b.id === id) ? current.filter((b) => b.id !== id) : current));
   }, []);
   const value = useMemo(() => ({ banners, show, dismiss }), [banners, show, dismiss]);
   return <BannerContext value={value}>{children}</BannerContext>;
