@@ -82,12 +82,13 @@ for (const viewport of VIEWPORTS) {
         const progress = page.getByRole("region", { name: "Subdivision progress" });
         const key = page.getByRole("region", { name: "Status key" });
         await expect(key).toBeVisible();
-        // As in the prototype (blank-03): the heading's rule spans the whole panel, and the four rows share the panel's height.
+        // The heading's rule spans the whole panel, edge to edge inside its 1px border (KR Central panels: the title bar
+        // bleeds through the padding), and the four rows share the panel's height.
         const heading = await key.getByRole("heading", { name: "Status key" }).boundingBox();
         const panel = await key.boundingBox();
         const last = await key.locator(":scope > div").last().boundingBox();
         if (!heading || !panel || !last) throw new Error("the status key is not laid out");
-        expect(Math.abs(heading.width - (panel.width - 34))).toBeLessThanOrEqual(1);
+        expect(Math.abs(heading.width - (panel.width - 2))).toBeLessThanOrEqual(1);
         if (viewport.name === "desktop") {
           const beside = await progress.boundingBox();
           expect(Math.abs((beside?.height ?? 0) - panel.height)).toBeLessThanOrEqual(1);
