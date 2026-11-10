@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.2.0](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.1.2...v1.2.0) (2026-11-10)
+
+
+### Features
+
+* **web:** KR Central shell — floating sidebar, home page, photo wash, light and dark themes ([9563ea3](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/9563ea37e6498b1973dd2f0b6b3e2b358962524d))
+
+
+### Bug Fixes
+
+* **web:** access manager no longer vanishes and returns on load; dashboard caption and print rules ([1ce201b](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/1ce201ba91867fab04b9206a631969db860cdd68))
+* **web:** access manager no longer vanishes and returns on load; dashboard caption and print rules inc new screenshots ([e197307](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/e197307a790d39eba52aa8c355f25b8c1dd7f4a7))
+* **web:** fix workflow format issue ([8474419](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/8474419af569f2f4c99cec441a0d40c5aed77e52))
+* **web:** KR Central shell — accessible sidebar names, footer landmark, e2e for the new routes ([52535cd](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/52535cdc5b8ab75ed3bebdd7cf8c67b0697a8ccf))
+* **web:** tracker body loads in the browser again; only the job heading is server-drawn (LCP) ([3509d77](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/3509d77fdd32776a04215d119d1fa3f251063593))
+
+
+### Performance Improvements
+
+* **web:** tracker arrives drawn in the first HTML (LCP); banner no-ops keep hydration intact ([bbeeec8](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/bbeeec8c5b8b8b9ec52c819f2a82d301f137cd90))
+
 ## [1.1.2](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.1.1...v1.1.2) (2026-11-08)
 
 
