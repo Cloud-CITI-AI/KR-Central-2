@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Releases are prepared by release-please from Conventional Commits.
 
+## [1.2.1](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.2.0...v1.2.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **worker:** delete the Teams check probe folder without If-Match ([ac7cc6d](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/ac7cc6d883f33a9af8111f04ffcd68d1057c2f8c))
+* **worker:** delete the Teams check probe folder without If-Match ([06dd9aa](https://github.com/Cloud-CITI-AI/KR-Central-2/commit/06dd9aaa55292b2b38ec3933b237447cf772bef5))
+
 ## [1.2.0](https://github.com/Cloud-CITI-AI/KR-Central-2/compare/v1.1.2...v1.2.0) (2026-11-10)
 
 
