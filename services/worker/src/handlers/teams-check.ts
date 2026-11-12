@@ -122,7 +122,9 @@ export function teamsCheckHandler(deps: TeamsCheckDeps): Handler {
           (await graph.itemByPath(drive.id, settings.root_folder, signal)) ??
           (await graph.createFolder(drive.id, (await graph.root(drive.id, signal)).id, settings.root_folder, signal));
         const probe = await graph.createFolder(drive.id, root.id, `${PROBE_FOLDER_PREFIX}${ctx.operation.id}`, signal);
-        await graph.deleteItem(drive.id, probe.id, probe.eTag, signal);
+        // no If-Match: SharePoint restamps a new folder's eTag right after creating it, so the create's eTag can be stale
+        // (412 resourceModified); the probe is uniquely named and only this check touches it
+        await graph.deleteItem(drive.id, probe.id, null, signal);
       });
 
       // 4–5. the Fee Proposals channel's site (restricted policy only)
@@ -137,7 +139,7 @@ export function teamsCheckHandler(deps: TeamsCheckDeps): Handler {
         const drive = await graph.defaultDrive(resolved.id, signal);
         const root = await graph.root(drive.id, signal);
         const probe = await graph.createFolder(drive.id, root.id, `${PROBE_FOLDER_PREFIX}${ctx.operation.id}`, signal);
-        await graph.deleteItem(drive.id, probe.id, probe.eTag, signal);
+        await graph.deleteItem(drive.id, probe.id, null, signal);
       });
 
       // 6. channel listing (`Channel.ReadBasic.All`, E17) — also refreshes the cache the picker reads

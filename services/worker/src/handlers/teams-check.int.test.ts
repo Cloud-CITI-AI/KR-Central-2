@@ -140,6 +140,26 @@ describe("teams.check", () => {
     expect(JSON.stringify(ctx.captured.lines)).not.toContain("a-test-secret");
   });
 
+  it("removes the probe even when SharePoint restamps the new folder's eTag after creating it", async () => {
+    const site = fake.addSite(SITE);
+    const fee = fake.addSite(FEE_SITE, { writable: true });
+    fake.restampNewFolders(true);
+    await db
+      .updateTable("teams_settings")
+      .set({ fee_channel_id: "19:fee@thread.tacv2", fee_site_url: FEE_SITE, fee_proposal_policy: "restricted" })
+      .execute();
+    const { result } = await run();
+    const writes = result?.results.filter((r) => r.item === "team_site_write" || r.item === "fee_site_write");
+    expect(writes).toEqual([
+      { item: "team_site_write", ok: true, errorCode: null },
+      { item: "fee_site_write", ok: true, errorCode: null },
+    ]);
+    for (const driveId of [site.driveId, fee.driveId]) {
+      const leftovers = [...fake.items(driveId).values()].filter((i) => i.name.startsWith(PROBE_FOLDER_PREFIX));
+      expect(leftovers).toEqual([]);
+    }
+  });
+
   it("reports a missing grant as 403 accessDenied on the write check and keeps the rest of the result", async () => {
     fake.addSite(SITE, { writable: false });
     const { result } = await run();
