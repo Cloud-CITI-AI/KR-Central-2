@@ -67,6 +67,8 @@ export interface FakeGraph {
   expireTokenOnce(): void;
   /** The next upload stores its bytes and then drops the connection without a reply. */
   crashAfterNextUpload(): void;
+  /** When on, a new folder's eTag changes right after the create answers, as SharePoint does. */
+  restampNewFolders(on: boolean): void;
   /** When set, token requests fail with this status. */
   refuseTokens(status: number | null): void;
   /** Overwrites an item's content as a person editing it in Teams would (new eTag, modifier). */
@@ -115,6 +117,7 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
   const injected: Injected[] = [];
   let expireToken = false;
   let crashNextUpload = false;
+  let restampFolders = false;
   let refuseTokens: number | null = null;
   let expireDelta = false;
   const teams = new Map<
@@ -448,7 +451,9 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
       };
       items.set(item.id, item);
       record(driveId, item.id);
-      return json(res, 201, render(item, items));
+      json(res, 201, render(item, items));
+      if (restampFolders) item.eTag = newTag();
+      return true;
     }
     // DELETE /drives/{id}/items/{item}
     if (req.method === "DELETE" && (m = /^\/drives\/([^/]+)\/items\/([^/]+)$/.exec(path))) {
@@ -599,6 +604,9 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
     },
     crashAfterNextUpload() {
       crashNextUpload = true;
+    },
+    restampNewFolders(on) {
+      restampFolders = on;
     },
     refuseTokens(status) {
       refuseTokens = status;
