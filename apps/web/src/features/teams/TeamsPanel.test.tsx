@@ -255,6 +255,17 @@ describe("TeamsPanel phase 3", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("says why a channel was not created instead of always blaming Teams", async () => {
+    server.use(
+      mockApi("getJobTeamsLink", link({ state: "not_created", errorCode: "permission_denied", createEnabled: true })),
+      mockApi("listTeamsChannels", channels),
+    );
+    renderPanel();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Channel not created: the app is not allowed to write to this team's site (ask KR IT to check the site grant). Create it from the panel.",
+    );
+  });
+
   it("links from the picker with a link built from the chosen channel, and falls back to pasting", async () => {
     server.use(mockApi("getJobTeamsLink", link()), mockApi("listTeamsChannels", channels));
     const sent: unknown[] = [];
