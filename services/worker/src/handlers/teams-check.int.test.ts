@@ -86,7 +86,7 @@ async function run(o: { flagOn?: boolean; withGraph?: boolean } = {}): Promise<{
     config: { TEAMS_GRAPH_TIMEOUT_MS: 5000 },
     clock: { now: () => new Date() },
     graph: o.withGraph === false ? undefined : graph,
-    teams: o.withGraph === false ? undefined : createGraphTeamsClient(graph.request.bind(graph), graph.sleep),
+    teams: o.withGraph === false ? undefined : createGraphTeamsClient(graph.request.bind(graph)),
   });
   const outcome = await handler.run(ctx).then(
     (result) => ({

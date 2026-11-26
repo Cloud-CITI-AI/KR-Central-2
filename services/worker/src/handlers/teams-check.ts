@@ -84,7 +84,7 @@ export function teamsCheckHandler(deps: TeamsCheckDeps): Handler {
         } catch (error) {
           if (signal.aborted) throw error;
           ctx.log.warn(
-            { event: "teams_check_failed", item, code: failureCode(error) },
+            { event: "teams_check_failed", item, failureCode: failureCode(error) },
             "A Teams settings check failed",
           );
           results.push({ item, ok: false, errorCode: failureCode(error) });

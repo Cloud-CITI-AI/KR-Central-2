@@ -3,7 +3,7 @@
  * Built on the same transport as the drive client (retries, breaker, metrics, no secrets in errors) by reusing it
  * through a tiny request seam, so there is one way to call Graph in the worker.
  */
-import type { DriveItem, GraphDriveClient } from "./graph-drive.js";
+import type { GraphDriveClient } from "./graph-drive.js";
 import { GraphError } from "./graph-drive.js";
 
 export interface GraphChannel {
@@ -17,11 +17,8 @@ export interface GraphTeamsClient {
   listChannels(teamId: string, signal: AbortSignal): Promise<GraphChannel[]>;
   /** Creates a standard channel; a name already in use is a GraphError 409 (`nameAlreadyExists` or `Conflict`). */
   createChannel(teamId: string, displayName: string, signal: AbortSignal): Promise<GraphChannel>;
-  /**
-   * The channel's Files folder, waiting while Teams creates it (it may not exist for some seconds after a channel
-   * is created). Resolves once Graph answers; throws the last GraphError after `attempts`.
-   */
-  channelFilesFolder(teamId: string, channelId: string, attempts: number, signal: AbortSignal): Promise<DriveItem>;
+  // No channel `filesFolder` call: it needs tenant-wide Files/Sites read, and the registration holds Sites.Selected
+  // only. A channel's folder is found by name in the team site's library (teams.provision, teams.create_channel).
 }
 
 interface RawChannel {
@@ -45,10 +42,7 @@ function toChannel(raw: RawChannel): GraphChannel {
 /** The request seam every Graph client shares (exposed by createGraphDriveClient as `request`). */
 export type GraphRequest = GraphDriveClient["request"];
 
-export function createGraphTeamsClient(
-  request: GraphRequest,
-  sleep: (ms: number, signal: AbortSignal) => Promise<void>,
-): GraphTeamsClient {
+export function createGraphTeamsClient(request: GraphRequest): GraphTeamsClient {
   return {
     async listChannels(teamId, signal) {
       const out: GraphChannel[] = [];
@@ -72,26 +66,6 @@ export function createGraphTeamsClient(
         signal,
       );
       return toChannel(body);
-    },
-    async channelFilesFolder(teamId, channelId, attempts, signal) {
-      let last: unknown;
-      for (let i = 0; i < attempts; i += 1) {
-        try {
-          return await request<DriveItem>(
-            {
-              method: "GET",
-              target: `/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/filesFolder`,
-              item: true,
-            },
-            signal,
-          );
-        } catch (error) {
-          last = error;
-          if (!(error instanceof GraphError && (error.status === 404 || error.status === 400))) throw error;
-          await sleep(Math.min(10_000, 1000 * 2 ** i), signal);
-        }
-      }
-      throw last instanceof Error ? last : new GraphError("The channel's folder did not appear.", 404, "itemNotFound");
     },
   };
 }

@@ -39,7 +39,7 @@ afterEach(async () => {
 });
 
 function deps() {
-  const teams = createGraphTeamsClient(g.graph.request.bind(g.graph), g.graph.sleep);
+  const teams = createGraphTeamsClient(g.graph.request.bind(g.graph));
   return {
     db,
     flags,
@@ -49,20 +49,33 @@ function deps() {
     teams,
   };
 }
-async function create(jobId: string, name: string) {
+async function createLogged(jobId: string, name: string) {
   const op = await enqueue(db, jobId, "teams.create_channel", { name });
-  return (await teamsCreateChannelHandler(deps()).run(handlerContext(op))) as {
+  const ctx = handlerContext(op);
+  const result = (await teamsCreateChannelHandler(deps()).run(ctx)) as {
     status: string;
     channelName: string | null;
     errorCode: string | null;
   };
+  return { result, lines: ctx.captured.lines };
+}
+async function create(jobId: string, name: string) {
+  return (await createLogged(jobId, name)).result;
+}
+async function provisionOps(jobId: string) {
+  return db
+    .selectFrom("operations")
+    .select("type")
+    .where("job_id", "=", jobId)
+    .where("type", "=", "teams.provision")
+    .execute();
 }
 
 describe("teams.create_channel", () => {
   it("creates a standard channel with the template folders, links the job and queues provisioning", async () => {
     const site = g.fake.addSite(SITE, { displayName: "Team Survey" });
     g.fake.addTeam(TEAM, site);
-    g.fake.delayFilesFolder(2);
+    g.fake.delayChannelFolder(2); // SharePoint creates the channel's folder a little after the channel
     const jobId = await insertJob(db);
     expect(await create(jobId, "S-0042_1 EXAMPLE RD, SUBURB (CLIENT)")).toEqual({
       status: "created",
@@ -83,15 +96,51 @@ describe("teams.create_channel", () => {
       team_site_url: SITE,
     });
     expect(link.teams_url).toContain(`tenantId=${g.fake.tenantId}`);
-    const ops = await db
-      .selectFrom("operations")
-      .select("type")
-      .where("job_id", "=", jobId)
-      .where("type", "=", "teams.provision")
-      .execute();
-    expect(ops).toHaveLength(1);
+    expect(await provisionOps(jobId)).toHaveLength(1);
     // a re-run finds the link and creates nothing more
     expect((await create(jobId, "S-0042_1 EXAMPLE RD, SUBURB (CLIENT)")).status).toBe("created");
+    expect(g.fake.channels(TEAM)).toHaveLength(1);
+  });
+
+  it("finds the new channel's folder in the team site, never through filesFolder (Sites.Selected only)", async () => {
+    // the real tenant answers 403 to filesFolder for an app without tenant-wide Files/Sites read
+    const site = g.fake.addSite(SITE, { displayName: "Team Survey" });
+    g.fake.addTeam(TEAM, site, { filesFolderAllowed: false });
+    const jobId = await insertJob(db);
+    expect(await create(jobId, "S-0044_4 EXAMPLE RD")).toEqual({
+      status: "created",
+      channelName: "S-0044_4 EXAMPLE RD",
+      errorCode: null,
+    });
+    for (const folder of ["100. Initial SURVEY", "101. Subdivison Process", ROOT]) {
+      expect(g.fake.itemAt(site.driveId, `S-0044_4 EXAMPLE RD/${folder}`)?.isFolder, folder).toBe(true);
+    }
+    expect(await linkRow(db, jobId)).toMatchObject({ status: "provisioning", error_code: null });
+    expect(await provisionOps(jobId)).toHaveLength(1);
+    expect(g.fake.requests.some((r) => r.path.endsWith("/filesFolder"))).toBe(false);
+  });
+
+  it("links a created channel even when its folder set-up fails, so a retry never makes a second", async () => {
+    // the channel is created, then writing the template folders is refused (no write grant on the site)
+    const site = g.fake.addSite(SITE, { writable: false });
+    g.fake.addTeam(TEAM, site);
+    const jobId = await insertJob(db);
+    const { result, lines } = await createLogged(jobId, "S-0045_5 EXAMPLE RD");
+    expect(result).toEqual({ status: "error", channelName: "S-0045_5 EXAMPLE RD", errorCode: "permission_denied" });
+    expect(g.fake.channels(TEAM).map((c) => c.name)).toEqual(["S-0045_5 EXAMPLE RD"]);
+    expect(await linkRow(db, jobId)).toMatchObject({
+      status: "error",
+      error_code: "permission_denied",
+      channel_name: "S-0045_5 EXAMPLE RD",
+    });
+    expect(await provisionOps(jobId)).toHaveLength(0);
+    // the reason reaches the log readable (a field named `code` is redacted by the logger)
+    const failed = lines.find((l) => l.event === "teams_channel_create_failed");
+    expect(failed).toMatchObject({ failureCode: "permission_denied", graphStatus: 403, graphCode: "accessDenied" });
+    expect(failed).not.toHaveProperty("code");
+
+    // pressing Create channel again finds the link: still one channel, no " (2)"
+    expect((await create(jobId, "S-0045_5 EXAMPLE RD")).status).toBe("created");
     expect(g.fake.channels(TEAM)).toHaveLength(1);
   });
 
