@@ -17,7 +17,7 @@ export const TEAMS_MESSAGES = {
     graph_unavailable: "Teams did not answer",
     teams_not_configured: "the Teams settings are incomplete (check Admin → Teams)",
   } as Readonly<Record<string, string>>,
-  notCreated: (reason: string) => `Channel not created: ${reason}. Create it from the panel.`,
+  notCreated: "Channel not created: Teams did not answer. Create it from the panel.",
   notCreatedTaken: "Channel not created: a channel with this name already exists. Link an existing channel instead.",
   feeNote: "Fee proposal files are never copied to the job channel.",
   feeFolder: "Open fee proposal folder",

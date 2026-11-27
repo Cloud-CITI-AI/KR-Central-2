@@ -223,7 +223,7 @@ function TeamsPanelBody({
       {link.state === "not_linked" && <p className={styles.status}>{M.notLinked}</p>}
       {link.state === "not_created" && (
         <p className={styles.attention} role="alert">
-          {link.errorCode === "channel_name_taken" ? M.notCreatedTaken : M.notCreated(errorReason(link.errorCode))}
+          {link.errorCode === "channel_name_taken" ? M.notCreatedTaken : M.notCreated}
         </p>
       )}
       {link.state === "provisioning" && (

@@ -71,10 +71,11 @@ every" minutes and reads Graph delta under the job's root folder.
 
 With **Create channels for new jobs** on (E17 consented), creating a job queues `teams.create_channel`.
 
-- **"Channel not created: {reason}"** on the panel: no channel was created. With "Teams did not answer" the worker
-  could not reach Graph; press **CREATE CHANNEL** once Graph is back. Any other reason is the same as in the Error
-  row (for example a missing E17 permission). The worker log line `teams_channel_create_failed` carries
-  `failureCode`, `graphStatus` and `graphCode` (Graph's own error code).
+- **"Channel not created: Teams did not answer"** on the panel: no channel was created. The panel shows this text for
+  every reason except a name clash, so read the real one before acting: `errorCode` in
+  `GET /api/v1/jobs/{jobId}/teams-link` (open it in a signed-in browser), or the worker log line
+  `teams_channel_create_failed`, which carries `failureCode`, `graphStatus` and `graphCode` (Graph's own error code).
+  `graph_unavailable`: press **CREATE CHANNEL** once Graph is back; `permission_denied`: check E17.
 - **"Teams link needs attention: …" right after creating**: the channel was created and linked, but its folders could
   not be set up (for example the site grant E15 is missing). Fix the cause, then press **RELINK** with the same
   channel's link. The app never creates a second channel for the job. Releases before this fix could leave unlinked
