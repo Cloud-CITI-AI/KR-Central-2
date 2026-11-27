@@ -13,6 +13,7 @@ Fixing them belongs to the owning module, with the test moved into the suite in 
 | D-3 | Low      | `apps/web/src/proxy.ts` matcher, `apps/web/next.config.ts`                 | Framework 404 pages for paths ending in a file extension, `/api` and `/api/v1` carry no CSP                                                                      | `/apps/web/src/proxy.ts`, `/apps/web/next.config.ts` (security CODEOWNER) |
 | D-4 | Medium   | `.github/workflows/reusable-ci-node.yml`                                   | The CI mutation step passes `--thresholds.break`, which Stryker 10 does not accept, so the step fails whenever a PR changes a mutated file                       | `/.github/**` (platform and security CODEOWNERs)                          |
 | D-5 | Medium   | `services/api/test/helpers/contract.ts`, `services/api/stryker.config.mjs` | In Stryker's sandbox copy the initial test run of services/api fails (the OpenAPI file is read by a path relative to the test), so no API mutation run can start | `/services/api/**`                                                        |
+| D-6 | Medium   | `.github/workflows/reusable-ci-node.yml`, `apps/web/stryker.config.mjs`    | Web mutation runs need far longer than the 25-minute `node / test` job, so every PR that changes web logic fails `verify`                                        | `/.github/**` (platform and security CODEOWNERs)                          |
 
 ## D-1: the sign-in rate-limit key is whatever text the trusted hop sent
 
@@ -174,6 +175,24 @@ own:
 
 (`isolate: false` is the speed-up measured in `mutation-runner.md`.) The alternative is to resolve the OpenAPI path in
 `contract.ts` from the workspace root instead of from the test file.
+
+## D-6: apps/web mutation runs cannot finish inside the CI job
+
+Found 26 Nov 2026 on PR #49 (after the sandbox path in `apps/web/src/lib/brand.test.ts` was fixed the same way as the
+D-5 alternative: resolved from the workspace root).
+
+**What happens.** The `node / test` job (`.github/workflows/reusable-ci-node.yml`, `timeout-minutes: 25`) mutates the
+web files a PR changes with the command runner, which runs the whole web unit suite per mutant (about 2 min 13 s for
+the dry run alone). Changing `src/features/teams/TeamsPanel.tsx` and `messages.ts` gave 338 mutants; the job was
+cancelled at 86/338 (0 survived, 10 timed out) after about 18 minutes of mutation, with Stryker estimating about
+55 minutes left. `verify` then fails on the cancelled job.
+
+**Impact.** Every PR that changes web logic fails `verify`, whatever its quality; the web mutation threshold never
+produces a result. PR #49 moved its web change to a separate PR to merge.
+
+**Options (owner: platform and security CODEOWNERs, `/.github/**`).** Raise the web job's timeout or run the web
+mutation step in its own job with a longer limit; or have the web package's command run only the tests related to the
+mutated files (`vitest related`), which keeps every mutant but needs the mutate list passed to the command.
 
 ## Observations (no defect, for the reviewers)
 

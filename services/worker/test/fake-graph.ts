@@ -77,8 +77,16 @@ export interface FakeGraph {
   remove(driveId: string, itemId: string): void;
   /** The next delta call with a token answers 410 Gone (expired token). */
   expireDeltaOnce(): void;
-  /** A team whose channels live in `site` (their folders at the library root). */
-  addTeam(teamId: string, site: FakeSite, o?: { channelsAllowed?: boolean; createAllowed?: boolean }): void;
+  /**
+   * A team whose channels live in `site` (their folders at the library root). `filesFolderAllowed: false` answers 403
+   * to `filesFolder`, as the real tenant does for an app holding only `Sites.Selected` (that call needs tenant-wide
+   * Files or Sites read).
+   */
+  addTeam(
+    teamId: string,
+    site: FakeSite,
+    o?: { channelsAllowed?: boolean; createAllowed?: boolean; filesFolderAllowed?: boolean },
+  ): void;
   /** Adds a channel to a team as KR would in Teams (its folder appears in the site). */
   addChannel(
     teamId: string,
@@ -88,6 +96,11 @@ export interface FakeGraph {
   channels(teamId: string): { id: string; name: string; membershipType: string }[];
   /** The channel's Files folder appears only after this many filesFolder calls (Teams creates it lazily). */
   delayFilesFolder(calls: number): void;
+  /**
+   * The next channel created through the API gets its library folder only after this many path lookups of it
+   * (SharePoint creates a new channel's folder a little after the channel).
+   */
+  delayChannelFolder(lookups: number): void;
   stop(): Promise<void>;
 }
 
@@ -126,10 +139,14 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
       site: FakeSite;
       channelsAllowed: boolean;
       createAllowed: boolean;
+      filesFolderAllowed: boolean;
       channels: { id: string; name: string; membershipType: string; folderId: string | null }[];
     }
   >();
   let filesFolderDelay = 0;
+  let channelFolderDelay = 0;
+  /** Channels created through the API whose library folder has not appeared yet. */
+  const pendingFolders: { teamId: string; channelId: string; name: string; lookups: number }[] = [];
   /** Every change in order: (driveId, itemId, deleted?); a delta token is an index into this log. */
   const changes: { driveId: string; itemId: string; deleted: boolean }[] = [];
   const tombstones = new Map<string, { driveId: string; parentId: string | null; name: string }>();
@@ -267,13 +284,40 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
     record(driveId, itemId, true);
   }
 
-  function addChannel(teamId: string, name: string, membershipType: "standard" | "private" | "shared" = "standard") {
+  function addChannel(
+    teamId: string,
+    name: string,
+    membershipType: "standard" | "private" | "shared" = "standard",
+    folderAfterLookups = 0,
+  ) {
     const team = teams.get(teamId);
     if (!team) throw new Error("unknown team");
     const id = `19:${randomUUID().replaceAll("-", "")}@thread.tacv2`;
+    if (membershipType === "standard" && folderAfterLookups > 0) {
+      pendingFolders.push({ teamId, channelId: id, name, lookups: folderAfterLookups });
+      team.channels.push({ id, name, membershipType, folderId: null });
+      return { id, name };
+    }
     const folder = membershipType === "standard" ? seed(team.site.driveId, team.site.rootId, name) : null;
     team.channels.push({ id, name, membershipType, folderId: folder?.id ?? null });
     return { id, name };
+  }
+
+  /** A path lookup of a pending channel folder counts down; at zero the folder appears in the library. */
+  function revealPendingFolder(driveId: string, path: string): void {
+    const name = path.toLowerCase(); // already decoded by the router
+    const i = pendingFolders.findIndex(
+      (p) => p.name.toLowerCase() === name && teams.get(p.teamId)?.site.driveId === driveId,
+    );
+    const pending = pendingFolders[i];
+    if (!pending) return;
+    pending.lookups -= 1;
+    if (pending.lookups > 0) return;
+    pendingFolders.splice(i, 1);
+    const team = teams.get(pending.teamId);
+    const channel = team?.channels.find((c) => c.id === pending.channelId);
+    if (!team || !channel) return;
+    channel.folderId = seed(team.site.driveId, team.site.rootId, pending.name).id;
   }
 
   function handleTeams(req: IncomingMessage, res: ServerResponse, path: string, body: Buffer): boolean | null {
@@ -294,7 +338,8 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
         if (!name || name.length > 50) return problem(res, 400, "BadRequest");
         if (team.channels.some((c) => c.name.toLowerCase() === name.toLowerCase()))
           return problem(res, 409, "nameAlreadyExists");
-        const created = addChannel(m[1] ?? "", name);
+        const created = addChannel(m[1] ?? "", name, "standard", channelFolderDelay);
+        channelFolderDelay = 0;
         return json(res, 201, { id: created.id, displayName: created.name, membershipType: "standard" });
       }
     }
@@ -302,6 +347,7 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
       const team = teams.get(m[1] ?? "");
       const channel = team?.channels.find((c) => c.id === m?.[2]);
       if (!team || !channel) return problem(res, 404, "NotFound");
+      if (!team.filesFolderAllowed) return problem(res, 403, "Forbidden");
       if (filesFolderDelay > 0) {
         filesFolderDelay -= 1;
         return problem(res, 404, "NotFound");
@@ -413,6 +459,7 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
     }
     // GET /drives/{id}/root:/{path}
     if (req.method === "GET" && (m = /^\/drives\/([^/]+)\/root:\/(.*)$/.exec(path))) {
+      revealPendingFolder(m[1] ?? "", m[2] ?? "");
       const items = drives.get(m[1] ?? "");
       const item = itemAt(m[1] ?? "", m[2] ?? "");
       return item && items ? json(res, 200, render(item, items)) : problem(res, 404, "itemNotFound");
@@ -631,6 +678,7 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
         site,
         channelsAllowed: o.channelsAllowed ?? true,
         createAllowed: o.createAllowed ?? true,
+        filesFolderAllowed: o.filesFolderAllowed ?? true,
         channels: [],
       });
     },
@@ -639,6 +687,9 @@ export async function startFakeGraph(o: { tenantId?: string; appId?: string } = 
       (teams.get(teamId)?.channels ?? []).map((c) => ({ id: c.id, name: c.name, membershipType: c.membershipType })),
     delayFilesFolder(calls) {
       filesFolderDelay = calls;
+    },
+    delayChannelFolder(lookups) {
+      channelFolderDelay = lookups;
     },
     stop: () =>
       new Promise<void>((resolve, reject) => {

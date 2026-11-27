@@ -193,7 +193,10 @@ export function teamsProvisionHandler(deps: TeamsProvisionDeps): Handler {
       } catch (error) {
         if (signal.aborted) throw error;
         const code = linkErrorCode(error);
-        ctx.log.warn({ event: "teams_provision_failed", jobId, code }, "Teams folders could not be provisioned");
+        ctx.log.warn(
+          { event: "teams_provision_failed", jobId, failureCode: code },
+          "Teams folders could not be provisioned",
+        );
         if (code === "graph_unavailable") {
           // leave the link provisioning; the queue retries with back-off and the sweep after that
           throw new TaskError("graph_unavailable", "Teams did not answer.", { retryable: true, cause: error });

@@ -81,7 +81,8 @@ export function channelNameFor(job: {
   readonly clientName?: string | null;
 }): string {
   const clean = (s: string) => s.replace(CHANNEL_FORBIDDEN, " ").replace(/\s+/g, " ").trim();
-  const number = clean(job.jobNumber.replaceAll("/", "-"));
+  // the prefix is added below; job numbers entered as "S-0045" must not become "S-S-0045"
+  const number = clean(job.jobNumber.replaceAll("/", "-")).replace(/^s-/i, "");
   const address = clean(job.address).toUpperCase();
   const client = clean(job.clientName ?? "");
   if (!number && !address && !client) return "S-job";

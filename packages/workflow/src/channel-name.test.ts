@@ -16,6 +16,18 @@ describe("channelNameFor (ADR-0015 A5)", () => {
     );
     expect(channelNameFor({ jobNumber: "x", address: 'Q: "quoted"', clientName: "" })).toBe("S-x_Q QUOTED");
   });
+  it("does not double the S- prefix when the job number already has it", () => {
+    expect(channelNameFor({ jobNumber: "S-0045", address: "190 Example Road", clientName: null })).toBe(
+      "S-0045_190 EXAMPLE ROAD",
+    );
+    expect(channelNameFor({ jobNumber: "s-0045", address: "190 Example Road", clientName: "Client" })).toBe(
+      "S-0045_190 EXAMPLE ROAD (Client)",
+    );
+    // only a leading prefix is dropped
+    expect(channelNameFor({ jobNumber: "0045-S-1", address: "1 Example Rd", clientName: null })).toBe(
+      "S-0045-S-1_1 EXAMPLE RD",
+    );
+  });
   it("shortens the client first, then the address, and never exceeds 50 characters", () => {
     const long = channelNameFor({
       jobNumber: "0042",

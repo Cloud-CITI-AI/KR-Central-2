@@ -208,7 +208,7 @@ export function teamsPushHandler(deps: TeamsPushDeps): Handler {
           if (signal.aborted) throw error;
           const code = pushErrorCode(error);
           ctx.log.warn(
-            { event: "teams_push_failed", jobId, fileId: file.id, code },
+            { event: "teams_push_failed", jobId, fileId: file.id, failureCode: code },
             "A file could not be copied to Teams",
           );
           await updatePush(

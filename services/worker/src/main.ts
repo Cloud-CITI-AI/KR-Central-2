@@ -136,7 +136,7 @@ try {
       config,
       metrics,
       graph,
-      teams: graph ? createGraphTeamsClient(graph.request.bind(graph), graph.sleep) : undefined,
+      teams: graph ? createGraphTeamsClient(graph.request.bind(graph)) : undefined,
     }),
   });
   if (config.MALWARE_SCAN_MODE === "required" && !(await clamd.ping())) {

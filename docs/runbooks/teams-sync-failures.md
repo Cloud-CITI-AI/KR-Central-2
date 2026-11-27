@@ -71,8 +71,15 @@ every" minutes and reads Graph delta under the job's root folder.
 
 With **Create channels for new jobs** on (E17 consented), creating a job queues `teams.create_channel`.
 
-- **"Channel not created: Teams did not answer"** on the panel: the worker could not reach Graph or the channel
-  cache was empty or older than an hour at creation time. Press **CREATE CHANNEL** on the panel once Graph is back.
+- **"Channel not created: Teams did not answer"** on the panel: no channel was created. The panel shows this text for
+  every reason except a name clash, so read the real one before acting: `errorCode` in
+  `GET /api/v1/jobs/{jobId}/teams-link` (open it in a signed-in browser), or the worker log line
+  `teams_channel_create_failed`, which carries `failureCode`, `graphStatus` and `graphCode` (Graph's own error code).
+  `graph_unavailable`: press **CREATE CHANNEL** once Graph is back; `permission_denied`: check E17.
+- **"Teams link needs attention: …" right after creating**: the channel was created and linked, but its folders could
+  not be set up (for example the site grant E15 is missing). Fix the cause, then press **RELINK** with the same
+  channel's link. The app never creates a second channel for the job. Releases before this fix could leave unlinked
+  duplicates named `S-S-<number>_…`, `… (2)`, `… (3)` in the team: link one, then delete the others in Teams.
 - **"a channel with this name already exists"**: the team already had that name (the cache was stale, or two jobs
   share a number); link the existing channel by hand, or rename the job and press CREATE CHANNEL. Reused job
   numbers get " (2)" automatically only when the clash is known at creation time.
